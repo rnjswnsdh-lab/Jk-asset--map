@@ -1165,3 +1165,8 @@ body.role-external .pf-toggle { display: none; }
   .ext-field.wide { grid-column: span 1; }
   .gate-card.wide { max-width: 100%; }
 }
+/* 게이트 버튼: 흰 배경 테마의 .btn-primary(흰 버튼)를 게이트 카드에서는 강조색으로 */
+.gate .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.gate .btn-primary:hover { background: #095ab0; border-color: #095ab0; }
+.gate .btn-primary:disabled { background: #9bbfe6; border-color: #9bbfe6; color: #fff; }
+.gate-tab, .gate-stab { white-space: nowrap; }

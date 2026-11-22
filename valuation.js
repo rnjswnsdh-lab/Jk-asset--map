@@ -809,9 +809,28 @@
     if (window.naiShowView) window.naiShowView('valuation');
   }
 
+  /** 경·공매 물건인지·최저입찰가(억) — 시트 facts 기반 */
+  function aucMinBid(a) {
+    var auc = false;
+    var minBid = 0;
+    var facts = (a && a.facts) || [];
+    for (var i = 0; i < facts.length; i++) {
+      var lb = String(facts[i].label || '');
+      if (lb === '경매구분') auc = true;
+      if (lb.indexOf('최저입찰가') === 0) {
+        auc = true;
+        var m = String(facts[i].value || '').match(/([\d,]+(?:\.\d+)?)\s*억/);
+        if (m) minBid = num(String(m[1]).replace(/,/g, ''));
+      }
+    }
+    if (!auc && a && (/^auc-/i.test(String(a.id || '')) || a.status_group === '경·공매')) auc = true;
+    return { auction: auc, minBid: minBid };
+  }
+
   /** 지도 상세 패널의 [📊 수익성 시뮬레이션] → 해당 물건 프리셋으로 이동 */
   function openForAsset(a) {
     if (!a) return;
+    var au = aucMinBid(a);
     var p = null;
     for (var i = 0; i < PRESETS.length; i++) {
       if (PRESETS[i].asset_ids && PRESETS[i].asset_ids.indexOf(a.id) >= 0) { p = PRESETS[i]; break; }
@@ -828,6 +847,7 @@
       var price = 0;
       var pm = String(a.price_info || '').match(/([\d,]{3,})\s*억/);
       if (pm) price = num(String(pm[1]).replace(/,/g, ''));
+      if (au.minBid) price = au.minBid;   // 경·공매는 최저입찰가를 매입가로 자동 세팅
       var sec = (a.sector === 'office' || a.sector === 'logistics' || a.sector === 'datacenter' || a.sector === 'hotel') ? a.sector : 'office';
       S.presetId = '';
       S.inp = {
@@ -844,7 +864,9 @@
         m_rate1: 6.7, m_rate2: 6.2, m_rate3: 5.8,
         target_irr: 10, asset_id: a.id
       };
-      toast('이 물건은 아직 원문 수지 프리셋이 없습니다. 임대료·OPEX를 평당 시장 가정치로 채웠으니 실제 자료로 보정하세요.');
+      toast(au.auction
+        ? ('경·공매 물건 — 최저입찰가 ' + (au.minBid ? au.minBid.toLocaleString('ko-KR') + '억원' : '미확인') + '을 매입가로 넣었습니다. 임대료·OPEX는 평당 시장 가정치이니 실제 자료로 보정하세요.')
+        : '이 물건은 아직 원문 수지 프리셋이 없습니다. 임대료·OPEX를 평당 시장 가정치로 채웠으니 실제 자료로 보정하세요.');
     }
     S.inp.asset_id = a.id;
     showView();

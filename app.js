@@ -39,6 +39,7 @@
     filters: {
       sectors: {},          // sector -> bool
       statuses: {},         // statusGroup -> bool
+      dealType: 'ALL',      // ALL | general | auction — 일반 자산 ↔ 경·공매
       region: 'ALL',
       subType: 'ALL',
       query: '',
@@ -89,6 +90,65 @@
   }
   function sectorLabel(k) { return (SECTORS[k] && SECTORS[k].label) || k || '기타'; }
   function sectorColor(k) { return (SECTORS[k] && SECTORS[k].color) || '#64748b'; }
+  function sectorIcon(k) { return (SECTORS[k] && SECTORS[k].icon) || ''; }
+
+  /* ─────────── 일반 자산 ↔ 경·공매 구분 (2026-11-22 신설) ───────────
+     경·공매 물건은 시트에 별도 컬럼이 없어 ① id 접두 'auc-'(온비드 수집분)
+     ② facts 의 '경매구분' ③ status_group '경·공매' 셋 중 하나로 판별합니다. */
+  function isAuction(a) {
+    if (!a) return false;
+    if (a.deal_type === 'auction') return true;
+    if (/^auc-/i.test(String(a.id || ''))) return true;
+    if (a.status_group === '경·공매') return true;
+    if (a.facts && a.facts.length) {
+      for (var i = 0; i < a.facts.length; i++) {
+        if (String(a.facts[i].label || '') === '경매구분') return true;
+      }
+    }
+    return false;
+  }
+
+  function factValue(a, prefix) {
+    if (!a || !a.facts || !a.facts.length) return '';
+    for (var i = 0; i < a.facts.length; i++) {
+      if (String(a.facts[i].label || '').indexOf(prefix) === 0) return String(a.facts[i].value || '');
+    }
+    return '';
+  }
+
+  function parseEok(s) {
+    var m = String(s == null ? '' : s).match(/([\d,]+(?:\.\d+)?)\s*억/);
+    return m ? Number(m[1].replace(/,/g, '')) : null;
+  }
+
+  function fmtEok(v) {
+    if (v === null || v === undefined || !isFinite(v)) return '-';
+    var s = (Math.round(v * 10) / 10);
+    return (s % 1 === 0 ? s.toLocaleString('ko-KR') : s.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })) + '억원';
+  }
+
+  /** 경·공매 물건의 실무 요약값(감정가·최저입찰가·할인율·유찰·입찰일·기관·원문 공고) */
+  function auctionInfo(a) {
+    if (!isAuction(a)) return null;
+    var appraisal = parseEok(factValue(a, '감정가'));
+    var minBid = parseEok(factValue(a, '최저입찰가'));
+    if (minBid === null) minBid = parseEok(a.price_info);
+    var disc = factValue(a, '할인율');
+    if (!disc && appraisal && minBid) disc = '-' + (Math.round((1 - minBid / appraisal) * 1000) / 10) + '%';
+    var url = '';
+    (a.links || []).forEach(function (l) { if (!url && isHttp(l.url)) url = l.url; });
+    return {
+      kind: factValue(a, '경매구분') || a.sub_type || '공매',
+      appraisal: appraisal,
+      minBid: minBid,
+      discount: disc,
+      fails: factValue(a, '유찰횟수'),
+      bidDate: factValue(a, '입찰일') || a.maturity_schedule || '',
+      institution: factValue(a, '진행기관') || a.owner_amc || '',
+      usage: factValue(a, '물건용도'),
+      url: url
+    };
+  }
 
   /* 섹터별 상세 스펙 라벨 — 같은 필드를 섹터에 맞는 이름으로 보여 줍니다. */
   var DETAIL_LABELS = {
@@ -439,15 +499,43 @@
   /* ────────────────────────────── 필터 ────────────────────────────── */
   function initFilters() {
     var sc = {}, gc = {}, regions = {}, subTypes = {};
+    var dealCount = { ALL: state.assets.length, general: 0, auction: 0 };
     state.assets.forEach(function (a) {
       sc[a.sector] = (sc[a.sector] || 0) + 1;
       if (a.status_group) gc[a.status_group] = (gc[a.status_group] || 0) + 1;
       if (a.region) regions[a.region] = (regions[a.region] || 0) + 1;
       if (a.sub_type) subTypes[a.sub_type] = (subTypes[a.sub_type] || 0) + 1;
+      if (isAuction(a)) dealCount.auction++; else dealCount.general++;
     });
     SECTOR_KEYS.forEach(function (k) {
       if (state.filters.sectors[k] === undefined) state.filters.sectors[k] = true;
     });
+
+    // 물건 구분 칩 — 전체 / 🏢 일반 자산 / 🏛️ 경·공매 (건수 배지)
+    var dhost = $('#dealTypeFilters');
+    if (dhost) {
+      var cur = state.filters.dealType || 'ALL';
+      var dealItems = [
+        ['ALL', '전체', dealCount.ALL, '#334155'],
+        ['general', '🏢 일반 자산', dealCount.general, '#0b2a4a'],
+        ['auction', '🏛️ 경·공매', dealCount.auction, '#b45309']
+      ];
+      dhost.innerHTML = dealItems.map(function (it) {
+        var on = (cur === it[0]);
+        return '<button type="button" class="deal-chip' + (on ? ' is-on' : '') + '" data-deal="' + it[0] + '" ' +
+          'style="--deal-color:' + it[3] + '" aria-pressed="' + on + '">' +
+          '<span class="dl">' + it[1] + '</span><span class="cnt">' + it[2] + '</span></button>';
+      }).join('');
+    }
+    var dealHint = $('#dealTypeHint');
+    if (dealHint) {
+      dealHint.textContent = cur === 'auction'
+        ? '경·공매 ' + dealCount.auction + '건 — 토지 100억↑ · 건물포함 300억↑ (온비드 2026-11-22 수집)'
+        : (cur === 'general'
+          ? '일반 자산 ' + dealCount.general + '건 — AMC·리츠·오너 보유 및 거래·개발 자산'
+          : '전체 ' + dealCount.ALL + '건 — 일반 ' + dealCount.general + ' · 경·공매 ' + dealCount.auction);
+    }
+
     // 섹터 칩
     var host = $('#sectorFilters');
     host.innerHTML = SECTOR_KEYS.map(function (k) {
@@ -455,12 +543,12 @@
       return '<button type="button" class="chip sector-chip ' + (on ? 'is-on' : 'is-off') + '" data-sector="' + k + '" ' +
         'style="color:' + sectorColor(k) + '" aria-pressed="' + on + '">' +
         '<span class="dot" style="background:' + sectorColor(k) + '"></span>' +
-        '<span style="color:var(--text)">' + esc(SECTORS[k].label) + '</span>' +
+        '<span style="color:var(--text)">' + esc(sectorIcon(k) + SECTORS[k].label) + '</span>' +
         '<span class="cnt">' + (sc[k] || 0) + '</span></button>';
     }).join('');
 
     // 상태 칩 (데이터에 있는 그룹만, 의미 있는 순서)
-    var order = ['운영중', '개발중', '거래진행중', '거래완료', '만기·매각예정', '검토중', '매각철회'];
+    var order = ['운영중', '개발중', '거래진행중', '거래완료', '만기·매각예정', '검토중', '매각철회', '경·공매'];
     Object.keys(gc).forEach(function (g) { if (order.indexOf(g) === -1) order.push(g); });
     var statuses = order.filter(function (g) { return gc[g]; });
     var shost = $('#statusFilters');
@@ -505,6 +593,11 @@
     var tokens = f.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
     state.filtered = state.assets.filter(function (a) {
+      if (f.dealType && f.dealType !== 'ALL') {
+        var au = isAuction(a);
+        if (f.dealType === 'auction' && !au) return false;
+        if (f.dealType === 'general' && au) return false;
+      }
       if (f.sectors[a.sector] === false) return false;
       if (f.statuses[a.status_group] === false) return false;
       if (f.region !== 'ALL' && a.region !== f.region) return false;
@@ -551,16 +644,24 @@
       var a = items[i];
       var color = sectorColor(a.sector);
       var edited = !!(a._edited || a._added);
+      var auc = isAuction(a);
+      var ai = auc ? auctionInfo(a) : null;
+      var rowSub = auc
+        ? [ai.institution, a.region, a.scale_info].filter(Boolean).join(' · ')
+        : [a.owner_amc, a.region, a.scale_info].filter(Boolean).join(' · ');
+      var rowMeta = auc
+        ? [a.price_info, (ai && ai.fails) ? '유찰 ' + ai.fails : ''].filter(Boolean).join(' · ')
+        : (a.maturity_schedule && a.maturity_schedule !== '미기재' ? a.maturity_schedule : (a.sub_type || ''));
       html.push(
-        '<button type="button" class="asset-row' + (a.id === state.selectedId ? ' is-selected' : '') + '" data-id="' + esc(a.id) + '" role="listitem">' +
+        '<button type="button" class="asset-row' + (a.id === state.selectedId ? ' is-selected' : '') + (auc ? ' is-auction' : '') + '" data-id="' + esc(a.id) + '" role="listitem">' +
         '<span class="bar" style="background:' + color + '"></span>' +
         '<span class="row-main">' +
-        '<span class="row-name">' + esc(a.name) + (isHttp(a.im_url) ? ' <span class="im-mini" title="IM 링크 있음">📄</span>' : '') + '</span>' +
-        '<span class="row-sub">' + esc([a.owner_amc, a.region, a.scale_info].filter(Boolean).join(' · ')) + '</span>' +
+        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + esc(a.name) + (isHttp(a.im_url) ? ' <span class="im-mini" title="IM 링크 있음">📄</span>' : '') + '</span>' +
+        '<span class="row-sub">' + esc(rowSub) + '</span>' +
         '</span>' +
         '<span class="row-right">' +
-        '<span class="pill" style="background:' + statusColor(a.status_group) + '">' + esc(a.status_group || a.status || '') + '</span>' +
-        '<span class="row-meta">' + esc(a.maturity_schedule && a.maturity_schedule !== '미기재' ? a.maturity_schedule : (a.sub_type || '')) + '</span>' +
+        '<span class="pill" style="background:' + statusColor(a.status_group) + '">' + esc(auc ? (a.status || a.status_group) : (a.status_group || a.status || '')) + '</span>' +
+        '<span class="row-meta">' + esc(rowMeta) + '</span>' +
         '</span></button>'
       );
     }
@@ -633,16 +734,17 @@
 
     var groupsNow = groupByCoord(state.filtered);
     var siblings = groupsNow[coordKey(a)] || [];
+    var aucInfo = auctionInfo(a);
     var rows = [
       ['섹터', sectorLabel(a.sector)],
       ['구분', a.sub_type],
       ['진행상태', a.status || a.status_group],
-      ['운용사/소유주', a.owner_amc],
+      [aucInfo ? '진행기관(신탁사)' : '운용사/소유주', aucInfo ? aucInfo.institution : a.owner_amc],
       ['펀드/리츠', a.fund_vehicle],
       ['규모', a.scale_info],
       ['가격', a.price_info],
       ['임차인/운영', a.tenants],
-      ['만기/일정', a.maturity_schedule],
+      [aucInfo ? '입찰일·방식' : '만기/일정', aucInfo ? aucInfo.bidDate : a.maturity_schedule],
       ['주소', a.address],
       ['좌표', (a.lat && a.lng) ? (a.lat + ', ' + a.lng) : '좌표 미확정'],
       ['좌표 정확도', a.coord_precision],
@@ -651,6 +753,9 @@
       .filter(function (r) { return r[0] && r[1] !== undefined && r[1] !== null && String(r[1]).trim() !== ''; });
 
     var badges = [];
+    if (aucInfo) {
+      badges.push('<span class="badge auc">🏛️ 경·공매 · ' + esc(aucInfo.kind) + '</span>');
+    }
     badges.push('<span class="badge status" style="background:' + statusColor(a.status_group) + '">' + esc(a.status_group || '상태 미정') + '</span>');
     if (a.sub_type && a.sub_type !== a.status_group) badges.push('<span class="badge type">' + esc(a.sub_type) + '</span>');
     if (a._added) badges.push('<span class="badge added">신규 추가됨</span>');
@@ -665,7 +770,7 @@
     html += '<div class="detail-sub">' + esc([sectorLabel(a.sector), a.region, a.address].filter(Boolean).join(' · ')) + '</div>';
     html += '<div class="badges">' + badges.join('') + '</div>';
     html += '<div class="detail-actions">';
-    html += '<button type="button" class="action-btn sim" data-act="simulate" title="렌트롤·OPEX 기준 수익성·민감도 시뮬레이터로 이동">📊 수익성 시뮬레이션</button>';
+    html += '<button type="button" class="action-btn sim" data-act="simulate" title="' + (aucInfo ? '최저입찰가를 매입가로 넣고 수익성·민감도 시뮬레이터로 이동' : '렌트롤·OPEX 기준 수익성·민감도 시뮬레이터로 이동') + '">📊 ' + (aucInfo ? '최저입찰가로 수익성 시뮬레이션' : '수익성 시뮬레이션') + '</button>';
     if (canEdit()) {
       html += '<button type="button" class="action-btn primary" data-act="edit">✏️ 수정</button>';
       if (a.lat && a.lng && state.mapReady) html += '<button type="button" class="action-btn" data-act="roadview">🛣 로드뷰</button>';
@@ -694,12 +799,41 @@
     });
     html += '</div></section>';
 
-    if (a.facts && a.facts.length) {
-      html += '<section class="detail-section"><h4>상세 스펙</h4><table class="facts">';
-      a.facts.forEach(function (f) {
-        html += '<tr><th>' + esc(f.label) + '</th><td>' + esc(f.value) + '</td></tr>';
+    /* ── 경·공매 핵심 지표 (감정가·최저입찰가·할인율·유찰·입찰일·기관·원문) */
+    if (aucInfo) {
+      var cells = [
+        ['경매구분', aucInfo.kind],
+        ['감정가', aucInfo.appraisal ? fmtEok(aucInfo.appraisal) : '-'],
+        ['최저입찰가', aucInfo.minBid ? fmtEok(aucInfo.minBid) : '-'],
+        ['할인율', aucInfo.discount || '-'],
+        ['유찰횟수', aucInfo.fails || '-'],
+        ['입찰일·방식', aucInfo.bidDate || '-'],
+        ['진행기관', aucInfo.institution || '-'],
+        ['물건용도', aucInfo.usage || '-']
+      ];
+      html += '<section class="detail-section auc-block"><h4>🏛️ 경·공매 핵심 지표</h4><div class="auc-grid">';
+      cells.forEach(function (c) {
+        var cls = (c[0] === '최저입찰가' || c[0] === '할인율') ? ' ac' : '';
+        html += '<div class="auc-cell' + cls + '"><span class="auc-k">' + esc(c[0]) + '</span><span class="auc-v">' + esc(c[1]) + '</span></div>';
       });
-      html += '</table></section>';
+      html += '</div>';
+      if (aucInfo.url) {
+        html += '<a class="auc-src" href="' + esc(aucInfo.url) + '" target="_blank" rel="noopener noreferrer">📄 온비드 원문 공고 열기 ↗</a>';
+      }
+      html += '<p class="auc-note">감정가·최저입찰가는 온비드 공고(2026-11-22 수집) 기준입니다. 유찰·입찰 마감은 공고일 이후 변동될 수 있으니 입찰 전 온비드 원문으로 재확인하세요.</p>';
+      html += '</section>';
+    }
+
+    if (a.facts && a.facts.length) {
+      var aucLabels = aucInfo ? ['경매구분', '감정가', '최저입찰가', '할인율', '유찰횟수', '입찰일·방식', '진행기관', '물건용도'] : [];
+      var restFacts = a.facts.filter(function (f) { return aucLabels.indexOf(String(f.label || '')) === -1; });
+      if (restFacts.length) {
+        html += '<section class="detail-section"><h4>상세 스펙</h4><table class="facts">';
+        restFacts.forEach(function (f) {
+          html += '<tr><th>' + esc(f.label) + '</th><td>' + esc(f.value) + '</td></tr>';
+        });
+        html += '</table></section>';
+      }
     }
 
     if (siblings.length > 1) {
@@ -1101,14 +1235,16 @@
   }
 
   var markerCache = {};
-  function markerImage(sector, count, selected) {
-    var key = sector + '|' + count + '|' + (selected ? 1 : 0);
+  function markerImage(sector, count, selected, auction) {
+    var key = sector + '|' + count + '|' + (selected ? 1 : 0) + '|' + (auction ? 1 : 0);
     if (markerCache[key]) return markerCache[key];
     var color = selected ? '#111827' : sectorColor(sector);
     var size = count > 1 ? 34 : 27;
     var r = size / 2 - 2;
+    var ring = auction ? '#b45309' : '#ffffff';
+    var ringW = auction ? 3.2 : 2.5;
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-      '<circle cx="' + (size / 2) + '" cy="' + (size / 2) + '" r="' + r + '" fill="' + color + '" stroke="#ffffff" stroke-width="2.5"/>' +
+      '<circle cx="' + (size / 2) + '" cy="' + (size / 2) + '" r="' + r + '" fill="' + color + '" stroke="' + ring + '" stroke-width="' + ringW + '"/>' +
       (count > 1
         ? '<text x="' + (size / 2) + '" y="' + (size / 2 + 3.5) + '" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#ffffff">' + count + '</text>'
         : '<circle cx="' + (size / 2) + '" cy="' + (size / 2) + '" r="' + (r * 0.38) + '" fill="#ffffff" opacity="0.95"/>') +
@@ -1154,7 +1290,7 @@
       var selected = g.some(function (x) { return x.id === state.selectedId; });
       var marker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(a.lat, a.lng),
-        image: markerImage(a.sector, g.length, selected),
+        image: markerImage(a.sector, g.length, selected, isAuction(a)),
         title: a.name + (g.length > 1 ? ' 외 ' + (g.length - 1) + '건' : ''),
         zIndex: selected ? 10 : 1
       });
@@ -1185,7 +1321,7 @@
     var a = g[0];
     if (!a) return;
     try {
-      m.setImage(markerImage(a.sector, g.length, selected));
+      m.setImage(markerImage(a.sector, g.length, selected, isAuction(a)));
       m.setZIndex(selected ? 10 : 1);
     } catch (e) { /* noop */ }
   }
@@ -1224,9 +1360,11 @@
 
   function buildLegend() {
     var html = SECTOR_KEYS.map(function (k) {
-      return '<span class="legend-item"><span class="dot" style="background:' + sectorColor(k) + '"></span>' + esc(SECTORS[k].label) + '</span>';
+      return '<span class="legend-item"><span class="dot" style="background:' + sectorColor(k) + '"></span>' + esc(sectorIcon(k) + SECTORS[k].label) + '</span>';
     }).join('');
-    $('#legend').innerHTML = html + '<span class="legend-sep"></span><span class="legend-item"><b>숫자</b> = 같은 위치 중첩</span>';
+    $('#legend').innerHTML = html +
+      '<span class="legend-sep"></span><span class="legend-item"><span class="dot" style="background:#b45309"></span><b>금색 테두리</b> = 경·공매</span>' +
+      '<span class="legend-sep"></span><span class="legend-item"><b>숫자</b> = 같은 위치 중첩</span>';
   }
 
   /* ────────────────────────────── 로드뷰 ────────────────────────────── */
@@ -1846,6 +1984,21 @@
     });
 
     // 섹터·상태 칩 (위임)
+    var dealHost = $('#dealTypeFilters');
+    if (dealHost) dealHost.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-deal]');
+      if (!btn) return;
+      state.filters.dealType = btn.getAttribute('data-deal') || 'ALL';
+      $$('#dealTypeFilters .deal-chip').forEach(function (c) {
+        var on = c === btn;
+        c.classList.toggle('is-on', on);
+        c.setAttribute('aria-pressed', String(on));
+      });
+      var hint = $('#dealTypeHint');
+      if (hint) hint.setAttribute('data-deal', state.filters.dealType);
+      initFilters();   // 배지·섹터 건수를 현재 구분 기준으로 다시 표시
+      applyFilters();
+    });
     $('#sectorFilters').addEventListener('click', function (e) {
       var btn = e.target.closest('[data-sector]');
       if (!btn) return;
@@ -1893,10 +2046,16 @@
       applyFilters();
     });
     $('#btnResetFilters').addEventListener('click', function () {
-      state.filters = { sectors: {}, statuses: {}, region: 'ALL', subType: 'ALL', query: '', onlyIm: false };
+      state.filters = { sectors: {}, statuses: {}, dealType: 'ALL', region: 'ALL', subType: 'ALL', query: '', onlyIm: false };
       $('#searchInput').value = '';
       $('#btnClearSearch').classList.add('hidden');
       $('#btnOnlyIm').setAttribute('aria-pressed', 'false');
+      initFilters();
+      applyFilters();
+    });
+    var btnDealAuc = $('#btnDealAuction');
+    if (btnDealAuc) btnDealAuc.addEventListener('click', function () {
+      state.filters.dealType = (state.filters.dealType === 'auction') ? 'ALL' : 'auction';
       initFilters();
       applyFilters();
     });

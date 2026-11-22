@@ -757,6 +757,8 @@ button { font-family: inherit; }
   white-space: nowrap;
 }
 .pr-kind.k-office { background: #e8f1fc; color: #0b5aa8; }
+.pr-kind.k-bf { background: #fdeeff; color: #7c3aed; }
+.pr-kind.k-rf { background: #e7f6f3; color: #0e7a68; }
 .pr-kind.k-ship { background: #fff1e6; color: #b45309; }
 .pr-region {
   font-size: 11px;

@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
 <title>NAI Korea 상업용 부동산 통합 지도</title>
-<link rel="stylesheet" href="style.css?v=20261122e">
+<link rel="stylesheet" href="style.css?v=20261122f">
+<script src="investors.js?v=20261122f" defer></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2a4a'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='system-ui,sans-serif' font-size='13' font-weight='800' fill='%23ffffff'%3ENAI%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -51,7 +52,7 @@
 
 <div class="app-tabs" role="tablist" aria-label="화면 전환">
   <button class="vt-btn is-active" type="button" data-view="map" role="tab" aria-selected="true">🗺️ 물건 지도</button>
-  <button class="vt-btn" type="button" data-view="pool" role="tab" aria-selected="false">🤝 SI·화주 풀</button>
+  <button class="vt-btn" type="button" data-view="pool" role="tab" aria-selected="false">🤝 투자자·화주 풀</button>
   <span id="poolRole" class="role-chip hidden pool-role"></span>
 </div>
 
@@ -145,11 +146,11 @@
 </div>
 
 <!-- ───────────────────────── 🤝 SI·화주 풀 (별도 탭) ───────────────────────── -->
-<section id="poolView" class="pool-view hidden" aria-label="SI·화주 풀">
+<section id="poolView" class="pool-view hidden" aria-label="투자자·화주 풀">
   <div class="pool-head">
     <div class="pool-title">
-      <h2>🤝 SI·화주 풀</h2>
-      <p id="poolMeta">권역별 오피스 SI·물류 화주 리스트 · 티저 메일 발송 연계</p>
+      <h2>🤝 투자자·화주 풀</h2>
+      <p id="poolMeta">오피스 SI · 블라인드펀드 운용사 · 리츠·해외투자사 · 물류 화주 — 티저 메일 발송 연계</p>
     </div>
     <div class="pool-tools">
       <button id="poolAddBtn" class="btn btn-primary hidden" type="button">＋ 대상 추가</button>
@@ -163,7 +164,7 @@
     <div class="pf-search">
       <span class="search-wrap">
         <span class="search-icon" aria-hidden="true">⌕</span>
-        <input id="poolSearch" type="search" autocomplete="off" placeholder="기업명 · 거래사례 · 담당자 · 이메일 검색" aria-label="SI·화주 검색">
+        <input id="poolSearch" type="search" autocomplete="off" placeholder="회사·운용사 · 펀드·전략 · 담당자 · 이메일 검색" aria-label="투자자·화주 검색">
       </span>
       <label class="pf-toggle"><input id="poolOnlyEmail" type="checkbox"> 이메일 있는 건만</label>
       <span id="poolResultCount" class="pf-count">0건</span>
@@ -228,6 +229,6 @@ window.addEventListener('unhandledrejection', function (e) { window.__errs.push(
 </script>
 <script src="config.js?v=20261122b"></script>
 <script src="app.js?v=20261122b"></script>
-<script src="investors.js?v=20261122b"></script>
+<script src="investors.js?v=20261122f"></script>
 </body>
 </html>

@@ -1,7 +1,8 @@
 /* =========================================================================
-   NAI Korea 통합 앱 — 🤝 SI·화주 풀 (investors 탭)
+   NAI Korea 통합 앱 — 🤝 투자자·화주 풀 (investors 탭)
    - 별도 시트(investors) + Apps Script type=investors GET/POST
-   - 권역·구분 필터, 검색, 다중 선택, 티저 메일 발송 바, 관리자 편집
+   - 4개 분류: 오피스 SI / 블라인드펀드 / 리츠·해외투자사 / 물류 화주
+   - 권역 필터, 검색, 다중 선택, 티저 메일 발송 바, 관리자 편집
    ========================================================================= */
 (function () {
   'use strict';
@@ -10,11 +11,26 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var TOKEN_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':token:v1';
-  var PREF_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':pool:pref:v1';
-  var CACHE_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':pool:cache:v1';
+  var PREF_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':pool:pref:v2';
+  var CACHE_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':pool:cache:v2';
 
-  var OFFICE_REGIONS = ['CBD', 'GBD', 'YBD', '강남·서초·수서', '판교·분당', '서부·마곡·구로'];
-  var SHIPPER_REGIONS = ['수도권 동남', '수도권 남부', '수도권 서부', '수도권 동부', '충청', '지방·전국', '전국·미확인'];
+  /* 4개 분류 */
+  var KINDS = [
+    { k: 'all', label: '전체', icon: '📋', badge: '전체' },
+    { k: 'office', label: '오피스 SI', icon: '🏢', badge: '🏢 오피스 SI', cls: 'k-office' },
+    { k: 'blind_fund', label: '블라인드펀드', icon: '💰', badge: '💰 블라인드펀드', cls: 'k-bf' },
+    { k: 'reit_foreign', label: '리츠·해외투자사', icon: '🌐', badge: '🌐 리츠·해외투자사', cls: 'k-rf' },
+    { k: 'shipper', label: '물류 화주', icon: '🚚', badge: '🚚 물류 화주', cls: 'k-ship' }
+  ];
+  var KIND_MAP = {};
+  KINDS.forEach(function (x) { KIND_MAP[x.k] = x; });
+
+  /* 권역 표시 순서 (데이터에 있는 것만 노출, 목록에 없는 값도 자동 추가) */
+  var REGION_ORDER = [
+    'CBD', 'GBD', 'YBD', '강남·서초·수서', '판교·분당', '서부·마곡·구로',
+    '수도권 동남', '수도권 남부', '수도권 서부', '수도권 동부', '충청', '지방·전국', '전국·미확인',
+    '서울 오피스', '수도권 물류·DC', '전국'
+  ];
   var REGION_NOTE = {
     'CBD': '도심(종로·중구·을지로·명동·서울역)',
     'GBD': '강남(역삼·삼성·논현·신사)',
@@ -28,14 +44,19 @@
     '수도권 동부': '광주·남양주·하남',
     '충청': '진천·음성·천안',
     '지방·전국': '부산·대구·광주·강원 등',
-    '전국·미확인': '권역 미확인(전국 단위 3PL 등)'
+    '전국·미확인': '권역 미확인(전국 단위 3PL 등)',
+    '서울 오피스': '서울 권역 오피스(코어 중심)',
+    '수도권 물류·DC': '수도권 물류센터·데이터센터',
+    '전국': '지역 제한 없음(전국·대출형 포함)'
   };
+
+  var RENDER_LIMIT = 400;   /* 한 번에 그리는 최대 행 수(그 이상은 필터로 좁히도록 안내) */
 
   var state = {
     rows: [],
     loaded: false,
     role: '',
-    kind: 'all',            // all | office | shipper
+    kind: 'all',
     region: 'ALL',
     q: '',
     onlyEmail: false,
@@ -66,11 +87,19 @@
     try {
       var p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null');
       if (p) {
-        state.kind = p.kind || 'all';
+        state.kind = KIND_MAP[p.kind] ? p.kind : 'all';
         state.region = p.region || 'ALL';
         state.onlyEmail = !!p.onlyEmail;
       }
     } catch (e) { /* noop */ }
+  }
+
+  /** 시트의 kind 값을 4개 분류 키로 정규화 */
+  function normKind(k) {
+    var s = String(k || '').trim();
+    if (s === 'office' || s === 'office_si') return 'office';
+    if (s === 'blind_fund' || s === 'reit_foreign' || s === 'shipper') return s;
+    return 'office';
   }
 
   function api(params, body) {
@@ -92,13 +121,6 @@
 
   function canEdit() { return state.role === 'admin'; }
 
-  function allRegions() {
-    var seen = {}, list = [];
-    (state.kind === 'shipper' ? SHIPPER_REGIONS : state.kind === 'office' ? OFFICE_REGIONS : OFFICE_REGIONS.concat(SHIPPER_REGIONS))
-      .forEach(function (r) { if (!seen[r]) { seen[r] = 1; list.push(r); } });
-    return list;
-  }
-
   /* ─────────────── 불러오기 ─────────────── */
   function load(force) {
     if (state.busy) return Promise.resolve();
@@ -116,7 +138,7 @@
       state.role = j.role === 'readonly' ? 'readonly' : 'admin';
       state.rows = (j.investors || []).map(function (r) {
         var o = Object.assign({}, r);
-        o.kind = (o.kind === 'office' || o.kind === 'office_si') ? 'office' : 'shipper';
+        o.kind = normKind(o.kind);
         return o;
       });
       state.loaded = true;
@@ -132,7 +154,7 @@
 
   function renderNotReady(msg) {
     $('#poolMeta').textContent = '데이터 없음';
-    $('#poolList').innerHTML = '<div class="pool-empty">' + esc(msg || 'SI·화주 데이터를 불러올 수 없습니다.') + '</div>';
+    $('#poolList').innerHTML = '<div class="pool-empty">' + esc(msg || '투자자·화주 데이터를 불러올 수 없습니다.') + '</div>';
     $('#poolResultCount').textContent = '0건';
     $('#composeHint').textContent = '선택 0건';
   }
@@ -163,36 +185,51 @@
   }
 
   /* ─────────────── 필터 ─────────────── */
+  function countByKind(k) {
+    if (k === 'all') return state.rows.length;
+    return state.rows.filter(function (r) { return r.kind === k; }).length;
+  }
+
+  function regionsFor(kind) {
+    var set = {}, list = [];
+    state.rows.forEach(function (r) {
+      if (kind !== 'all' && r.kind !== kind) return;
+      if (r.region) set[r.region] = 1;
+    });
+    REGION_ORDER.forEach(function (x) { if (set[x]) { list.push(x); delete set[x]; } });
+    Object.keys(set).sort().forEach(function (x) { list.push(x); });
+    return list;
+  }
+
   function renderChips() {
     var kc = $('#poolKindChips');
     if (kc) {
-      var kinds = [
-        { k: 'all', label: '전체', icon: '📋' },
-        { k: 'office', label: '오피스 SI', icon: '🏢' },
-        { k: 'shipper', label: '물류 화주', icon: '🚚' }
-      ];
-      kc.innerHTML = kinds.map(function (x) {
-        var n = x.k === 'all' ? state.rows.length : state.rows.filter(function (r) { return r.kind === x.k; }).length;
+      kc.innerHTML = KINDS.map(function (x) {
+        var n = countByKind(x.k);
         var on = state.kind === x.k;
-        return '<button type="button" class="chip ' + (on ? 'is-on' : 'is-off') + '" data-kind="' + x.k + '" aria-pressed="' + on + '">' +
+        return '<button type="button" class="chip ' + (on ? 'is-on' : 'is-off') + ' kc-' + x.k + '" data-kind="' + x.k + '" aria-pressed="' + on + '">' +
           '<span>' + x.icon + ' ' + esc(x.label) + '</span><span class="cnt">' + n + '</span></button>';
       }).join('');
     }
     var rc = $('#poolRegionChips');
     if (!rc) return;
-    var list = [];
-    var officeOn = state.kind !== 'shipper', shipperOn = state.kind !== 'office';
-    if (officeOn) list.push('<span class="seg-label">오피스</span>');
-    (officeOn ? OFFICE_REGIONS : []).forEach(function (r) { list.push(regionChip(r)); });
-    if (shipperOn) list.push('<span class="seg-label">물류</span>');
-    (shipperOn ? SHIPPER_REGIONS : []).forEach(function (r) { list.push(regionChip(r)); });
-    rc.innerHTML = list.join('');
-    function regionChip(r) {
-      var n = state.rows.filter(function (x) { return x.region === r && (state.kind === 'all' || x.kind === state.kind); }).length;
+    var list = regionsFor(state.kind);
+    var html = ['<button type="button" class="chip ' + (state.region === 'ALL' ? 'is-on' : 'is-off') + '" data-region="ALL" aria-pressed="' + (state.region === 'ALL') + '">' +
+      '<span>권역 전체</span><span class="cnt">' + countRegion('ALL') + '</span></button>'];
+    list.forEach(function (r) {
+      var n = countRegion(r);
       var on = state.region === r;
-      return '<button type="button" class="chip ' + (on ? 'is-on' : 'is-off') + '" data-region="' + esc(r) + '" title="' + esc(REGION_NOTE[r] || '') + '" aria-pressed="' + on + '">' +
-        '<span>' + esc(r) + '</span><span class="cnt">' + n + '</span></button>';
-    }
+      html.push('<button type="button" class="chip ' + (on ? 'is-on' : 'is-off') + '" data-region="' + esc(r) + '" title="' + esc(REGION_NOTE[r] || '') + '" aria-pressed="' + on + '">' +
+        '<span>' + esc(r) + '</span><span class="cnt">' + n + '</span></button>');
+    });
+    rc.innerHTML = html.join('');
+  }
+
+  function countRegion(region) {
+    return state.rows.filter(function (r) {
+      if (state.kind !== 'all' && r.kind !== state.kind) return false;
+      return region === 'ALL' ? true : r.region === region;
+    }).length;
   }
 
   function filtered() {
@@ -202,7 +239,8 @@
       if (state.region !== 'ALL' && r.region !== state.region) return false;
       if (state.onlyEmail && !r.email) return false;
       if (q.length) {
-        var hay = [r.company, r.industry, r.role, r.case_info, r.contact, r.title, r.email, r.phone, r.region, r.notes, r.expansion, r.temp, r.source, r.year, r.amount]
+        var hay = [r.company, r.industry, r.role, r.case_info, r.contact, r.title, r.email, r.phone,
+          r.region, r.notes, r.expansion, r.temp, r.source, r.year, r.amount]
           .join(' ').toLowerCase();
         for (var i = 0; i < q.length; i++) if (hay.indexOf(q[i]) === -1) return false;
       }
@@ -211,28 +249,42 @@
   }
 
   /* ─────────────── 목록 ─────────────── */
+  function subLine(r) {
+    if (r.kind === 'shipper') {
+      return [r.temp ? '온도 ' + r.temp : '', r.centers ? '확인 센터 ' + r.centers + '곳' : '',
+        r.expansion ? '확장 ' + r.expansion : ''].filter(Boolean).join(' · ');
+    }
+    if (r.kind === 'blind_fund' || r.kind === 'reit_foreign') {
+      return r.notes || '';
+    }
+    return [r.expansion ? '확장·수요: ' + r.expansion : '', r.notes || ''].filter(Boolean).join(' · ');
+  }
+
   function render() {
     var rows = filtered();
     var host = $('#poolList');
     var selCount = Object.keys(state.sel).filter(function (k) { return state.sel[k]; }).length;
     var withEmail = rows.filter(function (r) { return r.email; }).length;
     $('#poolResultCount').textContent = rows.length + '건 · 이메일 ' + withEmail + '건';
-    $('#poolMeta').textContent = '전체 ' + state.rows.length + '건 (오피스 SI ' +
-      state.rows.filter(function (r) { return r.kind === 'office'; }).length + ' · 물류 화주 ' +
-      state.rows.filter(function (r) { return r.kind === 'shipper'; }).length + ') · 2026-11-22 기준';
+    $('#poolMeta').textContent = '전체 ' + state.rows.length + '건 (오피스 SI ' + countByKind('office') +
+      ' · 블라인드펀드 ' + countByKind('blind_fund') +
+      ' · 리츠·해외투자사 ' + countByKind('reit_foreign') +
+      ' · 물류 화주 ' + countByKind('shipper') + ') · 2026-11-22 기준';
     if (!rows.length) {
       host.innerHTML = '<div class="pool-empty">조건에 맞는 대상이 없습니다.<br>필터·검색어를 조정해 보세요.</div>';
       updateCompose();
       return;
     }
-    var html = rows.map(function (r) {
+    var shown = rows.slice(0, RENDER_LIMIT);
+    var html = shown.map(function (r) {
       var on = !!state.sel[r.id];
-      var isOff = r.kind === 'office';
+      var km = KIND_MAP[r.kind] || KIND_MAP.office;
+      var sub = subLine(r);
       return '<div class="pool-row' + (on ? ' is-sel' : '') + '" data-id="' + esc(r.id) + '" role="listitem">' +
         '<label class="pr-check"><input type="checkbox" data-check="' + esc(r.id) + '"' + (on ? ' checked' : '') + ' aria-label="' + esc(r.company) + ' 선택"></label>' +
         '<div class="pr-main">' +
           '<div class="pr-top">' +
-            '<span class="pr-kind ' + (isOff ? 'k-office' : 'k-ship') + '">' + (isOff ? '🏢 오피스 SI' : '🚚 물류 화주') + '</span>' +
+            '<span class="pr-kind ' + km.cls + '">' + esc(km.badge) + '</span>' +
             '<span class="pr-region">' + esc(r.region || '-') + '</span>' +
             (r.role ? '<span class="pr-role">' + esc(r.role) + '</span>' : '') +
             (r.year ? '<span class="pr-year">' + esc(r.year) + '</span>' : '') +
@@ -240,9 +292,7 @@
           '</div>' +
           '<div class="pr-name">' + esc(r.company) + (r.industry ? ' <span class="pr-industry">' + esc(r.industry) + '</span>' : '') + '</div>' +
           (r.case_info ? '<div class="pr-case">' + esc(r.case_info) + '</div>' : '') +
-          (isOff
-            ? (r.expansion ? '<div class="pr-sub">확장·수요: ' + esc(r.expansion) + '</div>' : '')
-            : ('<div class="pr-sub">' + [r.temp ? '온도 ' + r.temp : '', r.centers ? '확인 센터 ' + r.centers + '곳' : '', r.expansion ? '확장 ' + r.expansion : ''].filter(Boolean).join(' · ') + '</div>')) +
+          (sub ? '<div class="pr-sub">' + esc(sub) + '</div>' : '') +
           '<div class="pr-contact">' +
             (r.contact ? '<span class="pc-name">👤 ' + esc(r.contact) + (r.title ? ' <span class="pc-title">' + esc(r.title) + '</span>' : '') + '</span>' : '') +
             (r.email ? '<a class="pc-mail" href="mailto:' + esc(r.email.split(',')[0].trim()) + '">✉️ ' + esc(r.email) + '</a>' : '<span class="pc-none">이메일 없음</span>') +
@@ -253,6 +303,10 @@
           '<button type="button" class="mini-btn danger" data-del="' + esc(r.id) + '">🗑</button></div>' : '') +
         '</div>';
     }).join('');
+    if (rows.length > shown.length) {
+      html = '<div class="pool-empty" style="padding:8px 4px;font-size:12px">' +
+        rows.length + '건 중 ' + shown.length + '건만 표시 — 분류·권역·검색으로 좁히세요 (선택·메일 발송은 필터 결과 전체에 적용)</div>' + html;
+    }
     host.innerHTML = html;
     updateCompose(rows, selCount);
   }
@@ -363,30 +417,39 @@
     if (opts.textarea) {
       return '<label class="mf"><span>' + esc(label) + '</span><textarea data-k="' + key + '" rows="' + (opts.rows || 3) + '">' + v + '</textarea></label>';
     }
-    if (opts.options) {
+    if (opts.pairs) {
       return '<label class="mf"><span>' + esc(label) + '</span><select data-k="' + key + '">' +
-        opts.options.map(function (o) { return '<option value="' + esc(o) + '"' + (String(val) === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') +
-        '</select></label>';
+        opts.pairs.map(function (o) {
+          return '<option value="' + esc(o[0]) + '"' + (String(val) === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
+        }).join('') + '</select></label>';
     }
     return '<label class="mf"><span>' + esc(label) + '</span><input data-k="' + key + '" type="text" value="' + v + '"></label>';
   }
 
   function openEditor(row) {
     var isNew = !row;
-    row = row || { id: '', kind: 'office', region: 'CBD', company: '', industry: '', role: '', case_info: '', amount: '', year: '', contact: '', title: '', email: '', phone: '', temp: '', centers: '', expansion: '', notes: '', source: '' };
-    var kindOpts = ['office', 'shipper'];
-    var regionOpts = OFFICE_REGIONS.concat(SHIPPER_REGIONS);
+    row = row || {
+      id: '', kind: 'office', region: 'CBD', company: '', industry: '', role: '', case_info: '',
+      amount: '', year: '', contact: '', title: '', email: '', phone: '', temp: '', centers: '',
+      expansion: '', notes: '', source: ''
+    };
+    var kindPairs = KINDS.filter(function (x) { return x.k !== 'all'; })
+      .map(function (x) { return [x.k, x.label]; });
+    var regionOpts = regionsFor('all').concat(['CBD', 'GBD', 'YBD', '강남·서초·수서', '판교·분당', '서부·마곡·구로',
+      '수도권 동남', '수도권 남부', '수도권 서부', '수도권 동부', '충청', '지방·전국', '전국·미확인',
+      '서울 오피스', '수도권 물류·DC', '전국'])
+      .filter(function (x, i, a) { return a.indexOf(x) === i; });
     var html =
       '<div class="modal-card mf-card">' +
       '<div class="modal-head"><h3>' + (isNew ? '대상 추가' : '대상 수정') + '</h3><button type="button" class="icon-btn" data-close="1" aria-label="닫기">×</button></div>' +
       '<div class="mf-grid">' +
-        fieldRow('구분', 'kind', row.kind, { options: kindOpts }) +
-        fieldRow('권역', 'region', row.region, { options: regionOpts }) +
-        fieldRow('기업명', 'company', row.company) +
-        fieldRow('업종', 'industry', row.industry) +
+        fieldRow('분류', 'kind', row.kind, { pairs: kindPairs }) +
+        fieldRow('권역', 'region', row.region, { pairs: regionOpts.map(function (x) { return [x, x]; }) }) +
+        fieldRow('회사·운용사·기관명', 'company', row.company) +
+        fieldRow('업종·섹터·전략', 'industry', row.industry) +
         fieldRow('성격·역할', 'role', row.role) +
-        fieldRow('거래·수요 사례', 'case_info', row.case_info, { textarea: true, rows: 3 }) +
-        fieldRow('금액(억)', 'amount', row.amount) +
+        fieldRow('사례·펀드·전략 상세', 'case_info', row.case_info, { textarea: true, rows: 3 }) +
+        fieldRow('금액·규모(억)', 'amount', row.amount) +
         fieldRow('연도', 'year', row.year) +
         fieldRow('담당자', 'contact', row.contact) +
         fieldRow('부서·직함', 'title', row.title) +
@@ -411,12 +474,15 @@
     $('#mfSave').onclick = function () {
       var out = { id: row.id || '' };
       $$('#poolModal [data-k]').forEach(function (el) { out[el.getAttribute('data-k')] = el.value.trim(); });
-      if (!out.id) out.id = 'inv-' + (out.kind === 'shipper' ? 'shp' : 'off') + '-' + Date.now().toString(36);
-      if (!out.company) { toast('기업명을 입력하세요.', true); return; }
-      if (out.kind === 'shipper' && OFFICE_REGIONS.indexOf(out.region) >= 0 && out.region !== 'CBD') out.region = '수도권 동남';
+      if (!out.id) {
+        var pre = out.kind === 'blind_fund' ? 'bf' : out.kind === 'reit_foreign' ? 'rf' : out.kind === 'shipper' ? 'shp' : 'off';
+        out.id = 'inv-' + pre + '-' + Date.now().toString(36);
+      }
+      if (!out.company) { toast('회사·기관명을 입력하세요.', true); return; }
       out.updated_at = new Date().toISOString().slice(0, 10);
       api(null, { action: 'upsert', investors: [out] }).then(function (j) {
         if (j && j.ok) {
+          out.kind = normKind(out.kind);
           var i = state.rows.findIndex(function (r) { return r.id === out.id; });
           if (i >= 0) state.rows[i] = out; else state.rows.unshift(out);
           closeEditor();
@@ -476,14 +542,14 @@
       var b = e.target.closest('[data-kind]');
       if (!b) return;
       state.kind = b.getAttribute('data-kind');
-      if (state.region !== 'ALL' && allRegions().indexOf(state.region) < 0) state.region = 'ALL';
+      if (state.region !== 'ALL' && regionsFor(state.kind).indexOf(state.region) < 0) state.region = 'ALL';
       savePref(); renderChips(); render();
     });
     $('#poolRegionChips').addEventListener('click', function (e) {
       var b = e.target.closest('[data-region]');
       if (!b) return;
       var r = b.getAttribute('data-region');
-      state.region = (state.region === r) ? 'ALL' : r;
+      state.region = (r === 'ALL' || state.region === r) ? 'ALL' : r;
       savePref(); renderChips(); render();
     });
     var q = $('#poolSearch');

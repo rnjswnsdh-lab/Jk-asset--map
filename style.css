@@ -1263,6 +1263,11 @@ body.role-external .pf-toggle { display: none; }
   border: 1px solid #cddffa; background: #f2f7ff; border-radius: 6px; padding: 4px 8px;
 }
 .disc-link:hover { background: #e6f0ff; }
+.disc-items { list-style: none; margin: 7px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.disc-items li { font-size: 11px; line-height: 1.5; color: var(--text-2); position: relative; padding-left: 9px; word-break: break-word; }
+.disc-items li::before { content: '·'; position: absolute; left: 0; color: var(--muted); }
+.disc-items a { color: #0b5aa8; text-decoration: none; }
+.disc-items a:hover { text-decoration: underline; }
 .disc-note { margin: 6px 0 0; font-size: 10px; line-height: 1.55; color: var(--muted); }
 
 @media (max-width: 420px) {

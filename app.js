@@ -875,6 +875,18 @@
           });
           html += '</table>';
         }
+        if (g.li && g.li.length) {
+          html += '<ul class="disc-items">';
+          g.li.forEach(function (it) {
+            if (!it) return;
+            var t = esc(it[0] || '');
+            var u = it[1];
+            html += '<li>' + (isHttp(u)
+              ? '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + t + ' ↗</a>'
+              : t) + '</li>';
+          });
+          html += '</ul>';
+        }
         if (g.u && isHttp(g.u)) {
           html += '<a class="disc-link" href="' + esc(g.u) + '" target="_blank" rel="noopener noreferrer">원문·공시 조회 ↗</a>';
         }

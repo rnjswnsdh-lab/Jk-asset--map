@@ -1879,6 +1879,8 @@
     $('#btnRoadview').addEventListener('click', function () { setRoadview(!state.roadview); });
     $('#btnHelp').addEventListener('click', showHelp);
     $('#btnPreviewHelp').addEventListener('click', showHelp);
+    var btnCode = $('#btnCodeChange');
+    if (btnCode) btnCode.addEventListener('click', changeAccessCode);
 
     $('#btnAdd').addEventListener('click', function () {
       if (!canEdit()) { toast('읽기 전용 모드입니다. 물건을 추가할 수 없습니다.', true); return; }
@@ -1966,6 +1968,26 @@
   function hideGate() {
     var g = $('#gate');
     if (g) g.classList.add('hidden');
+  }
+
+  /** 접속코드 다시 입력 (관리자 ↔ 읽기 전용 전환). */
+  function changeAccessCode() {
+    showModal({
+      title: '접속코드 변경',
+      body: '접속코드를 다시 입력합니다. <b>관리자 코드</b>는 수정·추가·삭제까지, <b>읽기 전용 코드</b>는 조회·검색·IM 열기·내보내기만 됩니다.',
+      actions: [{ label: '취소', value: false, cls: 'btn-outline' }, { label: '코드 입력', value: true, cls: 'btn-solid' }]
+    }).then(function (ok) {
+      if (!ok) return;
+      writePending([]);
+      clearToken();
+      state.role = 'admin';
+      state.selectedId = null;
+      state.panelMode = 'view';
+      $('#detailPanel').classList.add('hidden');
+      var badge = $('#roleBadge');
+      if (badge) badge.classList.add('hidden');
+      showGate('');
+    });
   }
 
   function bindGate() {

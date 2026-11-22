@@ -376,7 +376,9 @@
     if (hint) hint.setAttribute('aria-hidden', String(ext));
   }
 
-  /** 접속코드를 바꾸거나 외부 세션이 시작되면 앱 게이트 권한을 풀 화면에 맞춥니다. */
+  /** 접속코드를 바꾸거나 외부 세션이 시작되면 앱 게이트 권한을 풀 화면에 맞춥니다.
+   *  권한이 바뀌면 이전 권한으로 받아 둔 목록을 버리고 새 권한으로 다시 받아옵니다.
+   *  (관리자 → 내부용/외부로 내려갈 때 가려야 할 전화번호·연락처가 화면에 남지 않도록) */
   function syncRoleFromApp() {
     try {
       var r = window.naiMap && window.naiMap.state && window.naiMap.state.role;
@@ -384,8 +386,14 @@
       var norm = normRole_(r);
       if (norm !== state.role) {
         state.role = norm;
+        state.loaded = false;
+        state.rows = [];
+        state.sel = {};
+        try { localStorage.removeItem(CACHE_KEY); } catch (e0) { /* noop */ }
         applyRole();
+        renderChips();
         render();
+        if (getToken()) load(true);
       }
     } catch (e) { /* noop */ }
   }

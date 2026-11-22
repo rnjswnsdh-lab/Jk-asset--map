@@ -620,6 +620,7 @@
     html += '<div class="detail-sub">' + esc([sectorLabel(a.sector), a.region, a.address].filter(Boolean).join(' · ')) + '</div>';
     html += '<div class="badges">' + badges.join('') + '</div>';
     html += '<div class="detail-actions">';
+    html += '<button type="button" class="action-btn sim" data-act="simulate" title="렌트롤·OPEX 기준 수익성·민감도 시뮬레이터로 이동">📊 수익성 시뮬레이션</button>';
     if (canEdit()) {
       html += '<button type="button" class="action-btn primary" data-act="edit">✏️ 수정</button>';
       if (a.lat && a.lng && state.mapReady) html += '<button type="button" class="action-btn" data-act="roadview">🛣 로드뷰</button>';
@@ -1714,6 +1715,11 @@
       state.selectedId = null;
       try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* noop */ }
       renderList();
+      return;
+    }
+    if (act === 'simulate' && a) {
+      if (window.NAI_VAL && window.NAI_VAL.openForAsset) window.NAI_VAL.openForAsset(a);
+      else toast('시뮬레이터를 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true);
       return;
     }
     if (act === 'edit' && a) {

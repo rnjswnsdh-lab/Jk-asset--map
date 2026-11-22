@@ -514,22 +514,32 @@
     }).catch(function () { toast('삭제 실패(네트워크)', true); });
   }
 
-  /* ─────────────── 탭 전환 ─────────────── */
+  /* ─────────────── 탭 전환 (지도 / 투자자·화주 풀 / 밸류에이션) ─────────────── */
+  var VIEWS = ['map', 'pool', 'valuation'];
   function showView(view) {
+    if (VIEWS.indexOf(view) < 0) view = 'map';
     var pool = view === 'pool';
+    var val = view === 'valuation';
     document.body.classList.toggle('view-pool', pool);
+    document.body.classList.toggle('view-val', val);
     $('#poolView').classList.toggle('hidden', !pool);
+    var vv = $('#valView');
+    if (vv) vv.classList.toggle('hidden', !val);
     $$('.vt-btn').forEach(function (b) {
       var on = b.getAttribute('data-view') === view;
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-selected', String(on));
     });
     var body = document.querySelector('.app-body');
-    if (body) body.classList.toggle('hidden', pool);
+    if (body) body.classList.toggle('hidden', view !== 'map');
     if (pool) load();
     if (pool) syncRoleFromApp();
-    try { history.replaceState(null, '', pool ? '#pool' : location.pathname + location.search); } catch (e) { /* noop */ }
+    if (val && window.NAI_VAL && window.NAI_VAL.show) window.NAI_VAL.show();
+    try {
+      history.replaceState(null, '', pool ? '#pool' : (val ? '#valuation' : location.pathname + location.search));
+    } catch (e) { /* noop */ }
   }
+  window.naiShowView = showView;
 
   function bind() {
     var tabs = $$('.vt-btn');
@@ -617,6 +627,7 @@
       if (document.body.classList.contains('view-pool')) syncRoleFromApp();
     }, 1500);
     if ((location.hash || '') === '#pool') showView('pool');
+    else if ((location.hash || '') === '#valuation') showView('valuation');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

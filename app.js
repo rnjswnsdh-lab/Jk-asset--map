@@ -2241,6 +2241,7 @@
       setToken(token);
       hideGate();
       applyRoleUI();
+      if (window.NAI_POOL_FORCE_RELOAD) { try { window.NAI_POOL_FORCE_RELOAD(); } catch (e) { /* noop */ } }
       state.base = j.assets;
       state.meta = computeMeta(j.assets);
       state.meta.source = 'Google Sheets(비공개) · Apps Script 실시간 동기화';

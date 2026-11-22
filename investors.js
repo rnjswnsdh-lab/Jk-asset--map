@@ -398,6 +398,18 @@
     } catch (e) { /* noop */ }
   }
   window.NAI_POOL_ROLE_SYNC = function () { syncRoleFromApp(); };
+  /** 접속(로그인) 직후: 권한이 같아도 지금 세션의 권한으로 풀 목록을 다시 받아옵니다. */
+  window.NAI_POOL_FORCE_RELOAD = function () {
+    state.loaded = false;
+    state.rows = [];
+    state.sel = {};
+    try { localStorage.removeItem(CACHE_KEY); } catch (e0) { /* noop */ }
+    state.role = normRole_((window.naiMap && window.naiMap.state && window.naiMap.state.role) || state.role);
+    applyRole();
+    renderChips();
+    render();
+    if (getToken()) load(true);
+  };
 
   /* ─────────────── 필터 ─────────────── */
   function modeRows() {

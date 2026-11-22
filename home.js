@@ -925,8 +925,8 @@
 
   /* ─────────────────── 이벤트 ─────────────────── */
   function bind() {
-    var host = $('#homeView');
-    if (!host) return;
+    var host = document;   /* 모달은 body 에 붙으므로 문서 단위로 위임합니다 */
+    if (!$('#homeView')) return;
     host.addEventListener('click', function (e) {
       var btn = e.target.closest('[data-home]');
       if (!btn) return;

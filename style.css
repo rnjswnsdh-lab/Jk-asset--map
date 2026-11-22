@@ -1378,7 +1378,8 @@ body.role-external .pf-toggle { display: none; }
 
 .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .qtile {
-  display: flex; flex-direction: column; gap: 2px;
+  display: grid; grid-template-columns: 26px 1fr; grid-template-rows: auto auto;
+  column-gap: 8px; row-gap: 0; align-items: center;
   text-align: left;
   border: 1px solid var(--line); border-radius: 10px;
   background: var(--panel-2);
@@ -1386,13 +1387,13 @@ body.role-external .pf-toggle { display: none; }
   transition: border-color .12s, background .12s;
 }
 .qtile:hover { border-color: var(--accent); background: #fff; }
-.qti { font-size: 17px; }
+.qti { font-size: 16px; grid-row: span 2; text-align: center; }
 .qtt { font-size: 12.6px; font-weight: 700; }
 .qts { font-size: 10.5px; color: var(--muted); line-height: 1.35; }
 
-.hs-form { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr auto; gap: 7px; }
+.hs-form { display: grid; grid-template-columns: minmax(190px, 1.5fr) repeat(4, minmax(104px, 1fr)) auto; gap: 7px; }
 .hs-form input, .hs-form select {
-  height: 34px; border: 1px solid var(--line); border-radius: 8px; padding: 0 9px;
+  height: 34px; width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 0 9px;
   font-size: 12.4px; font-family: inherit; background: #fff; color: var(--text);
 }
 .hs-form .btn { height: 34px; padding: 0 16px; }

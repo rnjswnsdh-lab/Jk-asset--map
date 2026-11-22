@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>NAI Korea 상업용 부동산 통합 지도</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <button id="btnMenu" class="icon-btn only-mobile" aria-label="필터·목록 열기" aria-expanded="false">☰</button>
+
+  <div class="brand">
+    <span class="brand-mark">NAI<span>KOREA</span></span>
+    <div class="brand-text">
+      <strong>상업용 부동산 통합 지도</strong>
+      <span id="metaLine">데이터를 불러오는 중…</span>
+    </div>
+  </div>
+
+  <div class="header-actions">
+    <span id="syncStatus" class="sync-chip hidden">동기화</span>
+    <div class="seg" role="group" aria-label="보기 전환">
+      <button id="btnMapView" class="seg-btn is-active" type="button">지도</button>
+      <button id="btnRoadview" class="seg-btn" type="button" disabled title="카카오맵 앱키를 입력하면 사용할 수 있습니다">로드뷰</button>
+    </div>
+    <button id="btnCluster" class="btn btn-ghost" type="button" aria-pressed="true" title="마커 클러스터링 켜기/끄기">◍ 클러스터</button>
+    <button id="btnAdd" class="btn btn-primary" type="button">＋ 신규 물건</button>
+    <div class="menu-wrap">
+      <button id="btnExportMenu" class="btn btn-ghost" type="button" aria-haspopup="true" aria-expanded="false">내보내기 ▾</button>
+      <div id="exportMenu" class="menu hidden" role="menu">
+        <button type="button" role="menuitem" data-export="json">전체 데이터 JSON</button>
+        <button type="button" role="menuitem" data-export="csv">전체 데이터 CSV</button>
+        <div class="menu-sep"></div>
+        <button type="button" role="menuitem" data-export="changes-json">변경사항 JSON</button>
+        <button type="button" role="menuitem" data-export="changes-csv">변경사항 CSV</button>
+        <div class="menu-sep"></div>
+        <button type="button" role="menuitem" data-export="im-import">IM 링크 일괄 등록</button>
+        <div class="menu-sep"></div>
+        <button type="button" role="menuitem" data-export="reset" class="danger">변경사항 초기화</button>
+      </div>
+    </div>
+    <button id="btnHelp" class="icon-btn" type="button" aria-label="도움말">?</button>
+  </div>
+</header>
+
+<div class="app-body">
+  <!-- ─────────────────────────── 좌측: 필터 + 목록 ─────────────────────────── -->
+  <aside id="sidebar" class="sidebar" aria-label="필터와 물건 목록">
+    <div class="sidebar-head">
+      <div class="search-wrap">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input id="searchInput" type="search" autocomplete="off" placeholder="건물명 · 운용사 · 주소 · 임차인 · 비고 검색" aria-label="통합 검색">
+        <button id="btnClearSearch" class="search-clear hidden" type="button" aria-label="검색어 지우기">×</button>
+      </div>
+    </div>
+
+    <div class="sidebar-scroll">
+      <section class="filter-block">
+        <div class="filter-title">
+          <span>섹터</span>
+          <button id="btnSectorAll" class="mini-btn" type="button">전체 선택/해제</button>
+        </div>
+        <div id="sectorFilters" class="chip-grid"></div>
+      </section>
+
+      <section class="filter-block">
+        <div class="filter-title">
+          <span>진행 상태</span>
+          <button id="btnStatusAll" class="mini-btn" type="button">전체</button>
+        </div>
+        <div id="statusFilters" class="chip-wrap"></div>
+      </section>
+
+      <section class="filter-block filter-stack">
+        <div class="filter-row">
+          <label for="regionSelect">지역·권역</label>
+          <select id="regionSelect">
+            <option value="ALL">전체</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <label for="subTypeSelect">구분</label>
+          <select id="subTypeSelect">
+            <option value="ALL">전체 구분</option>
+          </select>
+        </div>
+      </section>
+
+      <div class="list-head">
+        <span id="resultCount">0건</span>
+        <span class="list-head-right">
+          <button id="btnOnlyIm" class="mini-btn" type="button" aria-pressed="false" title="IM 링크가 등록된 물건만 보기">📄 IM 보유</button>
+          <button id="btnResetFilters" class="mini-btn" type="button">필터 초기화</button>
+        </span>
+      </div>
+
+      <div id="assetList" class="asset-list" role="list"></div>
+      <div id="listMore" class="list-more hidden"></div>
+    </div>
+  </aside>
+
+  <div id="sidebarBackdrop" class="sidebar-backdrop hidden"></div>
+
+  <!-- ─────────────────────────────── 중앙: 지도 ─────────────────────────────── -->
+  <main class="map-area">
+    <div id="map" class="map-canvas hidden"></div>
+    <div id="roadview" class="map-canvas hidden"></div>
+    <div id="previewMap" class="map-canvas preview-canvas hidden" aria-label="좌표 미리보기 지도"></div>
+
+    <div id="previewBanner" class="preview-banner hidden">
+      <strong>미리보기 모드</strong>
+      <span><code>config.js</code> 의 <code>KAKAO_JS_KEY</code> 에 카카오 JavaScript 키를 넣으면 실제 지도·로드뷰가 표시됩니다.</span>
+      <button type="button" id="btnPreviewHelp" class="mini-btn">설정 방법</button>
+    </div>
+
+    <div id="mapNotice" class="map-notice hidden"></div>
+
+    <div class="map-tools">
+      <button id="btnFit" class="map-btn" type="button" title="현재 필터 결과가 모두 보이도록 지도 이동">전체 보기</button>
+      <button id="btnLocate" class="map-btn" type="button" title="서울 시청으로 이동">서울</button>
+    </div>
+
+    <div id="legend" class="legend" aria-label="범례"></div>
+
+    <div id="addModeBar" class="add-mode-bar hidden">
+      <span>지도를 클릭해 새 물건의 위치를 지정하세요.</span>
+      <button type="button" id="btnAddCancel" class="mini-btn">취소</button>
+    </div>
+  </main>
+
+  <!-- ───────────────────────────── 우측: 상세 패널 ───────────────────────────── -->
+  <aside id="detailPanel" class="detail-panel hidden" aria-label="물건 상세"></aside>
+</div>
+
+<!-- ───────────────────── 접속코드 게이트 (비인가 상태: 데이터 0건) ───────────────────── -->
+<div id="gate" class="gate hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+  <div class="gate-card">
+    <span class="brand-mark gate-mark">NAI<span>KOREA</span></span>
+    <h1 id="gateTitle" class="gate-title">상업용 부동산 통합 지도</h1>
+    <p class="gate-sub">비공개 물건 DB입니다. 접속코드를 입력하면 지도와 물건 목록이 열립니다.</p>
+    <form id="gateForm" autocomplete="off" novalidate>
+      <input id="gateCode" type="password" placeholder="접속코드 (예: NAI-00000-00000)" aria-label="접속코드"
+             autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button id="gateSubmit" class="btn btn-primary gate-submit" type="submit">접속</button>
+    </form>
+    <p id="gateError" class="gate-error hidden"></p>
+    <p class="gate-note">접속코드는 이 브라우저에만 저장되며, 앱 코드에는 포함되어 있지 않습니다.</p>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast" class="toast hidden" role="status"></div>
+
+<noscript>
+  <p style="padding:24px">이 앱을 사용하려면 JavaScript를 켜 주세요.</p>
+</noscript>
+
+<script>
+/* 진단용: 페이지에서 난 스크립트 오류를 window.__errs 에 모아 둡니다. */
+window.__errs = [];
+window.addEventListener('error', function (e) { window.__errs.push(String((e && e.message) || e)); });
+window.addEventListener('unhandledrejection', function (e) { window.__errs.push('rejection: ' + String(e && e.reason)); });
+</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

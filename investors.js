@@ -114,7 +114,11 @@
         return;
       }
       state.role = j.role === 'readonly' ? 'readonly' : 'admin';
-      state.rows = (j.investors || []).map(function (r) { return Object.assign({}, r); });
+      state.rows = (j.investors || []).map(function (r) {
+        var o = Object.assign({}, r);
+        o.kind = (o.kind === 'office' || o.kind === 'office_si') ? 'office' : 'shipper';
+        return o;
+      });
       state.loaded = true;
       try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), rows: state.rows })); } catch (e) { /* noop */ }
       applyRole();

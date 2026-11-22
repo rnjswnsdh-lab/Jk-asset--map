@@ -36,7 +36,9 @@ window.NAI_MAP_CONFIG = {
     hotel:      { label: "호텔",       color: "#e5484d", dark: "#b3262c", short: "H" },
     logistics:  { label: "물류센터",   color: "#2f6fed", dark: "#1d4fbe", short: "L" },
     office:     { label: "오피스",     color: "#12a06b", dark: "#0b7a50", short: "O" },
-    datacenter: { label: "데이터센터", color: "#8b5cf6", dark: "#6d3fd4", short: "D" }
+    datacenter: { label: "데이터센터", color: "#8b5cf6", dark: "#6d3fd4", short: "D" },
+    /* 5번째 섹터 — 화주·임차수요(사용 물류센터·부족권역·공개 신규수요). 주황색으로 구분 */
+    shipper:    { label: "화주·임차수요", color: "#f97316", dark: "#c2410c", short: "S" }
   },
 
   /* 진행상태 그룹 — 배지 색상 */
@@ -47,7 +49,8 @@ window.NAI_MAP_CONFIG = {
     "거래완료":     "#6b7280",
     "만기·매각예정": "#2563eb",
     "매각철회":     "#9ca3af",
-    "검토중":       "#a855f7"
+    "검토중":       "#a855f7",
+    "확인 필요":    "#94a3b8"
   },
 
   /* 목록에 표시할 최대 건수 (검색·필터 결과가 많을 때 성능 보호) */

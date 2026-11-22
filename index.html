@@ -22,6 +22,7 @@
   </div>
 
   <div class="header-actions">
+    <span id="roleBadge" class="role-chip hidden">관리자</span>
     <span id="syncStatus" class="sync-chip hidden">동기화</span>
     <div class="seg" role="group" aria-label="보기 전환">
       <button id="btnMapView" class="seg-btn is-active" type="button">지도</button>
@@ -143,7 +144,7 @@
     <h1 id="gateTitle" class="gate-title">상업용 부동산 통합 지도</h1>
     <p class="gate-sub">비공개 물건 DB입니다. 접속코드를 입력하면 지도와 물건 목록이 열립니다.</p>
     <form id="gateForm" autocomplete="off" novalidate>
-      <input id="gateCode" type="password" placeholder="접속코드 (예: NAI-00000-00000)" aria-label="접속코드"
+      <input id="gateCode" type="password" placeholder="접속코드" aria-label="접속코드"
              autocomplete="off" autocapitalize="characters" spellcheck="false">
       <button id="gateSubmit" class="btn btn-primary gate-submit" type="submit">접속</button>
     </form>

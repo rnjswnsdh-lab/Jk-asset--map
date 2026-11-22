@@ -1,7 +1,7 @@
 /* =========================================================================
    NAI Korea 상업용 부동산 통합 지도 — app.js
    - 카카오맵 JavaScript API 기반 (키 없으면 좌표 미리보기 모드)
-   - 4개 섹터(호텔·물류·오피스·데이터센터) 통합 조회
+   - 5개 섹터(호텔·물류·오피스·데이터센터·화주·임차수요) 통합 조회
    - 필터/검색, 상세 패널, 인라인 수정, 신규 추가, localStorage 저장,
      JSON/CSV 내보내기, 원격 동기화 어댑터, IM(투자설명서) 링크
    ========================================================================= */
@@ -13,7 +13,8 @@
     hotel: { label: '호텔', color: '#e5484d', short: 'H' },
     logistics: { label: '물류센터', color: '#2f6fed', short: 'L' },
     office: { label: '오피스', color: '#12a06b', short: 'O' },
-    datacenter: { label: '데이터센터', color: '#8b5cf6', short: 'D' }
+    datacenter: { label: '데이터센터', color: '#8b5cf6', short: 'D' },
+    shipper: { label: '화주·임차수요', color: '#f97316', short: 'S' }
   };
   var STATUS_COLORS = CFG.STATUS_GROUPS || {};
   var SECTOR_KEYS = Object.keys(SECTORS);
@@ -40,6 +41,7 @@
       onlyIm: false
     },
     selectedId: null,
+    role: 'admin',          // admin | readonly — 접속코드에 따라 서버가 정합니다
     panelMode: 'view',      // view | edit | add
     addMode: false,
     cluster: true,
@@ -82,6 +84,22 @@
   }
   function sectorLabel(k) { return (SECTORS[k] && SECTORS[k].label) || k || '기타'; }
   function sectorColor(k) { return (SECTORS[k] && SECTORS[k].color) || '#64748b'; }
+
+  /* 섹터별 상세 스펙 라벨 — 같은 필드를 섹터에 맞는 이름으로 보여 줍니다. */
+  var DETAIL_LABELS = {
+    shipper: {
+      '운용사/소유주': '화주사 · 업종',
+      '펀드/리츠': '',
+      '규모': '사용·임차 규모',
+      '가격': '',
+      '임차인/운영': '담당자',
+      '만기/일정': '부족·확장 권역 / 일정'
+    }
+  };
+  function detailLabel(sector, key) {
+    var m = DETAIL_LABELS[sector];
+    return (m && Object.prototype.hasOwnProperty.call(m, key)) ? m[key] : key;
+  }
   function statusColor(g) { return STATUS_COLORS[g] || '#64748b'; }
   function isHttp(u) { return /^https?:\/\//i.test(String(u || '').trim()); }
   function coordKey(a) { return (Number(a.lat).toFixed(5) + ',' + Number(a.lng).toFixed(5)); }
@@ -175,6 +193,7 @@
   /** 저장 대기 중인 변경을 서버로 밀어 넣습니다. */
   function flushPending() {
     var list = readPending();
+    if (!canEdit()) { writePending([]); return Promise.resolve(); }
     if (!list.length || !isRemote() || !getToken()) return Promise.resolve();
     setSyncStatus('저장 중…');
     return list.reduce(function (p, op) {
@@ -196,6 +215,7 @@
 
   /** 단건 추가·수정·삭제를 서버에 반영합니다. 실패하면 대기열에 남겨 다시 시도합니다. */
   function pushOp(op) {
+    if (!canEdit()) { toast('읽기 전용 모드입니다.', true); return Promise.resolve(false); }
     if (!isRemote()) return Promise.resolve(true);
     op.key = op.key || newOpKey();
     if (!getToken()) {
@@ -272,6 +292,7 @@
   /** 목록(여러 건)을 한 번에 저장합니다(IM 일괄 등록 등). */
   function commitUpserts(list) {
     if (!list || !list.length) return;
+    if (!canEdit()) { toast('읽기 전용 모드입니다.', true); return; }
     var byId = {};
     state.base.forEach(function (a) { byId[a.id] = a; });
     list.forEach(function (a) { byId[a.id] = a; });
@@ -300,6 +321,31 @@
     el.textContent = text;
     el.classList.remove('hidden');
     el.className = 'sync-chip' + (isErr ? ' err' : '') + (text === '저장 중…' ? ' busy' : '');
+  }
+
+  /* ────────────────────── 권한(관리자 / 읽기 전용) ────────────────────── */
+  function canEdit() { return state.role !== 'readonly'; }
+
+  /** 접속 코드에 따른 화면 잠금: 읽기 전용이면 수정·추가·삭제·IM 등록을 숨깁니다. */
+  function applyRoleUI() {
+    var ro = !canEdit();
+    document.body.classList.toggle('readonly', ro);
+    var addBtn = $('#btnAdd');
+    if (addBtn) { addBtn.classList.toggle('hidden', ro); addBtn.disabled = ro; }
+    var badge = $('#roleBadge');
+    if (badge) {
+      badge.classList.remove('hidden');
+      badge.textContent = ro ? '읽기 전용' : '관리자';
+      badge.className = 'role-chip' + (ro ? ' is-readonly' : '');
+    }
+    $$('#exportMenu [data-export="im-import"], #exportMenu [data-export="reset"]').forEach(function (b) {
+      b.classList.toggle('hidden', ro);
+    });
+    if (ro && (state.panelMode === 'edit' || state.panelMode === 'add')) {
+      state.panelMode = 'view';
+      if (state.selectedId) renderDetail();
+      else $('#detailPanel').classList.add('hidden');
+    }
   }
 
 
@@ -556,7 +602,8 @@
       ['좌표', (a.lat && a.lng) ? (a.lat + ', ' + a.lng) : '좌표 미확정'],
       ['좌표 정확도', a.coord_precision],
       ['최종 갱신', a.updated_at]
-    ].filter(function (r) { return r[1] !== undefined && r[1] !== null && String(r[1]).trim() !== ''; });
+    ].map(function (r) { return [detailLabel(a.sector, r[0]), r[1]]; })
+      .filter(function (r) { return r[0] && r[1] !== undefined && r[1] !== null && String(r[1]).trim() !== ''; });
 
     var badges = [];
     badges.push('<span class="badge status" style="background:' + statusColor(a.status_group) + '">' + esc(a.status_group || '상태 미정') + '</span>');
@@ -573,11 +620,17 @@
     html += '<div class="detail-sub">' + esc([sectorLabel(a.sector), a.region, a.address].filter(Boolean).join(' · ')) + '</div>';
     html += '<div class="badges">' + badges.join('') + '</div>';
     html += '<div class="detail-actions">';
-    html += '<button type="button" class="action-btn primary" data-act="edit">✏️ 수정</button>';
-    if (a.lat && a.lng && state.mapReady) html += '<button type="button" class="action-btn" data-act="roadview">🛣 로드뷰</button>';
-    html += '<button type="button" class="action-btn" data-act="kakaomap">카카오맵에서 열기</button>';
-    html += '<button type="button" class="action-btn" data-act="copy">주소 복사</button>';
-    html += '<button type="button" class="action-btn danger" data-act="delete">삭제</button>';
+    if (canEdit()) {
+      html += '<button type="button" class="action-btn primary" data-act="edit">✏️ 수정</button>';
+      if (a.lat && a.lng && state.mapReady) html += '<button type="button" class="action-btn" data-act="roadview">🛣 로드뷰</button>';
+      html += '<button type="button" class="action-btn" data-act="kakaomap">카카오맵에서 열기</button>';
+      html += '<button type="button" class="action-btn" data-act="copy">주소 복사</button>';
+      html += '<button type="button" class="action-btn danger" data-act="delete">삭제</button>';
+    } else {
+      if (a.lat && a.lng && state.mapReady) html += '<button type="button" class="action-btn" data-act="roadview">🛣 로드뷰</button>';
+      html += '<button type="button" class="action-btn" data-act="kakaomap">카카오맵에서 열기</button>';
+      html += '<button type="button" class="action-btn" data-act="copy">주소 복사</button>';
+    }
     html += '</div>';
     if (isHttp(a.im_url)) {
       html += '<a class="im-btn" href="' + esc(a.im_url) + '" target="_blank" rel="noopener noreferrer">' +
@@ -668,6 +721,7 @@
   }
 
   function renderEditForm(root, a) {
+    if (!canEdit()) return;
     var html = '';
     html += '<div class="detail-head">';
     html += '<div class="detail-top"><span class="sector-dot" style="background:' + sectorColor(a.sector) + '"></span>';
@@ -682,12 +736,12 @@
     html += formField('구분', 'sub_type', a.sub_type, { placeholder: '예: 운영중, 컨버전, 신축·개발' });
     html += formField('진행상태', 'status', a.status, { placeholder: '예: 공사 중, 출현 예상' });
     html += formField('상태 그룹', 'status_group', a.status_group, { type: 'select', options: statusGroupOptions() });
-    html += formField('운용사/소유주', 'owner_amc', a.owner_amc);
+    html += formField(detailLabel(a.sector, '운용사/소유주') || '운용사/소유주', 'owner_amc', a.owner_amc);
     html += formField('펀드/리츠/법인', 'fund_vehicle', a.fund_vehicle);
-    html += formField('규모', 'scale_info', a.scale_info, { placeholder: '예: 434실 · 5성 / 연면적 12,163㎡' });
+    html += formField(detailLabel(a.sector, '규모') || '규모', 'scale_info', a.scale_info, { placeholder: '예: 434실 · 5성 / 연면적 12,163㎡' });
     html += formField('가격', 'price_info', a.price_info, { placeholder: '예: 매입 4,150억원' });
     html += formField('임차인/운영사', 'tenants', a.tenants);
-    html += formField('만기/일정', 'maturity_schedule', a.maturity_schedule);
+    html += formField(detailLabel(a.sector, '만기/일정') || '만기/일정', 'maturity_schedule', a.maturity_schedule);
     html += formField('주소', 'address', a.address, { wide: true });
     html += formField('위도', 'lat', a.lat, { type: 'number', step: '0.0000001' });
     html += formField('경도', 'lng', a.lng, { type: 'number', step: '0.0000001' });
@@ -858,6 +912,7 @@
   }
 
   function deleteAsset(id) {
+    if (!canEdit()) { toast('읽기 전용 모드입니다. 삭제할 수 없습니다.', true); return; }
     var a = state.index[id];
     if (!a) return;
     showModal({
@@ -1661,7 +1716,10 @@
       renderList();
       return;
     }
-    if (act === 'edit' && a) { state.panelMode = 'edit'; renderDetail(); return; }
+    if (act === 'edit' && a) {
+      if (!canEdit()) { toast('읽기 전용 모드입니다. 수정할 수 없습니다.', true); return; }
+      state.panelMode = 'edit'; renderDetail(); return;
+    }
     if (act === 'cancelEdit') { state.panelMode = 'view'; renderDetail(); return; }
     if (act === 'cancelAdd') { setAddMode(false); $('#detailPanel').classList.add('hidden'); state.panelMode = 'view'; return; }
     if (act === 'pickLocation') {
@@ -1682,7 +1740,10 @@
       else toast('복사할 수 없습니다.', true);
       return;
     }
-    if (act === 'delete' && a) { deleteAsset(a.id); return; }
+    if (act === 'delete' && a) {
+      if (!canEdit()) { toast('읽기 전용 모드입니다. 삭제할 수 없습니다.', true); return; }
+      deleteAsset(a.id); return;
+    }
     if (act === 'sibling') {
       var id = btn.getAttribute('data-id');
       if (id) { state.selectedId = id; renderDetail(); highlightRows(null, id); panTo(state.index[id]); }
@@ -1820,6 +1881,7 @@
     $('#btnPreviewHelp').addEventListener('click', showHelp);
 
     $('#btnAdd').addEventListener('click', function () {
+      if (!canEdit()) { toast('읽기 전용 모드입니다. 물건을 추가할 수 없습니다.', true); return; }
       state.panelMode = 'add';
       state.selectedId = null;
       state._addPrefill = {};
@@ -1844,7 +1906,7 @@
       $('#btnExportMenu').setAttribute('aria-expanded', 'false');
       if (kind === 'json' || kind === 'csv') exportAll(kind);
       else if (kind === 'changes-json' || kind === 'changes-csv') exportChanges(kind.replace('changes-', ''));
-      else if (kind === 'im-import') openImImport();
+      else if (kind === 'im-import') { if (!canEdit()) { toast('읽기 전용 모드입니다.', true); return; } openImImport(); }
       else if (kind === 'reset') resetChanges();
     });
     document.addEventListener('click', function (e) {
@@ -1945,8 +2007,10 @@
         throw new Error((j && j.error) ? String(j.error) : 'server_error');
       }
       if (!Array.isArray(j.assets) || !j.assets.length) throw new Error('데이터가 비어 있습니다.');
+      state.role = (j.role === 'readonly') ? 'readonly' : 'admin';
       setToken(token);
       hideGate();
+      applyRoleUI();
       state.base = j.assets;
       state.meta = computeMeta(j.assets);
       state.meta.source = 'Google Sheets(비공개) · Apps Script 실시간 동기화';

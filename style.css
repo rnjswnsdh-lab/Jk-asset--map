@@ -788,7 +788,7 @@ button { font-family: inherit; }
 .pool-compose {
   border-top: 1px solid var(--line);
   background: #fff;
-  padding: 8px 16px 10px;
+  padding: 6px 16px 8px;
   box-shadow: 0 -4px 16px rgba(15, 35, 60, .06);
 }
 .pc-head { display: flex; align-items: center; gap: 10px; }
@@ -797,12 +797,12 @@ button { font-family: inherit; }
 .compose-hint b { color: var(--text); }
 .compose-hint .warn { color: var(--danger); }
 .pc-head .mini-btn { margin-left: auto; }
-.pc-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 8px; }
+.pc-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 10px; margin-top: 6px; }
 .pc-field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
 .pc-field input, .pc-field textarea {
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 7px 9px;
+  padding: 6px 9px;
   font-size: 12.3px;
   font-family: inherit;
   color: var(--text);
@@ -810,7 +810,7 @@ button { font-family: inherit; }
   resize: vertical;
 }
 .pc-msg { grid-column: 1 / -1; }
-.pc-actions { display: flex; gap: 7px; margin-top: 8px; flex-wrap: wrap; }
+.pc-actions { display: flex; gap: 7px; margin-top: 6px; flex-wrap: wrap; }
 .pc-actions .btn { font-size: 12.3px; padding: 8px 12px; }
 .pc-actions .btn:disabled { opacity: .5; cursor: not-allowed; }
 

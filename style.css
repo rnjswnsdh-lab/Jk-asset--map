@@ -872,6 +872,84 @@ button { font-family: inherit; }
 .pool-view .btn-ghost:hover { background: var(--panel-2); }
 .pc-actions .btn[disabled] { opacity: .45; }
 
+/* ── 플랫폼 명칭(Open AI Asset Bridge (가칭)) ── */
+.brand-text .brand-pseudo,
+.gate-title .brand-pseudo {
+  font-style: normal;
+  font-weight: 600;
+  font-size: 11px;
+  color: #9fb6cd;
+  margin-left: 3px;
+  letter-spacing: 0;
+}
+.gate-title .brand-pseudo { font-size: 13px; color: #8ea3ba; }
+.pool-title .pool-meta { margin-top: 2px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ── 🏦 FI 풀: 펀드 메타데이터 ── */
+.pr-kind.k-lp { background: #eef0ff; color: #4338ca; }
+.pr-strat {
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 5px;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.s-loan { background: #e8f1fc; color: #0b5aa8; border-color: #d3e4f8; }
+.s-core { background: #eff6ef; color: #2f6b3a; border-color: #d8e8d9; }
+.s-corep { background: #e9f8ee; color: #1d7a45; border-color: #cbe9d6; }
+.s-va { background: #fff6e5; color: #9a6200; border-color: #f6e3bf; }
+.s-opp { background: #fdeeff; color: #7c3aed; border-color: #eed4fb; }
+.s-dev { background: #fdecec; color: #b3262c; border-color: #f6d6d6; }
+.s-na { background: var(--panel-2); color: var(--muted); border-color: var(--line); }
+.pr-funds { display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 4px; }
+.pr-fund { font-size: 11.8px; color: var(--text-2); }
+.pr-fund .pr-lp { color: var(--muted); font-size: 11px; }
+.pr-fund .pr-size { color: #b3262c; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pr-funds .more { color: var(--muted); }
+.pr-fundkv { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.fk {
+  font-size: 11.3px;
+  color: var(--text-2);
+  background: #f7f9fc;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 7px;
+  max-width: 100%;
+}
+.fk b { font-weight: 700; color: var(--muted); margin-right: 4px; font-size: 10.5px; }
+.fk-irr { color: #b3262c; background: #fff6f6; border-color: #f3dcdc; }
+.fk-irr b { color: #c05252; }
+.fk-dry { color: #0b5aa8; background: #f2f8ff; border-color: #dbe8f7; }
+.fk-dry b { color: #5b80a8; }
+
+/* ── 목록 상세 모달 (🔎) ── */
+.dc-card { width: min(760px, 94vw); }
+.dc-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.dc-sec { border-top: 1px solid var(--line); padding: 9px 0 3px; }
+.dc-sec h4 { margin: 0 0 6px; font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+.dc-contact { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.3px; align-items: center; }
+.dc-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.dc-fund {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: #fcfdff;
+}
+.dc-fund-name { font-size: 12.6px; font-weight: 700; margin-bottom: 4px; }
+.dc-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; font-size: 11.8px; color: var(--text-2); }
+.dc-kv b { color: var(--muted); font-weight: 700; margin-right: 5px; font-size: 11px; }
+.dc-kv span { line-height: 1.55; }
+.dc-text { font-size: 12.2px; color: var(--text-2); line-height: 1.62; word-break: break-word; }
+.dc-none { font-size: 12px; color: var(--muted); }
+.mf-hint { margin: 0 0 10px; font-size: 11.3px; color: var(--muted); line-height: 1.6; }
+.mf-hint code { background: var(--panel-2); padding: 1px 4px; border-radius: 4px; font-size: 10.8px; }
+@media (max-width: 820px) {
+  .dc-kv { grid-template-columns: 1fr; }
+  .gate-title .brand-pseudo { display: block; font-size: 11px; margin: 3px 0 0; }
+}
+
 /* ═════════════════════════ 📊 밸류에이션·민감도 탭 ═════════════════════════ */
 .action-btn.sim {
   background: var(--navy);

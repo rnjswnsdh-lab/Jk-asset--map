@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<title>NAI Korea 상업용 부동산 통합 지도</title>
-<link rel="stylesheet" href="style.css?v=20261122g">
-<script src="investors.js?v=20261122g" defer></script>
+<title>Open AI Asset Bridge (가칭)</title>
+<meta name="description" content="Open AI Asset Bridge (가칭) — NAI Korea 기반 상업용 부동산 물건·투자자(SI·FI) 통합 프로토타입">
+<link rel="stylesheet" href="style.css?v=20261122h">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2a4a'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='system-ui,sans-serif' font-size='13' font-weight='800' fill='%23ffffff'%3ENAI%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -15,9 +15,9 @@
   <button id="btnMenu" class="icon-btn only-mobile" aria-label="필터·목록 열기" aria-expanded="false">☰</button>
 
   <div class="brand">
-    <span class="brand-mark">NAI<span>KOREA</span></span>
+    <span class="brand-mark">ASSET<span>BRIDGE</span></span>
     <div class="brand-text">
-      <strong>상업용 부동산 통합 지도</strong>
+      <strong>Open AI Asset Bridge <em class="brand-pseudo">(가칭)</em></strong>
       <span id="metaLine">데이터를 불러오는 중…</span>
     </div>
   </div>
@@ -52,7 +52,8 @@
 
 <div class="app-tabs" role="tablist" aria-label="화면 전환">
   <button class="vt-btn is-active" type="button" data-view="map" role="tab" aria-selected="true">🗺️ 물건 지도</button>
-  <button class="vt-btn" type="button" data-view="pool" role="tab" aria-selected="false">🤝 투자자·화주 풀</button>
+  <button class="vt-btn" type="button" data-view="pool" role="tab" aria-selected="false">🤝 SI·화주 풀</button>
+  <button class="vt-btn" type="button" data-view="fi" role="tab" aria-selected="false">🏦 FI 풀</button>
   <button class="vt-btn" type="button" data-view="valuation" role="tab" aria-selected="false">📊 밸류에이션</button>
   <span id="poolRole" class="role-chip hidden pool-role"></span>
 </div>
@@ -146,12 +147,13 @@
   <aside id="detailPanel" class="detail-panel hidden" aria-label="물건 상세"></aside>
 </div>
 
-<!-- ───────────────────────── 🤝 SI·화주 풀 (별도 탭) ───────────────────────── -->
-<section id="poolView" class="pool-view hidden" aria-label="투자자·화주 풀">
+<!-- ───────────── 🤝 SI·화주 풀 / 🏦 FI 풀 (같은 investors 시트, 탭별 분리) ───────────── -->
+<section id="poolView" class="pool-view hidden" aria-label="SI·화주 풀">
   <div class="pool-head">
     <div class="pool-title">
-      <h2>🤝 투자자·화주 풀</h2>
-      <p id="poolMeta">오피스 SI · 블라인드펀드 운용사 · 리츠·해외투자사 · 물류 화주 — 티저 메일 발송 연계</p>
+      <h2 id="poolTitle">🤝 SI·화주 풀</h2>
+      <p id="poolSubtitle">오피스 SI · 물류 화주 — 티저 메일 발송 연계</p>
+      <p id="poolMeta" class="pool-meta">불러오는 중…</p>
     </div>
     <div class="pool-tools">
       <button id="poolAddBtn" class="btn btn-primary hidden" type="button">＋ 대상 추가</button>
@@ -161,13 +163,15 @@
 
   <div class="pool-filters">
     <div id="poolKindChips" class="chip-wrap pf-chips"></div>
+    <div id="poolStratChips" class="chip-wrap pf-chips hidden"></div>
     <div id="poolRegionChips" class="chip-wrap pf-chips"></div>
     <div class="pf-search">
       <span class="search-wrap">
         <span class="search-icon" aria-hidden="true">⌕</span>
-        <input id="poolSearch" type="search" autocomplete="off" placeholder="회사·운용사 · 펀드·전략 · 담당자 · 이메일 검색" aria-label="투자자·화주 검색">
+        <input id="poolSearch" type="search" autocomplete="off" placeholder="회사 · 업종 · 사례 · 담당자 · 이메일 검색" aria-label="SI·화주·FI 대상 검색">
       </span>
       <label class="pf-toggle"><input id="poolOnlyEmail" type="checkbox"> 이메일 있는 건만</label>
+      <label class="pf-toggle hidden" id="poolFundOnlyWrap"><input id="poolFundOnly" type="checkbox"> 펀드 정보 있는 건만</label>
       <span id="poolResultCount" class="pf-count">0건</span>
       <span class="pf-right">
         <button id="poolSelectAll" class="mini-btn" type="button">결과 전체 선택</button>
@@ -180,7 +184,7 @@
 
   <div class="pool-compose">
     <div class="pc-head">
-      <strong>📧 티저 메일 발송</strong>
+      <strong id="composeTitle">📧 티저 메일 발송</strong>
       <span id="composeHint" class="compose-hint">선택 0건</span>
       <button id="poolComposeToggle" class="mini-btn" type="button">▴ 입력칸 펼치기</button>
     </div>
@@ -205,9 +209,9 @@
 <!-- ───────────────────── 접속코드 게이트 (비인가 상태: 데이터 0건) ───────────────────── -->
 <div id="gate" class="gate hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <div class="gate-card">
-    <span class="brand-mark gate-mark">NAI<span>KOREA</span></span>
-    <h1 id="gateTitle" class="gate-title">상업용 부동산 통합 지도</h1>
-    <p class="gate-sub">비공개 물건 DB입니다. 접속코드를 입력하면 지도와 물건 목록이 열립니다.</p>
+    <span class="brand-mark gate-mark">ASSET<span>BRIDGE</span></span>
+    <h1 id="gateTitle" class="gate-title">Open AI Asset Bridge <em class="brand-pseudo">(가칭)</em></h1>
+    <p class="gate-sub">NAI Korea 상업용 부동산 DB 기반 프로토타입입니다. 접속코드를 입력하면 물건 지도와 투자자(SI·FI) 풀이 열립니다.</p>
     <form id="gateForm" autocomplete="off" novalidate>
       <input id="gateCode" type="password" placeholder="접속코드" aria-label="접속코드"
              autocomplete="off" autocapitalize="characters" spellcheck="false">
@@ -232,8 +236,8 @@ window.addEventListener('error', function (e) { window.__errs.push(String((e && 
 window.addEventListener('unhandledrejection', function (e) { window.__errs.push('rejection: ' + String(e && e.reason)); });
 </script>
 <script src="config.js?v=20261122b"></script>
-<script src="app.js?v=20261122g"></script>
-<script src="investors.js?v=20261122g"></script>
+<script src="app.js?v=20261122h"></script>
+<script src="investors.js?v=20261122h"></script>
 <script src="valuation.js?v=20261122d"></script>
 </body>
 </html>

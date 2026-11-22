@@ -1234,6 +1234,37 @@ body.role-external .pf-toggle { display: none; }
 }
 .auc-src:hover { background: #e6f0ff; }
 .auc-note { margin: 8px 0 0; font-size: 10.5px; line-height: 1.55; color: var(--muted); }
+
+/* ── 상세: 📋 공시·공공 데이터 (2026-11-23) ── */
+.badge.disc { background: #eef4ff; color: #0b4f9c; border: 1px solid #cddffa; }
+.disc-mini { font-size: 10px; vertical-align: 1px; }
+.disc-block h4 { color: #0b4f9c; }
+.disc-list { display: flex; flex-direction: column; gap: 8px; }
+.disc-card {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  border-radius: 9px;
+  padding: 9px 10px;
+}
+.disc-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.disc-src {
+  font-size: 10.5px; font-weight: 800; letter-spacing: -.01em;
+  color: #0b4f9c; background: #e8f0fe; border: 1px solid #cddffa;
+  border-radius: 5px; padding: 2px 6px;
+}
+.disc-asof { font-size: 10.5px; color: var(--muted); }
+.disc-title { margin-top: 5px; font-size: 12px; font-weight: 700; color: var(--text); }
+.disc-facts { margin-top: 6px; font-size: 11.5px; }
+.disc-facts th { width: 34%; font-size: 11px; }
+.disc-facts th, .disc-facts td { padding: 4px 0; }
+.disc-link {
+  display: inline-block; margin-top: 7px; font-size: 11px; font-weight: 700;
+  color: #0b5aa8; text-decoration: none;
+  border: 1px solid #cddffa; background: #f2f7ff; border-radius: 6px; padding: 4px 8px;
+}
+.disc-link:hover { background: #e6f0ff; }
+.disc-note { margin: 6px 0 0; font-size: 10px; line-height: 1.55; color: var(--muted); }
+
 @media (max-width: 420px) {
   .auc-grid { grid-template-columns: 1fr; }
 }

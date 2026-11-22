@@ -108,6 +108,35 @@
     return false;
   }
 
+  /* ─────────── 📋 공시·공공 데이터 (2026-11-23 신설) ───────────
+     공시 자료는 assets 시트의 facts 칸에 label '§DISC' 로 저장됩니다.
+     value 는 {"s":출처,"a":기준일,"kv":[[라벨,값],…],"u":원문URL,"n":비고} JSON 한 건.
+     섹션은 이 항목만 따로 모아 출처별 카드로 보여 주고, '상세 스펙' 표에서는 제외합니다. */
+  var DISC_LABEL = '§DISC';
+  function discGroups(a) {
+    var out = [];
+    if (!a || !a.facts || !a.facts.length) return out;
+    for (var i = 0; i < a.facts.length; i++) {
+      var f = a.facts[i];
+      if (String(f && f.label || '') !== DISC_LABEL) continue;
+      try {
+        var g = JSON.parse(String(f.value || ''));
+        if (g && (g.s || g.kv)) out.push(g);
+      } catch (e) { /* 형식이 깨진 항목은 무시 */ }
+    }
+    var order = { 'K-REITS': 0, '온비드': 1, 'DART': 2, '건축물대장': 3, '공공데이터': 4 };
+    out.sort(function (x, y) { return (order[x.k || x.s] || 9) - (order[y.k || y.s] || 9); });
+    return out;
+  }
+  function hasDisc(a) { return discGroups(a).length > 0; }
+  function hasDiscFact(a) {
+    if (!a || !a.facts || !a.facts.length) return false;
+    for (var i = 0; i < a.facts.length; i++) {
+      if (String(a.facts[i] && a.facts[i].label || '') === DISC_LABEL) return true;
+    }
+    return false;
+  }
+
   function factValue(a, prefix) {
     if (!a || !a.facts || !a.facts.length) return '';
     for (var i = 0; i < a.facts.length; i++) {
@@ -656,7 +685,7 @@
         '<button type="button" class="asset-row' + (a.id === state.selectedId ? ' is-selected' : '') + (auc ? ' is-auction' : '') + '" data-id="' + esc(a.id) + '" role="listitem">' +
         '<span class="bar" style="background:' + color + '"></span>' +
         '<span class="row-main">' +
-        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + esc(a.name) + (isHttp(a.im_url) ? ' <span class="im-mini" title="IM 링크 있음">📄</span>' : '') + '</span>' +
+        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + esc(a.name) + (isHttp(a.im_url) ? ' <span class="im-mini" title="IM 링크 있음">📄</span>' : '') + (hasDiscFact(a) ? ' <span class="disc-mini" title="공시자료 연동됨">📋</span>' : '') + '</span>' +
         '<span class="row-sub">' + esc(rowSub) + '</span>' +
         '</span>' +
         '<span class="row-right">' +
@@ -758,6 +787,8 @@
     }
     badges.push('<span class="badge status" style="background:' + statusColor(a.status_group) + '">' + esc(a.status_group || '상태 미정') + '</span>');
     if (a.sub_type && a.sub_type !== a.status_group) badges.push('<span class="badge type">' + esc(a.sub_type) + '</span>');
+    var disc = discGroups(a);
+    if (disc.length) badges.push('<span class="badge disc">📋 공시 ' + disc.length + '</span>');
     if (a._added) badges.push('<span class="badge added">신규 추가됨</span>');
     else if (a._edited) badges.push('<span class="badge edited">수정됨</span>');
     if (!(a.lat && a.lng)) badges.push('<span class="badge warn">좌표 미확정</span>');
@@ -824,9 +855,38 @@
       html += '</section>';
     }
 
+    /* ── 📋 공시·공공 데이터 (K-REITS · 온비드 · DART 등) */
+    if (disc.length) {
+      html += '<section class="detail-section disc-block"><h4>📋 공시·공공 데이터</h4><div class="disc-list">';
+      disc.forEach(function (g) {
+        var src = String(g.s || '공시자료');
+        html += '<article class="disc-card">';
+        html += '<div class="disc-head"><span class="disc-src">' + esc(src) + '</span>' +
+          (g.a ? '<span class="disc-asof">' + esc(g.a) + ' 기준</span>' : '') + '</div>';
+        if (g.t) html += '<div class="disc-title">' + esc(g.t) + '</div>';
+        if (g.kv && g.kv.length) {
+          html += '<table class="facts disc-facts">';
+          g.kv.forEach(function (r) {
+            if (!r || r[1] === undefined || r[1] === null || String(r[1]).trim() === '') return;
+            var v = String(r[1]);
+            html += '<tr><th>' + esc(r[0]) + '</th><td>' +
+              (isHttp(v) ? '<a href="' + esc(v) + '" target="_blank" rel="noopener noreferrer">' + esc(v) + '</a>' : esc(v)) +
+              '</td></tr>';
+          });
+          html += '</table>';
+        }
+        if (g.u && isHttp(g.u)) {
+          html += '<a class="disc-link" href="' + esc(g.u) + '" target="_blank" rel="noopener noreferrer">원문·공시 조회 ↗</a>';
+        }
+        if (g.n) html += '<p class="disc-note">' + esc(g.n) + '</p>';
+        html += '</article>';
+      });
+      html += '</div></section>';
+    }
+
     if (a.facts && a.facts.length) {
       var aucLabels = aucInfo ? ['경매구분', '감정가', '최저입찰가', '할인율', '유찰횟수', '입찰일·방식', '진행기관', '물건용도'] : [];
-      var restFacts = a.facts.filter(function (f) { return aucLabels.indexOf(String(f.label || '')) === -1; });
+      var restFacts = a.facts.filter(function (f) { return aucLabels.indexOf(String(f.label || '')) === -1 && String(f.label || '') !== DISC_LABEL; });
       if (restFacts.length) {
         html += '<section class="detail-section"><h4>상세 스펙</h4><table class="facts">';
         restFacts.forEach(function (f) {

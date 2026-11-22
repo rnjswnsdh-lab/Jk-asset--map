@@ -243,16 +243,18 @@
       var f = {
         name: (b.match(/^\[([^\]]+)\]/) || [null, ''])[1],
         lp: grab(b, 'LP'),
+        gp: grab(b, 'GP'),
         strat: grab(b, '전략'),
         size: grab(b, '규모') || grab(b, '약정'),
         dry: grab(b, '드라이파우더'),
+        remain: grab(b, '잔여'),
         irr: grab(b, '목표IRR'),
         target: cleanSep(grab(b, '대상')),
         region: cleanSep(grab(b, '지역')),
         term: grab(b, '만기').replace(/\s+/g, ' ').trim(),
         raw: b
       };
-      if (f.name || f.lp || f.strat || f.size || f.dry || f.irr || f.term) out.push(f);
+      if (f.name || f.lp || f.strat || f.size || f.dry || f.irr || f.term || f.remain) out.push(f);
     });
     return out;
   }
@@ -270,6 +272,12 @@
     var m = String(r.industry || '').match(/블라인드\s*\(([^)]*)\)/);
     if (m) raw = raw.concat(m[1].split(/[,/]/));
     funds.forEach(function (f) { if (f.strat) raw = raw.concat(f.strat.split(/[,/]/)); });
+    /* LP 쪽 원문은 '[국내 부동산 대출형 펀드] GP:… | Loan | 잔여:…' 처럼
+       전략 이름이 '전략:' 없이 토큰으로만 들어가 있어 함께 읽습니다. */
+    String(r.case_info || '').split(/[|]/).forEach(function (tok) {
+      var t = tok.trim();
+      if (t && t.length <= 24 && /^(loan|core\+?|core\/core\+|core\+|value-?add|opportunistic|대출|개발)$/i.test(t)) raw.push(t);
+    });
     var set = {};
     raw.forEach(function (t0) {
       var t = String(t0 || '').toLowerCase();
@@ -547,10 +555,15 @@
     var kv = [];
     var irr = briefIrr(d.note.irr || uniqJoin(d.funds.map(function (f) { return f.irr; }), 2));
     var dry = d.note.dryTotal || uniqJoin(d.funds.map(function (f) { return f.dry; }), 2);
+    var dryLabel = '드라이파우더';
+    if (!dry) {
+      var remain = uniqJoin(d.funds.map(function (f) { return f.remain; }), 2);
+      if (remain) { dry = remain; dryLabel = '잔여 약정'; }
+    }
     var area = d.note.region || uniqJoin(d.funds.map(function (f) { return f.region; }), 2);
     var term = uniqJoin(d.funds.map(function (f) { return f.term; }), 2);
     if (irr) kv.push('<span class="fk fk-irr"><b>목표IRR</b>' + esc(irr) + '</span>');
-    if (dry) kv.push('<span class="fk fk-dry"><b>드라이파우더</b>' + esc(dry) + '</span>');
+    if (dry) kv.push('<span class="fk fk-dry"><b>' + dryLabel + '</b>' + esc(dry) + '</span>');
     if (area) kv.push('<span class="fk fk-area"><b>지역</b>' + esc(area) + '</span>');
     if (term) kv.push('<span class="fk fk-term"><b>만기</b>' + esc(term) + '</span>');
 
@@ -560,6 +573,7 @@
       fundLine = '<div class="pr-funds">' + named.slice(0, 3).map(function (f) {
         return '<span class="pr-fund">📁 ' + esc(f.name) +
           (f.lp ? ' <span class="pr-lp">LP ' + esc(f.lp) + '</span>' : '') +
+          (f.gp ? ' <span class="pr-lp">GP ' + esc(f.gp) + '</span>' : '') +
           (f.size ? ' <span class="pr-size">' + esc(f.size) + '</span>' : '') + '</span>';
       }).join('') + (named.length > 3 ? '<span class="pr-fund more">+ ' + (named.length - 3) + '개 펀드</span>' : '') + '</div>';
     } else if (d.funds.length) {
@@ -759,9 +773,11 @@
         d.funds.forEach(function (f) {
           var rows = [];
           if (f.lp) rows.push(['LP', f.lp]);
+          if (f.gp) rows.push(['GP', f.gp]);
           if (f.strat) rows.push(['전략', f.strat]);
           if (f.size) rows.push(['규모·약정', f.size]);
           if (f.dry) rows.push(['드라이파우더', f.dry]);
+          if (f.remain) rows.push(['잔여 약정', f.remain]);
           if (f.irr) rows.push(['목표 IRR', f.irr]);
           if (f.target) rows.push(['투자 대상', f.target]);
           if (f.region) rows.push(['지역 가이드', f.region]);

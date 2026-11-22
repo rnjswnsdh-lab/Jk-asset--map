@@ -148,6 +148,20 @@
     if (add) add.classList.toggle('hidden', !canEdit());
   }
 
+  /** 접속코드를 바꾸면(앱 게이트) 풀 화면 권한도 따라가도록 맞춥니다. */
+  function syncRoleFromApp() {
+    try {
+      var r = window.naiMap && window.naiMap.state && window.naiMap.state.role;
+      if (!r) return;
+      var norm = r === 'readonly' ? 'readonly' : 'admin';
+      if (norm !== state.role) {
+        state.role = norm;
+        applyRole();
+        render();
+      }
+    } catch (e) { /* noop */ }
+  }
+
   /* ─────────────── 필터 ─────────────── */
   function renderChips() {
     var kc = $('#poolKindChips');
@@ -447,6 +461,7 @@
     var body = document.querySelector('.app-body');
     if (body) body.classList.toggle('hidden', pool);
     if (pool) load();
+    if (pool) syncRoleFromApp();
     try { history.replaceState(null, '', pool ? '#pool' : location.pathname + location.search); } catch (e) { /* noop */ }
   }
 
@@ -532,6 +547,9 @@
     bind();
     $('#poolOnlyEmail').checked = state.onlyEmail;
     renderChips();
+    setInterval(function () {
+      if (document.body.classList.contains('view-pool')) syncRoleFromApp();
+    }, 1500);
     if ((location.hash || '') === '#pool') showView('pool');
   }
 

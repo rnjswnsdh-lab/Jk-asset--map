@@ -533,7 +533,7 @@
     var host = $('#valView');
     if (!host) return;
     var r = calc(S.inp);
-    var admin = S.role !== 'readonly';
+    var admin = S.role === 'admin';
     var html = '';
     html += '<div class="val-shell">';
     html += '<div class="val-top">';
@@ -736,7 +736,7 @@
   }
 
   function saveScenario() {
-    if (S.role === 'readonly') { toast('읽기 전용 모드입니다. 저장할 수 없습니다.', true); return; }
+    if (S.role !== 'admin') { toast('저장은 관리자만 가능합니다.', true); return; }
     var host = $('#valView');
     var nameEl = $('#valSaveName');
     var name = (nameEl && nameEl.value.trim()) || (S.inp.name + ' ' + new Date().toISOString().slice(5, 10));
@@ -784,7 +784,7 @@
   }
 
   function deleteScenario() {
-    if (S.role === 'readonly') { toast('읽기 전용 모드입니다.', true); return; }
+    if (S.role !== 'admin') { toast('삭제는 관리자만 가능합니다.', true); return; }
     var sel = $('#valSavedSel');
     var id = sel && sel.value;
     if (!id) { toast('삭제할 시나리오를 선택하세요.', true); return; }

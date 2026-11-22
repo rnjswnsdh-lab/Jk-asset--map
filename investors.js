@@ -222,6 +222,13 @@
   }
 
   function canEdit() { return state.role === 'admin'; }
+  function isExternal() { return state.role === 'external'; }
+  function normRole_(r) {
+    var s = String(r || '');
+    if (s === 'admin') return 'admin';
+    if (s === 'internal' || s === 'readonly') return 'internal';
+    return 'external';
+  }
 
   /* ─────────────── FI 펀드 메타데이터 파싱 ───────────────
      시트 필드는 v3 기준 19개로 고정되어 있고, 펀드 정보는
@@ -327,7 +334,7 @@
         else renderNotReady('불러오지 못했습니다' + (j && j.error ? ' (' + j.error + ')' : ''));
         return;
       }
-      state.role = j.role === 'readonly' ? 'readonly' : 'admin';
+      state.role = normRole_(j.role);
       state.rows = (j.investors || []).map(function (r) {
         var o = Object.assign({}, r);
         o.kind = normKind(o.kind);
@@ -353,21 +360,28 @@
 
   function applyRole() {
     var badge = $('#poolRole');
+    var ext = isExternal();
     if (badge) {
       badge.classList.remove('hidden');
-      badge.textContent = canEdit() ? '관리자' : '읽기 전용';
-      badge.className = 'role-chip' + (canEdit() ? '' : ' is-readonly');
+      badge.className = 'role-chip' + (state.role === 'internal' ? ' is-internal' : (ext ? ' is-external' : ''));
+      badge.textContent = state.role === 'admin' ? '관리자' : (state.role === 'internal' ? '내부용 · 전화번호 비공개' : '외부 방문자 · 연락처 비공개');
     }
     var add = $('#poolAddBtn');
     if (add) add.classList.toggle('hidden', !canEdit());
+    var compose = $('#poolCompose');
+    if (compose) compose.classList.toggle('hidden', ext);
+    var oe = $('#poolOnlyEmail');
+    if (oe && oe.parentNode) oe.parentNode.classList.toggle('hidden', ext);
+    var hint = $('#poolCompose');
+    if (hint) hint.setAttribute('aria-hidden', String(ext));
   }
 
-  /** 접속코드를 바꾸면(앱 게이트) 풀 화면 권한도 따라가도록 맞춥니다. */
+  /** 접속코드를 바꾸거나 외부 세션이 시작되면 앱 게이트 권한을 풀 화면에 맞춥니다. */
   function syncRoleFromApp() {
     try {
       var r = window.naiMap && window.naiMap.state && window.naiMap.state.role;
       if (!r) return;
-      var norm = r === 'readonly' ? 'readonly' : 'admin';
+      var norm = normRole_(r);
       if (norm !== state.role) {
         state.role = norm;
         applyRole();
@@ -375,6 +389,7 @@
       }
     } catch (e) { /* noop */ }
   }
+  window.NAI_POOL_ROLE_SYNC = function () { syncRoleFromApp(); };
 
   /* ─────────────── 필터 ─────────────── */
   function modeRows() {
@@ -508,10 +523,16 @@
   }
 
   function contactHtml(r) {
+    if (isExternal()) {
+      return '<div class="pr-contact pr-masked">🔒 담당자 연락처·이메일은 비공개입니다 <span class="pc-title">· 문의: NAI Korea</span></div>';
+    }
+    var phone = String(r.phone || '');
+    var phoneMasked = !phone || phone === '비공개';
     return '<div class="pr-contact">' +
       (r.contact ? '<span class="pc-name">👤 ' + esc(r.contact) + (r.title ? ' <span class="pc-title">' + esc(r.title) + '</span>' : '') + '</span>' : '') +
       (r.email ? '<a class="pc-mail" href="mailto:' + esc(r.email.split(',')[0].trim()) + '">✉️ ' + esc(r.email) + '</a>' : '<span class="pc-none">이메일 없음</span>') +
-      (r.phone ? '<a class="pc-tel" href="tel:' + esc(r.phone.replace(/[^0-9+]/g, '')) + '">☎ ' + esc(r.phone) + '</a>' : '') +
+      (phoneMasked ? '<span class="pc-none">☎ 비공개</span>'
+        : '<a class="pc-tel" href="tel:' + esc(phone.replace(/[^0-9+]/g, '')) + '">☎ ' + esc(phone) + '</a>') +
       '</div>';
   }
 
@@ -982,6 +1003,10 @@
       syncRoleFromApp();
     }
     if (val && window.NAI_VAL && window.NAI_VAL.show) window.NAI_VAL.show();
+    if (window.naiLog) {
+      var VIEW_LABEL = { map: '물건 지도', pool: 'SI·화주 풀', fi: 'FI 풀', valuation: '밸류에이션' };
+      window.naiLog('tab', VIEW_LABEL[view] || view);
+    }
     try {
       history.replaceState(null, '', pool ? '#pool' : (fi ? '#fi' : (val ? '#valuation' : location.pathname + location.search)));
     } catch (e) { /* noop */ }

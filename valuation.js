@@ -51,7 +51,7 @@
       sector: 'office',
       src: '실제 체결 렌트롤(2026.10.31)·OPEX/CAPEX 원문(첨부 3·4·6) 기준 · 6대 시나리오 ② 에셋딜 단일 3,500억·10년 구조',
       memo: '내부 검토안(2026-11-20) ② 에셋딜 단일: 매입 3,500억·Going-in 4.58%·CoC 3.14%·IRR 10.13%',
-      verify: '같은 입력에서 검토안 IRR 10.13%는 엑시트 캡 4.25%에서 재현됩니다(계산 10.15%). 검토안 표의 4.50%를 그대로 넣으면 9.07%로 내려갑니다.',
+      verify: '같은 입력에서 검토안 IRR 10.13%는 엑시트 캡 4.25%에서 재현됩니다(계산 10.16%). 검토안 표의 4.50%를 그대로 넣으면 9.07%로 내려갑니다.',
       notes: [
         '명목 임대료 99,788원/평·월 × 13,835평 × 12개월 = 연 165.7억 [원문: 첨부3 Rent roll 합계행]',
         '렌트프리 연 2.76개월(대상 3개월/년·기타 2.0~2.9개월 가중) → 실효 연 127.6억 [원문]',
@@ -60,7 +60,7 @@
         '공실률 2.5%·임대료 상승 2.5%/년은 시장 가정 [가정]',
         '조달: 선순위 61% 5.2→4.6→4.0%, 중순위 6% 6.7→6.1→5.5% [원문: 6대 시나리오 조달구조]',
         '엑시트 캡 기본 4.25%는 검토안 IRR 재현용 — 검토안 표기 4.50% [가정·재현용]',
-        'CoC 차이: 검토안 3.14%는 AMC·자산관리 등 연간 기타비용을 반영한 값으로 보이며, 렌트롤·OPEX 원문에는 없는 항목이라 기타비용 0으로 두었습니다(필요 시 입력).',
+        'CoC 차이 [가정·해석]: 검토안 3.14%는 AMC·자산관리 등 연간 기타비용을 반영한 값으로 보이며, 렌트롤·OPEX 원문에는 없는 항목이라 기타비용 0으로 두었습니다(필요 시 입력).',
         '취득 부대비용 6.4%(에셋딜 취득세·법무·중개) [원문: 시나리오 후속과제 #4]'
       ],
       inp: {
@@ -369,13 +369,14 @@
     return '<div class="vf' + (f.w === 2 ? ' wide' : '') + '">' + label + inp + '</div>';
   }
 
-  function inputsHTML() {
+  function inputsHTML(r) {
     var out = '';
     FIELDS.forEach(function (grp) {
       out += '<section class="vg"><h4>' + esc(grp.g) + '</h4><div class="vg-grid">';
       grp.items.forEach(function (f) {
         var v = S.inp[f.k];
-        if (f.k === 'entry_cap') v = (Math.round(num(S.inp.entry_cap) * 100) / 100).toFixed(2);
+        if (f.k === 'entry_cap') v = (Math.round(num(r.entryCap) * 10000) / 100).toFixed(2);
+        if (f.k === 'price_eok' && S.inp.anchor === 'cap') v = Math.round(num(r.price) * 10) / 10;
         out += fieldHTML(f, v);
       });
       out += '</div></section>';
@@ -406,7 +407,7 @@
       card('Unlevered IRR', irrPct(r.unlevIrr), '자산 단독'),
       card('Equity Multiple', isFinite(r.em) ? r.em.toFixed(2) + 'x' : '-', '총회수/에쿼티'),
       card('평균 CoC', pct2(r.avgCoc * 100), '연 NCF/에쿼티 평균'),
-      card('Exit 매각가', n0(r.exitValue) + '억', 'Exit Cap ' + n1(num(S.inp.exit_cap_pct)) + '%'),
+      card('Exit 매각가', n0(r.exitValue) + '억', 'Exit Cap ' + pct2(num(S.inp.exit_cap_pct))),
       card('최저 DSCR', isFinite(r.dscrMin) ? r.dscrMin.toFixed(2) + 'x' : '-', '이자 대비 NOI')
     ].join('');
   }
@@ -543,7 +544,7 @@
 
     html += '<div class="val-main">';
     /* 좌: 입력 */
-    html += '<aside class="val-inputs" id="valInputs">' + inputsHTML() + '</aside>';
+    html += '<aside class="val-inputs" id="valInputs">' + inputsHTML(r) + '</aside>';
     /* 우: 결과 */
     html += '<main class="val-out">';
     html += '<div class="val-bar">';

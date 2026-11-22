@@ -49,6 +49,12 @@
   </div>
 </header>
 
+<div class="app-tabs" role="tablist" aria-label="화면 전환">
+  <button class="vt-btn is-active" type="button" data-view="map" role="tab" aria-selected="true">🗺️ 물건 지도</button>
+  <button class="vt-btn" type="button" data-view="pool" role="tab" aria-selected="false">🤝 SI·화주 풀</button>
+  <span id="poolRole" class="role-chip hidden pool-role"></span>
+</div>
+
 <div class="app-body">
   <!-- ─────────────────────────── 좌측: 필터 + 목록 ─────────────────────────── -->
   <aside id="sidebar" class="sidebar" aria-label="필터와 물건 목록">
@@ -138,6 +144,59 @@
   <aside id="detailPanel" class="detail-panel hidden" aria-label="물건 상세"></aside>
 </div>
 
+<!-- ───────────────────────── 🤝 SI·화주 풀 (별도 탭) ───────────────────────── -->
+<section id="poolView" class="pool-view hidden" aria-label="SI·화주 풀">
+  <div class="pool-head">
+    <div class="pool-title">
+      <h2>🤝 SI·화주 풀</h2>
+      <p id="poolMeta">권역별 오피스 SI·물류 화주 리스트 · 티저 메일 발송 연계</p>
+    </div>
+    <div class="pool-tools">
+      <button id="poolAddBtn" class="btn btn-primary hidden" type="button">＋ 대상 추가</button>
+      <button id="poolRefresh" class="btn btn-ghost" type="button">↻ 새로고침</button>
+    </div>
+  </div>
+
+  <div class="pool-filters">
+    <div id="poolKindChips" class="chip-wrap pf-chips"></div>
+    <div id="poolRegionChips" class="chip-wrap pf-chips"></div>
+    <div class="pf-search">
+      <span class="search-wrap">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input id="poolSearch" type="search" autocomplete="off" placeholder="기업명 · 거래사례 · 담당자 · 이메일 검색" aria-label="SI·화주 검색">
+      </span>
+      <label class="pf-toggle"><input id="poolOnlyEmail" type="checkbox"> 이메일 있는 건만</label>
+      <span id="poolResultCount" class="pf-count">0건</span>
+      <span class="pf-right">
+        <button id="poolSelectAll" class="mini-btn" type="button">결과 전체 선택</button>
+        <button id="poolClearSel" class="mini-btn" type="button">선택 해제</button>
+      </span>
+    </div>
+  </div>
+
+  <div id="poolList" class="pool-list" role="list"></div>
+
+  <div class="pool-compose">
+    <div class="pc-head">
+      <strong>📧 티저 메일 발송</strong>
+      <span id="composeHint" class="compose-hint">선택 0건</span>
+      <button id="poolComposeToggle" class="mini-btn" type="button">▴ 입력칸 펼치기</button>
+    </div>
+    <div id="poolComposeFields" class="pc-fields hidden">
+      <label class="pc-field pc-subject">티저 제목<input id="mailSubject" type="text" placeholder="예) [NAI Korea] 이천 덕평 물류센터 매각 티저"></label>
+      <label class="pc-field pc-link">클라우드 티저 링크<input id="mailLink" type="url" placeholder="https://drive.google.com/..."></label>
+      <label class="pc-field pc-msg">간단 메시지<textarea id="mailBody" rows="2" placeholder="예) 관심 있으실 만한 물건이 있어 티저를 보내드립니다. 회신 주시면 상세 자료 보내드리겠습니다."></textarea></label>
+    </div>
+    <div class="pc-actions">
+      <button id="btnMailto" class="btn btn-primary" type="button">📧 선택 대상 메일창 열기</button>
+      <button id="btnCopyEmails" class="btn btn-ghost" type="button">📋 이메일 목록 복사</button>
+      <button id="btnCopyRequest" class="btn btn-ghost" type="button">🤖 Jk 발송 요청문 복사</button>
+    </div>
+  </div>
+</section>
+
+<div id="poolModal" class="modal hidden" aria-live="polite"></div>
+
 <!-- ───────────────────── 접속코드 게이트 (비인가 상태: 데이터 0건) ───────────────────── -->
 <div id="gate" class="gate hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <div class="gate-card">
@@ -169,5 +228,6 @@ window.addEventListener('unhandledrejection', function (e) { window.__errs.push(
 </script>
 <script src="config.js"></script>
 <script src="app.js"></script>
+<script src="investors.js"></script>
 </body>
 </html>

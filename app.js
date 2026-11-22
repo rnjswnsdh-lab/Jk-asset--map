@@ -252,7 +252,7 @@
     return {
       version: Object.keys(days).sort().pop() || '-',
       counts: c,
-      source: isRemote() ? 'Google Sheets(비공개) · Apps Script 실시간 동기화' : 'data/assets.json'
+      source: 'Google Sheets(비공개) · Apps Script 실시간 동기화'
     };
   }
 

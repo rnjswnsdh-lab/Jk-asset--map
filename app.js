@@ -802,6 +802,8 @@
     html += '<div class="badges">' + badges.join('') + '</div>';
     html += '<div class="detail-actions">';
     html += '<button type="button" class="action-btn sim" data-act="simulate" title="' + (aucInfo ? '최저입찰가를 매입가로 넣고 수익성·민감도 시뮬레이터로 이동' : '렌트롤·OPEX 기준 수익성·민감도 시뮬레이터로 이동') + '">📊 ' + (aucInfo ? '최저입찰가로 수익성 시뮬레이션' : '수익성 시뮬레이션') + '</button>';
+    html += '<button type="button" class="action-btn tm" data-act="tm" title="NAI 양식 TM(티저) 브리프 미리보기 + 제작 요청">📄 TM 제작</button>';
+    html += '<button type="button" class="action-btn im" data-act="im" title="NAI 양식 IM 브리프 미리보기 + 제작 요청">📘 IM 제작</button>';
     if (canEdit()) {
       html += '<button type="button" class="action-btn primary" data-act="edit">✏️ 수정</button>';
       if (a.lat && a.lng && state.mapReady) html += '<button type="button" class="action-btn" data-act="roadview">🛣 로드뷰</button>';
@@ -2478,6 +2480,7 @@
       state.meta.source = 'Google Sheets(비공개) · Apps Script 실시간 동기화';
       rebuild();
       cacheSave();
+      if (window.NAI_HOME && window.NAI_HOME.autoOpen) { try { window.NAI_HOME.autoOpen(); } catch (e) { /* noop */ } }
       if (!state.mapInitDone) { state.mapInitDone = true; initMap(); }
       setSyncStatus(state.role === 'external' ? '외부 열람' : '동기화됨');
       updateStorageHint();

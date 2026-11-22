@@ -737,6 +737,7 @@
 
   function saveScenario() {
     if (S.role === 'readonly') { toast('읽기 전용 모드입니다. 저장할 수 없습니다.', true); return; }
+    var host = $('#valView');
     var nameEl = $('#valSaveName');
     var name = (nameEl && nameEl.value.trim()) || (S.inp.name + ' ' + new Date().toISOString().slice(5, 10));
     var r = calc(S.inp);
@@ -759,11 +760,8 @@
     apiPost({ action: 'upsert', type: 'valuations', valuations: [rec] }).then(function (j) {
       if (j && j.ok) {
         S.saved.push({ id: rec.id, name: rec.name, payload: payload, updated_at: rec.updated_at });
-        var sel = $('#valSavedSel');
-        if (sel) {
-          var wrap = sel.closest('.sv-load');
-          if (wrap) wrap.innerHTML = savedHTML();
-        }
+        var wrap = host.querySelector ? host.querySelector('.sv-load') : null;
+        if (wrap) wrap.innerHTML = savedHTML();
         toast(name + ' — 시트에 저장했습니다.');
       } else {
         toast('저장 실패: ' + (j && j.error ? j.error : '알 수 없는 오류'), true);

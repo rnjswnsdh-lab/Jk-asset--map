@@ -220,6 +220,7 @@
 
     html += '</div>'; /* home-grid */
     host.innerHTML = html;
+    host.dataset.count = String(all.length);
 
     /* 섹터·권역 옵션 채우기 */
     var secSel = $('#hsSector');
@@ -251,7 +252,7 @@
   }
 
   function kpi(label, value, sub, key) {
-    return '<div class="kpi kpi-' + (key || 'x') + '"><span class="kpi-k">' + esc(label) + '</span>' +
+    return '<div class="kpi kpi-' + (key || 'x') + '"' + (key ? ' data-kpi="' + key + '"' : '') + '><span class="kpi-k">' + esc(label) + '</span>' +
       '<strong class="kpi-v">' + esc(value) + '</strong><span class="kpi-s">' + esc(sub) + '</span></div>';
   }
   function tile(icon, title, sub, act) {
@@ -370,6 +371,8 @@
       BOOT.loaded = true;
       renderArticles();
       renderNotices();
+      var kv = $('[data-kpi="art"] .kpi-v');
+      if (kv) kv.textContent = BOOT.articles.length ? BOOT.articles.length + '건' : '—';
     });
   }
 
@@ -1035,6 +1038,7 @@
     var host = $('#homeView');
     if (!host) return;
     if (!host.dataset.ready) { renderShell(); host.dataset.ready = '1'; }
+    else if (host.dataset.count !== String(assets().length)) { renderShell(); }
     else { renderDealStrip(); }
     loadContent(false);
   }

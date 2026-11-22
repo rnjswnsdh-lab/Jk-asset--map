@@ -3,7 +3,7 @@
    - NAI Korea 상업용 부동산 통합 지도 (프로토타입)
    - 상단 탭: 🗺️ 물건 지도 | 🤝 SI·화주 풀 | 🏦 FI 풀 | 📊 밸류에이션
    - 카카오맵 JavaScript API 기반 (키 없으면 좌표 미리보기 모드)
-   - 5개 섹터(호텔·물류·오피스·데이터센터·화주·임차수요) 통합 조회
+   - 7개 섹터(호텔·물류·오피스·데이터센터·화주·임차수요·리테일·멀티패밀리·임대·코리빙) 통합 조회
    - 필터/검색, 상세 패널, 인라인 수정, 신규 추가, localStorage 저장,
      JSON/CSV 내보내기, 원격 동기화 어댑터, IM(투자설명서) 링크
    ========================================================================= */
@@ -16,7 +16,9 @@
     logistics: { label: '물류센터', color: '#2f6fed', short: 'L' },
     office: { label: '오피스', color: '#12a06b', short: 'O' },
     datacenter: { label: '데이터센터', color: '#8b5cf6', short: 'D' },
-    shipper: { label: '화주·임차수요', color: '#f97316', short: 'S' }
+    shipper: { label: '화주·임차수요', color: '#f97316', short: 'S' },
+    retail: { label: '리테일', color: '#db2777', short: 'R' },
+    living: { label: '멀티패밀리·임대·코리빙', color: '#0891b2', short: 'M' }
   };
   var STATUS_COLORS = CFG.STATUS_GROUPS || {};
   var SECTOR_KEYS = Object.keys(SECTORS);
@@ -96,6 +98,15 @@
       '가격': '',
       '임차인/운영': '담당자',
       '만기/일정': '부족·확장 권역 / 일정'
+    },
+    retail: {
+      '규모': '연면적·GLA',
+      '임차인/운영': '주요 임차·운영'
+    },
+    living: {
+      '규모': '연면적·세대수',
+      '임차인/운영': '운영·임차',
+      '만기/일정': '준공·만기 / 일정'
     }
   };
   function detailLabel(sector, key) {

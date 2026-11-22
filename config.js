@@ -38,7 +38,11 @@ window.NAI_MAP_CONFIG = {
     office:     { label: "오피스",     color: "#12a06b", dark: "#0b7a50", short: "O" },
     datacenter: { label: "데이터센터", color: "#8b5cf6", dark: "#6d3fd4", short: "D" },
     /* 5번째 섹터 — 화주·임차수요(사용 물류센터·부족권역·공개 신규수요). 주황색으로 구분 */
-    shipper:    { label: "화주·임차수요", color: "#f97316", dark: "#c2410c", short: "S" }
+    shipper:    { label: "화주·임차수요", color: "#f97316", dark: "#c2410c", short: "S" },
+    /* 6번째 섹터 — 리테일(백화점·아울렛·쇼핑몰·대형마트·상가). 로즈색으로 구분 */
+    retail:     { label: "리테일",     color: "#db2777", dark: "#9d174d", short: "R" },
+    /* 7번째 섹터 — 멀티패밀리·임대주택·코리빙(공공지원민간임대·뉴스테이·청년주택·기숙사). 청록색으로 구분 */
+    living:     { label: "멀티패밀리·임대·코리빙", color: "#0891b2", dark: "#0e7490", short: "M" }
   },
 
   /* 진행상태 그룹 — 배지 색상 */

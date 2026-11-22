@@ -857,3 +857,15 @@ button { font-family: inherit; }
   .sidebar { top: calc(var(--header-h) + var(--tabs-h)); }
   .vt-btn { padding: 7px 10px; font-size: 12.3px; }
 }
+
+/* 흰 배경 패널 안에서는 헤더용 버튼 색을 그대로 쓰지 않습니다. */
+.pool-view .btn-primary,
+#poolModal .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pool-view .btn-primary:hover { background: #095ab0; }
+.pool-view .btn-ghost {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--text-2);
+}
+.pool-view .btn-ghost:hover { background: var(--panel-2); }
+.pc-actions .btn[disabled] { opacity: .45; }

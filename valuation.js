@@ -933,7 +933,7 @@
     h += '<section class="val-block"><h3>RLV 산출 내역 <span>(단위: 억원)</span></h3><div id="valCalc">' + devCalcHTML(d) + '</div></section>';
     h += '<section class="val-block"><h3>제2종(220%) vs 제3종(280%) <span>(현재 조건 기준)</span></h3><div id="valCmp">' + devCompareHTML(d) + '</div></section>';
     h += '<section class="val-block"><div class="val-block-head"><h3>① 분양가 × 기부채납률 → RLV</h3>' +
-      '<span class="seg-mini" data-dev-note>억원 · 초록 ≥ 장부 ' + n0(d.book) + '억</span></div>' +
+      '<span class="seg-mini" data-dev-note>억원 · 초록 ≥ 장부 ' + nEok(d.book) + '억</span></div>' +
       '<div id="valM1">' + devMatrix1(d) + '</div>' +
       '<p class="mt-hint">행 = 평당 분양가(1,450~1,850만), 열 = 기부채납률(15·17·19·21·23·25%). 민녹색 = 장부원가 이상, 진녹색 = 장부원가 120% 이상, 주황 = 장부원가 90~100%.</p></section>';
     h += '<section class="val-block"><h3>② 용적률 × 직접공사비 → RLV <span>(억원)</span></h3>' +

@@ -1020,6 +1020,7 @@
     });
     var body = document.querySelector('.app-body');
     if (body) body.classList.toggle('hidden', view !== 'map');
+    if (view === 'map' && window.naiMap && window.naiMap.onShow) window.naiMap.onShow();
     if (poolLike) {
       renderChips(); render();
       load();

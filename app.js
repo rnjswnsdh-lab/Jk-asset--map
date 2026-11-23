@@ -2536,6 +2536,19 @@
     role: function () { return state.role; },
     me: function () { return state.me; },
     log: logEvent,
+    /* 지도 탭이 보일 때 호출 — 숨김 상태에서 생성되면 중심이 (0,0)으로 잡혀
+       타일이 엉뚱한 곳을 그리는 문제를 고칩니다(홈 첫 화면 도입 2026-11-23). */
+    onShow: function () {
+      if (!state.mapReady || !state.map) return;
+      try { state.map.relayout(); } catch (e) { /* noop */ }
+      var c = null;
+      try { c = state.map.getCenter(); } catch (e) { /* noop */ }
+      if (!c || (Math.abs(c.getLat()) < 1 && Math.abs(c.getLng()) < 1)) {
+        state.map.setCenter(new kakao.maps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng));
+        state.map.setLevel(DEFAULT_LEVEL);
+        fitBounds();
+      }
+    },
     openAdd: function (prefill) { state._addPrefill = prefill || {}; state.panelMode = 'add'; renderDetail(); $('#detailPanel').classList.remove('hidden'); }
   };
   window.naiLog = logEvent;

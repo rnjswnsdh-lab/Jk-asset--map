@@ -33,6 +33,7 @@
   function pct2(v) { return (v === null || v === undefined || !isFinite(v)) ? '-' : (Math.round(v * 100) / 100).toFixed(2) + '%'; }
   function num(v, d) { var n = Number(String(v == null ? '' : v).replace(/,/g, '')); return isFinite(n) ? n : (d === undefined ? 0 : d); }
   function irrPct(v) { return (v === null || !isFinite(v)) ? '-' : pct2(v * 100); }
+  function nEok(v) { return (v === null || v === undefined || !isFinite(v)) ? '-' : (Math.abs(v - Math.round(v)) < 0.05 ? n0(v) : n1(v)); }
 
   function toast(msg, isErr) {
     var el = $('#toast');
@@ -792,12 +793,12 @@
       card('총 분양수입', n0(d.revenue) + '억', '분양가 ' + n0(d.sp) + '만/평'),
       card('총 건축·사업비', n0(d.totalCost) + '억', '토지 제외 · 매출의 ' + n1(d.costRatio) + '%'),
       card('감당 가능 지가 RLV', n0(d.rlv) + '억', '토지 평당 ' + n0(d.rlvPerPy) + '만원', ok ? 'good' : 'bad'),
-      card('장부원가 대비 갭', signed(d.gap, '억'), '장부 ' + n0(d.book) + '억 대비 ' + signed(d.gapPct, '%', true), ok ? 'good' : 'bad'),
+      card('장부원가 대비 갭', signed(d.gap, '억'), '장부 ' + nEok(d.book) + '억 대비 ' + signed(d.gapPct, '%', true), ok ? 'good' : 'bad'),
       card('원가 회수 필요 분양가', isFinite(d.needPrice) ? n0(d.needPrice) + '만/평' : '-', '현재 ' + signed(d.sp - d.needPrice, '만', false) + ' · 84㎡ ' + n1(d.needPrice * d.up / 1e4) + '억', priceOk ? 'good' : 'bad'),
-      card('용적률 · 기부채납', n1(d.far) + '% / ' + n1(d.don) + '%', '지상 연면적 ' + n0(d.abovePy) + '평'),
-      card('지하 포함 연면적', n0(d.gfaPy) + '평', '계수 ' + n1(d.gf) + ' × 지상'),
+      card('용적률 · 기부채납', n0(d.far) + '% / ' + n1(d.don) + '%', '지상 연면적 ' + n0(d.abovePy) + '평'),
+      card('지하 포함 연면적', n0(d.gfaPy) + '평', '계수 ' + (Math.round(d.gf * 100) / 100) + ' × 지상'),
       card('사업지 면적', n0(d.area) + '평', n0(d.areaSqm) + '㎡ · 실효 ' + n0(d.netPy) + '평'),
-      card('장부원가 회수율', n1(d.recoverPct) + '%', 'RLV ÷ ' + n0(d.book) + '억', ok ? 'good' : 'bad')
+      card('장부원가 회수율', n1(d.recoverPct) + '%', 'RLV ÷ ' + nEok(d.book) + '억', ok ? 'good' : 'bad')
     ].join('');
   }
 
@@ -813,7 +814,7 @@
     row('간접비·금융비·판매비 ' + n1(d.soft) + '%', '−' + n0(d.softCost) + '억', '분양수입 대비');
     row('시행사 마진 ' + n1(d.profit) + '%', '−' + n0(d.devProfit) + '억', '분양수입 대비');
     row('감당 가능 지가 RLV', n0(d.rlv) + '억', '토지 평당 ' + n0(d.rlvPerPy) + '만원 (장부 평당 ' + n0(d.book * 1e4 / d.area) + '만원)', 'sum');
-    row('장부 취득원가', n0(d.book) + '억', '토지 377.9 + 건물 85.9');
+    row('장부 취득원가', nEok(d.book) + '억', '토지 377.9 + 건물 85.9');
     row('차액 (RLV − 장부)', (d.gap >= 0 ? '+' : '−') + n0(Math.abs(d.gap)) + '억', d.gap >= 0 ? '원가 회수 가능' : '원가 회수까지 ' + n0(Math.abs(d.gap)) + '억 부족', 'sum');
     h += '</tbody></table>';
     return h;

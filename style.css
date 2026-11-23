@@ -1107,8 +1107,8 @@ table.mt td.warn { background: #fff7e6; color: #8a5b00; font-weight: 700; }
 table.dev-t { width: 100%; border-collapse: collapse; font-size: 11.9px; font-variant-numeric: tabular-nums; }
 table.dev-t th, table.dev-t td { padding: 6px 8px; border-bottom: 1px solid var(--line-2); }
 table.dev-t th { text-align: left; font-weight: 650; color: var(--text-2); white-space: nowrap; }
-table.dev-t td.num { text-align: right; white-space: nowrap; font-weight: 700; color: var(--navy); }
-table.dev-t td.memo { font-size: 10.8px; color: var(--muted); }
+table.dev-t td.num { text-align: right; white-space: nowrap; font-weight: 700; color: var(--navy); width: 130px; }
+table.dev-t td.memo { font-size: 10.8px; color: var(--muted); text-align: left; }
 table.dev-t tr.sum th, table.dev-t tr.sum td { border-top: 1px solid var(--line); border-bottom: 2px solid var(--line); font-weight: 800; background: #f8fbff; }
 table.dev-t td.pos { color: #0b7a50; }
 table.dev-t td.neg { color: var(--danger); }

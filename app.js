@@ -1257,6 +1257,9 @@
       level: DEFAULT_LEVEL
     });
     state.mapReady = true;
+    /* 홈이 첫 화면이 되면서 지도 탭은 숨김 상태로 생성될 수 있음 — 그 경우 내부 뷰포트가
+       0/좁은 폭으로 굳어 타일이 일부만 그려지므로, 탭을 열 때 재생성한다. */
+    state._mapHiddenAtCreate = !$('#map').offsetParent;
     state.geocoder = new kakao.maps.services.Geocoder();
     state.rvClient = new kakao.maps.RoadviewClient();
     state.rv = new kakao.maps.Roadview($('#roadview'));
@@ -2540,6 +2543,13 @@
        타일이 엉뚱한 곳을 그리는 문제를 고칩니다(홈 첫 화면 도입 2026-11-23). */
     onShow: function () {
       if (!state.mapReady || !state.map) return;
+      if (state._mapHiddenAtCreate) {
+        state._mapHiddenAtCreate = false;
+        try { if (state.clusterer) { state.clusterer.clear(); state.clusterer.setMap(null); } } catch (e) { /* noop */ }
+        try { $('#map').innerHTML = ''; } catch (e) { /* noop */ }
+        startKakaoMap();
+        return;
+      }
       var relayout = function () { try { state.map.relayout(); } catch (e) { /* noop */ } };
       var centerOk = function () {
         var c = null;

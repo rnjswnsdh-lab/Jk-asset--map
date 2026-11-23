@@ -5,8 +5,11 @@
    - 물건별 렌트롤·OPEX·CAPEX 자료를 바탕으로 매입~매각 현금흐름을 재계산
    - 이니셜 캡 ↔ 매입가 연동, 구간별 조달금리, 엑시트 캡
    - 2D 민감도: ① 이니셜 캡 × 엑시트 캡  ② 조달금리 × 엑시트 캡
-   - 프리셋: 종로플레이스(오피스·엣지DC), 김포고촌 KMTC, 케이카 오산동탄, 수서 B1-3BL,
-     이천 덕평(롯데 PFV) — 물건 상세의 [📊 수익성 시뮬레이션]이 해당 프리셋으로 연결됩니다.
+   - 프리셋: 종로플레이스(오피스·엣지DC), 김포고촌 KMTC, 수서 B1-3BL, 이천 덕평(롯데 PFV)
+     — 수익형(렌트롤) 모드 / 케이카 오산동탄 — 공동주택 개발형(RLV) 모드
+   - 물건 상세의 [📊 수익성 시뮬레이션]이 해당 물건의 프리셋으로 연결됩니다.
+   - 공동주택 개발형(mode: 'dev_res'): 용적률·기부채납·분양가·공사비 → 분양수입·사업비 →
+     감당 가능 지가(RLV)를 역산. 2종/3종 비교, 분양가×기부채납·용적률×공사비 2D 민감도.
    - 관리자 코드는 시나리오를 비공개 시트(valuations)에 저장·불러오기
      읽기 전용 코드는 저장 불가, 슬라이더·민감도 테스트는 자유
    ========================================================================= */
@@ -142,38 +145,47 @@
         target_irr: 10
       }
     },
-    /* ── 2026-11-23 추가: 케이카 오산동탄 · 수서 B1-3BL · 롯데 덕평 ───────── */
+    /* ── 2026-11-23 추가: 케이카 오산동탄(공동주택 개발형) · 수서 B1-3BL · 롯데 덕평 ── */
     {
       id: 'kia-osan',
-      name: '케이카 오산동탄 (하나트러스트제7호 · 현 임대수익형)',
-      short: '케이카 오산',
+      name: '케이카 오산동탄 (공동주택 개발형 · RLV)',
+      short: '케이카 개발형',
       asset_ids: ['land-kia-osan'],
-      sector: 'office',
-      src: '하나트러스트제7호 제8기 감사보고서(2026-06-30) 손익·재무주석 + 매각자문사 선정 RFP(2026-11-20)',
-      memo: '연 임대수익 23.52억·관리수익 2.56억 / 장부 취득원가 463.7억(토지 377.9+건물 85.9) / 차입 228억(4.10~4.36%)·보증금 43.5억 / 단일 임차 케이지모빌리티플랫폼·2027-06 만기(2+1년 연장 확약)',
-      verify: '장부원가 463.7억 기준 Going-in Cap 5.07%가 원문에서 그대로 재현됩니다(반기 임대수익 11.76억 × 2). 엑시트 캡 5.25%면 자산 단독 IRR 4.7%·레버리지 6.0%, 5.5%로 두면 4.0%까지 내려갑니다 — 매도인 원가 464억을 회수하려면 임대료 상승이나 개발(도시개발·3종 상향) 옵션이 필요하다는 결론과 맞물립니다.',
+      sector: 'residential',
+      mode: 'dev_res',
+      src: '하나트러스트제7호 제8기 감사보고서(2026-06-30)·매각자문사 선정 RFP(2026-11-20) + 오산시 도시계획 조례 §51(2종 220%·3종 280%) + 오산 은계동·세교2지구 실거래',
+      memo: '2026-11-23 개발형 수지 검토: 기부채납 17%·공사비 680만 기준 — 2종 220% 분양가 1,450/1,550/1,650만 → RLV 81/182/283억 · 3종 280% 1,550/1,650/1,750만 → 232/360/488억. 장부원가 463.7억 회수는 3종에서 분양가 평당 1,731만 원(84㎡ 공급 33평 ≈ 5.7억) 필요',
+      verify: '이 화면의 RLV는 2026-11-23 검토식(순대지 = 사업지 × (1−기부채납), 지상 연면적 = 순대지 × 용적률, 지하 포함 연면적 = 지상 × 1.45, 세대수 = 지상 ÷ 33평, 사업비 = 지하 포함 연면적 × 공사비 + 매출 × 간접·금융·판매비 18% + 매출 × 시행마진 10%)을 그대로 구현했습니다. 기본값(3종 280%·기부채납 17%·공사비 680만·분양가 1,650만)에서 RLV 360억·평당 469만 원으로 검토치와 일치하고, 2종 220%·1,450만에서 81억·1,650만에서 283억이 재현됩니다.',
       notes: [
-        '연 임대수익 23.52억 = 제8기 반기 11.76억 × 2 [원문: 감사보고서 손익계산서]',
-        '관리수익 2.56억 — 시설관리비 2.56억과 상계되어 Y1 NOI 23.5억 [원문: 감사보고서]',
-        '장부 취득원가 463.7억 = 토지 377.9억(평당 493만원) + 건물 85.9억 [원문: 주석 6·7]',
-        '차입 228억 = 우리은행 180억 4.36% + 농협 48억 4.10% → LTV 49.2% [원문: 주석 8]',
-        '임대보증금 43.5억 [원문: 재무상태표]',
-        '임대율 100%·단일 임차라 공실률 0%로 두었습니다 [원문: RFP]',
-        '엑시트 캡 5.25%(5.5%면 IRR 4.0%)·임대료 상승 1.5%/년·연간 CAPEX 0.5억은 시장 가정 [가정] — 1999~2017년 준공 노후 모빌리티 시설',
-        '취득 부대비용 4.6%(토지·건물 취득세 표준세율) [가정]'
+        '사업지: 오산시 은계동 7-30 외 9필지(현충로 95) 대지 25,352㎡ = 7,669평, 자연녹지·시가화예정 주거용지 [원문: RFP·감사보고서]',
+        '인접 3,578평 포함 37,181㎡(11,247평) 도시개발구역 지정 제안서 제출 상태 — 통합 개발 시 사업지 면적을 전환해 보세요 [원문: RFP]',
+        '용적률: 제2종 일반주거 220% / 제3종 일반주거 280% — 오산시 도시계획 조례 §51 상한 [원문]',
+        '기부채납 17%는 도로·공원·녹지 등 기반시설 무상귀속 가정. 자연녹지→3종 상향 시 공공기여가 20~25%로 커질 수 있어 민감도 표에서 함께 보세요 [가정]',
+        '지하 포함 연면적 계수 1.45(세대당 1.3~1.5대 주차), 세대당 공급 33평(84㎡)은 산출 가정 [가정]',
+        '간접비·금융비·판매비 18%, 시행사 마진 10% (분양수입 대비) [가정]',
+        '직접공사비 680만 원/평(지하 포함 연면적 기준) [가정]',
+        '분양가 1,650만 원/평 ≈ 84㎡ 5.4억 원. 은계동 구축 평당 1,120만·세교2지구 신축 1,450만대 실거래 참고 [원문: 실거래]',
+        '오산대역·오산역 도보 약 40분 비역세권 — 분양가 상단(1,850만 이상)은 신축 실거래 상회 구간 [원문: 카카오맵]'
       ],
+      ref: {
+        title: '참고 — 현재 리츠 보유·임대 조건 (하나트러스트제7호 제8기)',
+        rows: [
+          ['연 임대수익', '23.52억 (반기 11.76억 × 2)'],
+          ['관리수익 · 시설관리비', '2.56억 / 2.56억 상계 → Y1 NOI 23.5억'],
+          ['장부 취득원가', '463.7억 (토지 377.9 + 건물 85.9)'],
+          ['차입금', '228억 (우리은행 180억 4.36% · 농협 48억 4.10%)'],
+          ['임차보증금', '43.5억'],
+          ['임차인 · 만기', '케이지모빌리티플랫폼 단일 · 2027-06-30 (2+1년 연장 확약)'],
+          ['Going-in Cap', '5.07% (NOI 23.52억 ÷ 463.7억) · Exit 5.25% 기준 IRR 6.0%'],
+          ['건물', '연면적 8,796.5평 · 1999~2017년 준공 모빌리티 시설']
+        ]
+      },
       inp: {
-        name: '케이카 오산동탄 직영센터', sector: 'office', area_py: 8796.5, hold_years: 5,
-        anchor: 'price', price_eok: 463.7, entry_cap: 0, acq_cost_pct: 4.6, exit_cost_pct: 0.5, exit_cap_pct: 5.25,
-        rent_mode: 'annual', rent_annual: 23.52, rent_per_py_month: 0, rf_months: 0,
-        other_income: 2.56, vacancy_pct: 0, rent_growth_pct: 1.5,
-        opex: 2.56, opex_growth_pct: 2.0, other_cost: 0,
-        capex_initial: 0, capex_annual: 0.5, exit_capex: 0,
-        add_noi: 0, add_noi_start: 2,
-        ltv_senior: 49.2, ltv_mezz: 0, deposit_eok: 43.5,
-        s_rate1: 4.36, s_rate2: 4.36, s_rate3: 4.36,
-        m_rate1: 0, m_rate2: 0, m_rate3: 0,
-        target_irr: 8
+        mode: 'dev_res', name: '케이카 오산동탄 (공동주택 개발형)', sector: 'residential',
+        asset_id: 'land-kia-osan', hold_years: 0, target_irr: 0,
+        area_py: 7669, far_pct: 280, donation_pct: 17,
+        sale_price_py: 1650, dev_cost_py: 680, soft_cost_pct: 18, profit_pct: 10,
+        gfa_factor: 1.45, unit_py: 33, book_eok: 463.7
       }
     },
     {
@@ -379,6 +391,81 @@
       pricePerPy: price > 0 && d.area > 0 ? price * 1e8 / d.area : 0,
       exitPerPy: isFinite(netSale) && d.area > 0 ? netSale * 1e8 / d.area : 0
     };
+  }
+
+  /* ═══════════════════ 공동주택 개발형(RLV) 엔진 ═══════════════════════ */
+  /* 2026-11-23 오산 케이카 개발형 수지 검토식 그대로 구현:
+     순대지 = 사업지 × (1−기부채납)
+     지상 연면적 = 순대지 × 용적률, 지하 포함 연면적 = 지상 × 1.45
+     분양수입 = 지상 연면적 × 분양가
+     사업비 = 지하 포함 연면적 × 직접공사비 + 분양수입 × (간접·금융·판매비 + 시행마진)
+     RLV(감당 지가) = 분양수입 − 사업비                                            */
+  function isDev(inp) { return !!inp && inp.mode === 'dev_res'; }
+
+  var DEV_DEFAULTS = {
+    area_py: 7669, far_pct: 280, donation_pct: 17, sale_price_py: 1650,
+    dev_cost_py: 680, soft_cost_pct: 18, profit_pct: 10,
+    gfa_factor: 1.45, unit_py: 33, book_eok: 463.7
+  };
+
+  /** 저장 시나리오 등 외부 payload 호환: mode 판별 + 개발형 기본값 보정 */
+  function normalizeInp(o) {
+    var p = clone(o || {});
+    if (!p.mode) {
+      p.mode = (p.far_pct !== undefined || p.donation_pct !== undefined || p.sale_price_py !== undefined)
+        ? 'dev_res' : 'income';
+    }
+    if (p.mode === 'dev_res') {
+      for (var k in DEV_DEFAULTS) {
+        if (Object.prototype.hasOwnProperty.call(DEV_DEFAULTS, k) && (p[k] === undefined || p[k] === null || p[k] === '')) p[k] = DEV_DEFAULTS[k];
+      }
+    }
+    return p;
+  }
+
+  function devCalc(inp) {
+    var area = num(inp.area_py, DEV_DEFAULTS.area_py);
+    var far = num(inp.far_pct, DEV_DEFAULTS.far_pct);
+    var don = num(inp.donation_pct, DEV_DEFAULTS.donation_pct);
+    var sp = num(inp.sale_price_py, DEV_DEFAULTS.sale_price_py);
+    var cpp = num(inp.dev_cost_py, DEV_DEFAULTS.dev_cost_py);
+    var soft = num(inp.soft_cost_pct, DEV_DEFAULTS.soft_cost_pct);
+    var profit = num(inp.profit_pct, DEV_DEFAULTS.profit_pct);
+    var gf = num(inp.gfa_factor, DEV_DEFAULTS.gfa_factor);
+    var up = num(inp.unit_py, DEV_DEFAULTS.unit_py);
+    var book = num(inp.book_eok, DEV_DEFAULTS.book_eok);
+
+    var netPy = area * (1 - don / 100);
+    var abovePy = netPy * far / 100;
+    var gfaPy = abovePy * gf;
+    var units = up > 0 ? abovePy / up : NaN;
+    var revenue = abovePy * sp / 1e4;
+    var constCost = gfaPy * cpp / 1e4;
+    var softCost = revenue * soft / 100;
+    var devProfit = revenue * profit / 100;
+    var rlv = revenue - constCost - softCost - devProfit;
+    var fRate = (soft + profit) / 100;
+    var needPrice = (abovePy > 0 && fRate < 1) ? (book + constCost) * 1e4 / (abovePy * (1 - fRate)) : NaN;
+
+    return {
+      area: area, areaSqm: area * 3.305785, netPy: netPy, abovePy: abovePy, gfaPy: gfaPy, units: units,
+      far: far, don: don, sp: sp, cpp: cpp, soft: soft, profit: profit, gf: gf, up: up,
+      revenue: revenue, constCost: constCost, softCost: softCost, devProfit: devProfit,
+      totalCost: constCost + softCost + devProfit,
+      rlv: rlv, rlvPerPy: area > 0 ? rlv * 1e4 / area : NaN,
+      needPrice: needPrice, book: book, gap: rlv - book,
+      gapPct: book > 0 ? (rlv - book) / book * 100 : NaN,
+      recoverPct: book > 0 ? rlv / book * 100 : NaN,
+      costRatio: revenue > 0 ? (constCost + softCost + devProfit) / revenue * 100 : NaN
+    };
+  }
+
+  /** 입력값 일부만 바꾼 개발형 계산 (2종/3종 비교·민감도용) */
+  function devAt(over) {
+    var t = {};
+    for (var k in S.inp) if (Object.prototype.hasOwnProperty.call(S.inp, k)) t[k] = S.inp[k];
+    for (var k2 in over) if (Object.prototype.hasOwnProperty.call(over, k2)) t[k2] = over[k2];
+    return devCalc(t);
   }
 
   /* ═════════════════════════════ 상태 ══════════════════════════════════ */
@@ -629,34 +716,258 @@
     return h;
   }
 
-  function renderAll() {
-    var host = $('#valView');
-    if (!host) return;
-    var r = calc(S.inp);
-    var admin = S.role === 'admin';
-    var html = '';
-    html += '<div class="val-shell">';
-    html += '<div class="val-top">';
-    html += '<div class="val-title"><h2>📊 물건별 밸류에이션 · 민감도</h2>';
-    html += '<p>렌트롤·OPEX·CAPEX → 연도별 현금흐름 → IRR·EM·CoC. 이니셜 캡·엑시트 캡·구간별 금리를 바꿔 즉시 재계산합니다.</p></div>';
-    html += '<div class="val-presets">' + presetHTML() + '</div>';
-    html += '</div>';
+  /* ══════════ 공동주택 개발형(RLV) 화면 ══════════════════════════════ */
+  var DEV_SITE = { single: 7669, merged: 11247 };
 
-    html += '<div class="val-main">';
-    /* 좌: 입력 */
-    html += '<aside class="val-inputs" id="valInputs">' + inputsHTML(r) + '</aside>';
-    /* 우: 결과 */
-    html += '<main class="val-out">';
-    html += '<div class="val-bar">';
-    html += '<span class="val-badge" id="valCalcTag">기준: ' + esc(presetById(S.presetId) ? presetById(S.presetId).name : '사용자 입력') + '</span>';
-    html += '<span class="val-save">' +
-      (admin ? '<input id="valSaveName" type="text" placeholder="시나리오 이름 (예: 종플 3,600억·Exit 5.0%)">' +
+  function devRange(k, label, min, max, step) {
+    var v = num(S.inp[k], DEV_DEFAULTS[k]);
+    return '<div class="vf wide dev-f"><label for="v-' + k + '">' + esc(label) + '</label>' +
+      '<div class="dev-range">' +
+      '<input type="range" data-k="' + k + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + v + '">' +
+      '<input id="v-' + k + '" type="number" inputmode="decimal" data-k="' + k + '" step="' + step + '" value="' + v + '">' +
+      '</div></div>';
+  }
+
+  function devNumber(k, label, min, max, step) {
+    var v = num(S.inp[k], DEV_DEFAULTS[k]);
+    return '<div class="vf wide dev-f"><label for="v-' + k + '">' + esc(label) + '</label>' +
+      '<input id="v-' + k + '" type="number" inputmode="decimal" data-k="' + k + '"' +
+      (step ? ' step="' + step + '"' : '') + (min !== null ? ' min="' + min + '"' : '') +
+      (max !== null ? ' max="' + max + '"' : '') + ' value="' + v + '"></div>';
+  }
+
+  function devInputsHTML(d) {
+    var h = '';
+    h += '<section class="vg"><h4>사업지</h4>';
+    h += '<div class="dev-toggle" data-dev-area>' +
+      '<button type="button" data-area="' + DEV_SITE.single + '" class="' + (Math.abs(d.area - DEV_SITE.single) < 1 ? 'on' : '') + '">본건 단독 7,669평</button>' +
+      '<button type="button" data-area="' + DEV_SITE.merged + '" class="' + (Math.abs(d.area - DEV_SITE.merged) < 1 ? 'on' : '') + '">인접지 통합 11,247평</button>' +
+      '</div>';
+    h += '<div class="vg-grid">' + devNumber('area_py', '사업지 면적(평)', 1000, 30000, 1) + '</div>';
+    h += '<p class="dev-note">' + n0(d.areaSqm) + '㎡ · 기부채납 차감 후 실효 대지 ' + n0(d.netPy) + '평</p>';
+    h += '</section>';
+
+    h += '<section class="vg"><h4>용도지역 · 용적률</h4>';
+    h += '<div class="dev-toggle" data-dev-far>' +
+      '<button type="button" data-far="220" class="' + (Math.abs(d.far - 220) <= Math.abs(d.far - 280) ? 'on' : '') + '">제2종 220%</button>' +
+      '<button type="button" data-far="280" class="' + (Math.abs(d.far - 280) < Math.abs(d.far - 220) ? 'on' : '') + '">제3종 280%</button>' +
+      '</div>';
+    h += '<div class="vg-grid">' + devRange('far_pct', '상한 용적률(%)', 150, 350, 1) + '</div>';
+    h += '<p class="dev-note">지상 연면적 ' + n0(d.abovePy) + '평 · 세대수 ' + n0(d.units) + '세대</p>';
+    h += '</section>';
+
+    h += '<section class="vg"><h4>기부채납 · 분양가</h4><div class="vg-grid">';
+    h += devRange('donation_pct', '기부채납률(%)', 0, 30, 0.5);
+    h += devRange('sale_price_py', '평균 분양가(만 원/평)', 1300, 2100, 10);
+    h += '</div><p class="dev-note">84㎡ 공급 33평 환산 ' + n1(d.sp * d.up / 1e4) + '억 원/세대</p></section>';
+
+    h += '<section class="vg"><h4>공사비 · 개발 제비용</h4><div class="vg-grid">';
+    h += devRange('dev_cost_py', '직접공사비(만 원/평)', 500, 900, 5);
+    h += devRange('soft_cost_pct', '간접·금융·판매비(%)', 0, 30, 0.5);
+    h += devRange('profit_pct', '시행사 마진(%)', 0, 20, 0.5);
+    h += '</div><p class="dev-note">공사비는 지하 포함 연면적 ' + n0(d.gfaPy) + '평 기준 · 제비용·마진은 분양수입 대비</p></section>';
+
+    h += '<section class="vg"><h4>산출 가정 · 비교 기준</h4><div class="vg-grid">';
+    h += devNumber('gfa_factor', '지하 포함 계수(× 지상)', 1.1, 2.0, 0.05);
+    h += devNumber('unit_py', '세대당 공급면적(평)', 20, 50, 1);
+    h += devNumber('book_eok', '기준 토지가액(장부원가, 억)', null, null, 0.1);
+    h += '</div><p class="dev-note">장부원가 463.7억은 리츠 취득원가(토지 377.9 + 건물 85.9)입니다.</p></section>';
+    return h;
+  }
+
+  function devKpiHTML(d) {
+    var ok = d.rlv >= d.book;
+    var priceOk = isFinite(d.needPrice) && d.sp >= d.needPrice;
+    function card(label, value, sub, cls) {
+      return '<div class="vk' + (cls ? ' ' + cls : '') + '"><span class="vk-l">' + esc(label) + '</span>' +
+        '<span class="vk-v">' + value + '</span>' + (sub ? '<span class="vk-s">' + sub + '</span>' : '') + '</div>';
+    }
+    function signed(v, unit, dec) {
+      if (!isFinite(v)) return '-';
+      var a = dec ? n1(Math.abs(v)) : n0(Math.abs(v));
+      return (v >= 0 ? '+' : '−') + a + unit;
+    }
+    return [
+      card('예상 세대수', n0(d.units) + '세대', '84㎡ 공급 ' + n1(d.up) + '평 기준'),
+      card('총 분양수입', n0(d.revenue) + '억', '분양가 ' + n0(d.sp) + '만/평'),
+      card('총 건축·사업비', n0(d.totalCost) + '억', '토지 제외 · 매출의 ' + n1(d.costRatio) + '%'),
+      card('감당 가능 지가 RLV', n0(d.rlv) + '억', '토지 평당 ' + n0(d.rlvPerPy) + '만원', ok ? 'good' : 'bad'),
+      card('장부원가 대비 갭', signed(d.gap, '억'), '장부 ' + n0(d.book) + '억 대비 ' + signed(d.gapPct, '%', true), ok ? 'good' : 'bad'),
+      card('원가 회수 필요 분양가', isFinite(d.needPrice) ? n0(d.needPrice) + '만/평' : '-', '현재 ' + signed(d.sp - d.needPrice, '만', false) + ' · 84㎡ ' + n1(d.needPrice * d.up / 1e4) + '억', priceOk ? 'good' : 'bad'),
+      card('용적률 · 기부채납', n1(d.far) + '% / ' + n1(d.don) + '%', '지상 연면적 ' + n0(d.abovePy) + '평'),
+      card('지하 포함 연면적', n0(d.gfaPy) + '평', '계수 ' + n1(d.gf) + ' × 지상'),
+      card('사업지 면적', n0(d.area) + '평', n0(d.areaSqm) + '㎡ · 실효 ' + n0(d.netPy) + '평'),
+      card('장부원가 회수율', n1(d.recoverPct) + '%', 'RLV ÷ ' + n0(d.book) + '억', ok ? 'good' : 'bad')
+    ].join('');
+  }
+
+  function devCalcHTML(d) {
+    var h = '<table class="dev-t"><tbody>';
+    function row(label, num, memo, cls) {
+      h += '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + esc(label) + '</th>' +
+        '<td class="num' + (label.indexOf('RLV') >= 0 ? (d.rlv >= d.book ? ' pos' : ' neg') : '') + '">' + num + '</td>' +
+        '<td class="memo">' + esc(memo) + '</td></tr>';
+    }
+    row('총 분양수입', '+' + n0(d.revenue) + '억', '지상 ' + n0(d.abovePy) + '평 × ' + n0(d.sp) + '만 원/평');
+    row('직접공사비', '−' + n0(d.constCost) + '억', '지하 포함 ' + n0(d.gfaPy) + '평 × ' + n0(d.cpp) + '만 원/평');
+    row('간접비·금융비·판매비 ' + n1(d.soft) + '%', '−' + n0(d.softCost) + '억', '분양수입 대비');
+    row('시행사 마진 ' + n1(d.profit) + '%', '−' + n0(d.devProfit) + '억', '분양수입 대비');
+    row('감당 가능 지가 RLV', n0(d.rlv) + '억', '토지 평당 ' + n0(d.rlvPerPy) + '만원 (장부 평당 ' + n0(d.book * 1e4 / d.area) + '만원)', 'sum');
+    row('장부 취득원가', n0(d.book) + '억', '토지 377.9 + 건물 85.9');
+    row('차액 (RLV − 장부)', (d.gap >= 0 ? '+' : '−') + n0(Math.abs(d.gap)) + '억', d.gap >= 0 ? '원가 회수 가능' : '원가 회수까지 ' + n0(Math.abs(d.gap)) + '억 부족', 'sum');
+    h += '</tbody></table>';
+    return h;
+  }
+
+  function devCompareHTML(d) {
+    function card(label, x) {
+      var ok = x.rlv >= x.book;
+      var on = Math.abs(x.far - d.far) < 0.5;
+      return '<div class="dev-cmp-card' + (on ? ' is-on' : '') + '">' +
+        '<div class="dcc-head"><h5>' + esc(label) + '</h5>' +
+        '<span class="dcc-tag' + (ok ? ' ok' : '') + '">' + (ok ? '원가 회수' : '원가 미달') + '</span></div><dl>' +
+        '<dt>예상 세대수</dt><dd>' + n0(x.units) + '세대</dd>' +
+        '<dt>총 분양수입</dt><dd>' + n0(x.revenue) + '억</dd>' +
+        '<dt>감당 지가 RLV</dt><dd class="b">' + n0(x.rlv) + '억</dd>' +
+        '<dt>토지 평당</dt><dd>' + n0(x.rlvPerPy) + '만원</dd>' +
+        '<dt>장부 대비 갭</dt><dd class="' + (x.gap >= 0 ? 'pos' : 'neg') + '">' + (x.gap >= 0 ? '+' : '−') + n0(Math.abs(x.gap)) + '억</dd>' +
+        '<dt>필요 분양가</dt><dd>' + (isFinite(x.needPrice) ? n0(x.needPrice) + '만/평' : '-') + '</dd>' +
+        '</dl></div>';
+    }
+    return '<div class="dev-cmp">' + card('제2종 일반주거 220%', devAt({ far_pct: 220 })) +
+      card('제3종 일반주거 280%', devAt({ far_pct: 280 })) + '</div>' +
+      '<p class="mt-hint">현재 사업지 면적·기부채납·분양가·공사비는 그대로 두고 용적률만 2종/3종으로 바꾼 값입니다. 자연녹지에서 3종 직행 시 기부채납이 20% 이상으로 커질 수 있습니다.</p>';
+  }
+
+  function nearestIdx(v, arr) {
+    var best = 0, gap = Infinity;
+    for (var i = 0; i < arr.length; i++) { var g = Math.abs(arr[i] - v); if (g < gap) { gap = g; best = i; } }
+    return best;
+  }
+
+  function devMatrixHTML(rowLabel, colLabel, rowVals, colVals, rowFmt, colFmt, cellFn, baseRow, baseCol, book) {
+    var head = '<tr><th class="mt-corner">' + esc(rowLabel) + ' ↓ / ' + esc(colLabel) + ' →</th>';
+    colVals.forEach(function (c) {
+      head += '<th class="' + (Math.abs(c - baseCol) < 1e-9 ? 'is-base' : '') + '">' + colFmt(c) + '</th>';
+    });
+    head += '</tr>';
+    var body = '';
+    rowVals.forEach(function (rv) {
+      body += '<tr><th class="mt-row' + (Math.abs(rv - baseRow) < 1e-9 ? ' is-base' : '') + '">' + rowFmt(rv) + '</th>';
+      colVals.forEach(function (cv) {
+        var v = cellFn(rv, cv);
+        var cls = [];
+        if (Math.abs(rv - baseRow) < 1e-9 && Math.abs(cv - baseCol) < 1e-9) cls.push('is-base');
+        if (isFinite(v)) {
+          if (v >= book * 1.2) cls.push('good-2');
+          else if (v >= book) cls.push('good');
+          else if (v >= book * 0.9) cls.push('warn');
+        }
+        body += '<td class="' + esc(cls.join(' ')) + '">' + (isFinite(v) ? n0(v) : '-') + '</td>';
+      });
+      body += '</tr>';
+    });
+    return '<table class="mt"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+  }
+
+  function devMatrix1(d) {
+    var rowsV = [], colsV = [15, 17, 19, 21, 23, 25];
+    for (var p = 1450; p <= 1850; p += 50) rowsV.push(p);
+    var baseRow = rowsV[nearestIdx(d.sp, rowsV)];
+    var baseCol = colsV[nearestIdx(d.don, colsV)];
+    return devMatrixHTML('분양가(만원/평)', '기부채납률', rowsV, colsV,
+      function (v) { return n0(v) + '만'; },
+      function (v) { return n1(v) + '%'; },
+      function (sp, don) { return devAt({ sale_price_py: sp, donation_pct: don }).rlv; },
+      baseRow, baseCol, d.book);
+  }
+
+  function devMatrix2(d) {
+    var rowsV = [], colsV = [];
+    for (var f = 200; f <= 280; f += 10) rowsV.push(f);
+    for (var c = 630; c <= 730; c += 20) colsV.push(c);
+    var baseRow = rowsV[nearestIdx(d.far, rowsV)];
+    var baseCol = colsV[nearestIdx(d.cpp, colsV)];
+    return devMatrixHTML('용적률(%)', '직접공사비(만원/평)', rowsV, colsV,
+      function (v) { return n1(v) + '%'; },
+      function (v) { return n0(v) + '만'; },
+      function (far, cpp) { return devAt({ far_pct: far, dev_cost_py: cpp }).rlv; },
+      baseRow, baseCol, d.book);
+  }
+
+  function devNotesHTML() {
+    var p = presetById(S.presetId) || presetById('kia-osan');
+    var h = '';
+    if (!p) return '<div class="val-note-empty">개발형 가정 데이터를 찾을 수 없습니다.</div>';
+    if (p.src) h += '<div class="vs-src"><strong>데이터 출처</strong><p>' + esc(p.src) + '</p></div>';
+    if (p.memo) h += '<div class="vs-memo"><strong>2026-11-23 내부 검토치 (대조용)</strong><p>' + esc(p.memo) + '</p></div>';
+    if (p.verify) h += '<div class="vs-verify"><strong>검증 노트</strong><p>' + esc(p.verify) + '</p></div>';
+    if (p.notes) {
+      h += '<ul class="vs-list">';
+      p.notes.forEach(function (n) {
+        var cls = /\[가정/.test(n) ? 'assume' : 'doc';
+        h += '<li class="' + cls + '"><span class="vs-badge">' + (cls === 'doc' ? '원문' : '가정') + '</span>' + esc(n) + '</li>';
+      });
+      h += '</ul>';
+    }
+    if (p.ref) {
+      h += '<div class="dev-ref"><strong>' + esc(p.ref.title) + '</strong><table class="dev-t sm"><tbody>';
+      p.ref.rows.forEach(function (r) {
+        h += '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    h += '<p class="vs-foot">※ RLV는 분양수입에서 공사비·제비용·시행마진을 뺀 잔여지가로, 토지 취득세·등기비·PF 수수료 세부, 공사비 에스컬레이션, 분양 리스크(미분양)는 반영하지 않은 단순 모델입니다. 실제 입찰가 판단 전 설계·시공사 견적과 분양 검증 필요.</p>';
+    return h;
+  }
+
+  function devBody() {
+    var d = devCalc(S.inp);
+    var h = '';
+    h += '<div class="val-main">';
+    h += '<aside class="val-inputs" id="valInputs">' + devInputsHTML(d) + '</aside>';
+    h += '<main class="val-out">';
+    h += valBarHTML();
+    h += '<div class="val-kpis" id="valKpis">' + devKpiHTML(d) + '</div>';
+    h += '<section class="val-block"><h3>RLV 산출 내역 <span>(단위: 억원)</span></h3><div id="valCalc">' + devCalcHTML(d) + '</div></section>';
+    h += '<section class="val-block"><h3>제2종(220%) vs 제3종(280%) <span>(현재 조건 기준)</span></h3><div id="valCmp">' + devCompareHTML(d) + '</div></section>';
+    h += '<section class="val-block"><div class="val-block-head"><h3>① 분양가 × 기부채납률 → RLV</h3>' +
+      '<span class="seg-mini" data-dev-note>억원 · 초록 ≥ 장부 ' + n0(d.book) + '억</span></div>' +
+      '<div id="valM1">' + devMatrix1(d) + '</div>' +
+      '<p class="mt-hint">행 = 평당 분양가(1,450~1,850만), 열 = 기부채납률(15·17·19·21·23·25%). 민녹색 = 장부원가 이상, 진녹색 = 장부원가 120% 이상, 주황 = 장부원가 90~100%.</p></section>';
+    h += '<section class="val-block"><h3>② 용적률 × 직접공사비 → RLV <span>(억원)</span></h3>' +
+      '<div id="valM2">' + devMatrix2(d) + '</div>' +
+      '<p class="mt-hint">행 = 상한 용적률(200~280%), 열 = 직접공사비(630~730만 원/평, 지하 포함 연면적 기준).</p></section>';
+    h += '<section class="val-block"><h3>가정·출처</h3><div id="valNotes">' + devNotesHTML() + '</div></section>';
+    h += '</main></div>';
+    return h;
+  }
+
+  function valBarHTML() {
+    var admin = S.role === 'admin';
+    var h = '';
+    h += '<div class="val-bar">';
+    h += '<span class="val-badge" id="valCalcTag">기준: ' + esc(presetById(S.presetId) ? presetById(S.presetId).name : '사용자 입력') + '</span>';
+    h += '<span class="val-save">' +
+      (admin ? '<input id="valSaveName" type="text" placeholder="' + (isDev(S.inp) ? '시나리오 이름 (예: 3종 280%·분양 1,650만)' : '시나리오 이름 (예: 종플 3,600억·Exit 5.0%)') + '">' +
         '<button type="button" class="btn-s" id="valSaveBtn">💾 시트에 저장</button>' : '<span class="ro-note">읽기 전용 — 저장 불가(계산·민감도는 자유)</span>') +
       '<span class="sv-load">' + savedHTML() + '</span>' +
       '<button type="button" class="btn-s ghost" id="valLoadBtn">불러오기</button>' +
       (admin ? '<button type="button" class="btn-s ghost" id="valDelBtn">삭제</button>' : '') +
       '</span>';
-    html += '</div>';
+    h += '</div>';
+    return h;
+  }
+
+  /** 수익형(임대) 화면 본문 — 기존 동작 그대로 */
+  function incBody(r) {
+    var html = '';
+    html += '<div class="val-main">';
+    /* 좌: 입력 */
+    html += '<aside class="val-inputs" id="valInputs">' + inputsHTML(r) + '</aside>';
+    /* 우: 결과 */
+    html += '<main class="val-out">';
+    html += valBarHTML();
     html += '<div class="val-kpis" id="valKpis">' + kpiHTML(r) + '</div>';
     html += '<section class="val-block"><h3>연도별 현금흐름 <span>(단위: 억원)</span></h3><div class="val-table-wrap" id="valCF">' + cashflowHTML(r) + '</div></section>';
 
@@ -684,14 +995,32 @@
       }).join('') + '</span></div></section>';
 
     html += '<section class="val-block"><h3>가정·출처</h3><div id="valNotes">' + notesHTML() + '</div></section>';
-    html += '</main></div></div>';
+    html += '</main></div>';
+    return html;
+  }
 
+  function topHTML() {
+    var dev = isDev(S.inp);
+    return '<div class="val-top"><div class="val-title"><h2>' +
+      (dev ? '🏗️ 공동주택 개발형 수지 · RLV' : '📊 물건별 밸류에이션 · 민감도') + '</h2><p>' +
+      (dev
+        ? '사업지·용적률·기부채납·분양가·공사비 → 분양수입·사업비 → 감당 가능 지가(RLV). 장부원가 대비 갭과 원가 회수 필요 분양가를 실시간 계산합니다.'
+        : '렌트롤·OPEX·CAPEX → 연도별 현금흐름 → IRR·EM·CoC. 이니셜 캡·엑시트 캡·구간별 금리를 바꿔 즉시 재계산합니다.') +
+      '</p></div><div class="val-presets">' + presetHTML() + '</div></div>';
+  }
+
+  function renderAll() {
+    var host = $('#valView');
+    if (!host) return;
+    var dev = isDev(S.inp);
+    var html = '<div class="val-shell">' + topHTML() + (dev ? devBody() : incBody(calc(S.inp))) + '</div>';
     host.innerHTML = html;
     bindAll();
   }
 
   /** 값 변경 시 결과부만 다시 그림 (입력 포커스 유지) */
   function recalcOnly() {
+    if (isDev(S.inp)) { recalcDevOnly(); return; }
     var r = calc(S.inp);
     var k = $('#valKpis'); if (k) k.innerHTML = kpiHTML(r);
     var cf = $('#valCF'); if (cf) cf.innerHTML = cashflowHTML(r);
@@ -706,8 +1035,33 @@
     syncLinkedFields();
   }
 
+  /** 개발형: 결과부 + 토글 상태만 갱신 */
+  function recalcDevOnly() {
+    var d = devCalc(S.inp);
+    var k = $('#valKpis'); if (k) k.innerHTML = devKpiHTML(d);
+    var c = $('#valCalc'); if (c) c.innerHTML = devCalcHTML(d);
+    var cmp = $('#valCmp'); if (cmp) cmp.innerHTML = devCompareHTML(d);
+    var m1 = $('#valM1'); if (m1) m1.innerHTML = devMatrix1(d);
+    var m2 = $('#valM2'); if (m2) m2.innerHTML = devMatrix2(d);
+    var tag = $('#valCalcTag');
+    if (tag) {
+      var p = presetById(S.presetId);
+      tag.textContent = '기준: ' + (p ? p.name : '사용자 입력');
+      tag.classList.toggle('modified', !!p && !sameInp(p.inp, S.inp));
+    }
+    $$('[data-dev-area] button').forEach(function (b) {
+      b.classList.toggle('on', Math.abs(d.area - num(b.getAttribute('data-area'))) < 1);
+    });
+    $$('[data-dev-far] button').forEach(function (b) {
+      var v = num(b.getAttribute('data-far'));
+      var other = v === 220 ? 280 : 220;
+      b.classList.toggle('on', Math.abs(d.far - v) < Math.abs(d.far - other));
+    });
+  }
+
   function sameInp(a, b) {
-    for (var k in a) if (Object.prototype.hasOwnProperty.call(a, k) && k !== 'target_irr' && String(a[k]) !== String(b[k])) return false;
+    var skip = { target_irr: 1, name: 1, anchor: 1, asset_id: 1 };
+    for (var k in a) if (Object.prototype.hasOwnProperty.call(a, k) && !skip[k] && String(a[k]) !== String(b[k])) return false;
     return true;
   }
 
@@ -725,6 +1079,62 @@
   }
 
   /* ═════════════════════════════ 이벤트 ════════════════════════════════ */
+  /** 수익형 입력 바인딩 (기존 동작 그대로) */
+  function bindIncomeInputs() {
+    var inputs = $('#valInputs');
+    if (!inputs) return;
+    inputs.addEventListener('input', function (e) {
+      var el = e.target;
+      var k = el.getAttribute('data-k');
+      if (!k) return;
+      if (k === 'rent_mode') {
+        S.inp.rent_mode = el.value;
+        renderAll();
+        return;
+      }
+      if (k === 'sector') S.inp.sector = el.value;
+      else if (el.type === 'text') S.inp[k] = el.value;
+      else S.inp[k] = el.value === '' ? '' : num(el.value);
+      if (k === 'price_eok') S.inp.anchor = 'price';
+      if (k === 'entry_cap') S.inp.anchor = 'cap';
+      recalcOnly();
+    });
+    inputs.addEventListener('change', function (e) {
+      var k = e.target.getAttribute('data-k');
+      if (k === 'rent_mode') { S.inp.rent_mode = e.target.value; renderAll(); }
+      if (k === 'hold_years') { recalcOnly(); }
+    });
+  }
+
+  /** 개발형 입력 바인딩 — 슬라이더·숫자 입력을 짝지어 동기화 */
+  function bindDevInputs() {
+    var inputs = $('#valInputs');
+    if (!inputs) return;
+    inputs.addEventListener('input', function (e) {
+      var el = e.target;
+      var k = el.getAttribute('data-k');
+      if (!k) return;
+      if (el.value === '') return;                       // 입력 중 빈칸은 무시
+      S.inp[k] = num(el.value);
+      $$('[data-k="' + k + '"]', inputs).forEach(function (x) {
+        if (x !== el && x.value !== el.value) x.value = el.value;
+      });
+      recalcDevOnly();
+    });
+    $$('[data-dev-area] button', inputs).forEach(function (b) {
+      b.addEventListener('click', function () {
+        S.inp.area_py = num(b.getAttribute('data-area'));
+        renderAll();
+      });
+    });
+    $$('[data-dev-far] button', inputs).forEach(function (b) {
+      b.addEventListener('click', function () {
+        S.inp.far_pct = num(b.getAttribute('data-far'));
+        renderAll();
+      });
+    });
+  }
+
   function bindAll() {
     var host = $('#valView');
     if (!host) return;
@@ -735,37 +1145,14 @@
         var p = presetById(id);
         if (!p) return;
         S.presetId = id;
-        S.inp = clone(p.inp);
+        S.inp = normalizeInp(clone(p.inp));
         S.inp.anchor = 'price';
         renderAll();
         toast(p.name + ' 프리셋을 불러왔습니다.');
       });
     });
 
-    var inputs = $('#valInputs');
-    if (inputs) {
-      inputs.addEventListener('input', function (e) {
-        var el = e.target;
-        var k = el.getAttribute('data-k');
-        if (!k) return;
-        if (k === 'rent_mode') {
-          S.inp.rent_mode = el.value;
-          renderAll();
-          return;
-        }
-        if (k === 'sector') S.inp.sector = el.value;
-        else if (el.type === 'text') S.inp[k] = el.value;
-        else S.inp[k] = el.value === '' ? '' : num(el.value);
-        if (k === 'price_eok') S.inp.anchor = 'price';
-        if (k === 'entry_cap') S.inp.anchor = 'cap';
-        recalcOnly();
-      });
-      inputs.addEventListener('change', function (e) {
-        var k = e.target.getAttribute('data-k');
-        if (k === 'rent_mode') { S.inp.rent_mode = e.target.value; renderAll(); }
-        if (k === 'hold_years') { recalcOnly(); }
-      });
-    }
+    if (isDev(S.inp)) bindDevInputs(); else bindIncomeInputs();
 
     $$('[data-metric1] button', host).forEach(function (b) {
       b.addEventListener('click', function () {
@@ -840,13 +1227,22 @@
     var host = $('#valView');
     var nameEl = $('#valSaveName');
     var name = (nameEl && nameEl.value.trim()) || (S.inp.name + ' ' + new Date().toISOString().slice(5, 10));
-    var r = calc(S.inp);
     var payload = clone(S.inp);
-    payload._metric = {
-      irr: Math.round(r.levIrr * 10000) / 100, coc: Math.round(r.avgCoc * 10000) / 100,
-      em: Math.round(r.em * 100) / 100, price: Math.round(r.price * 10) / 10,
-      entryCap: Math.round(r.entryCap * 10000) / 100, exitValue: Math.round(r.exitValue)
-    };
+    if (isDev(S.inp)) {
+      var dv = devCalc(S.inp);
+      payload._metric = {
+        rlv: Math.round(dv.rlv), rlvPerPy: Math.round(dv.rlvPerPy), units: Math.round(dv.units),
+        revenue: Math.round(dv.revenue), needPrice: Math.round(dv.needPrice), gap: Math.round(dv.gap),
+        far: dv.far, donation: dv.don, salePrice: dv.sp, book: dv.book
+      };
+    } else {
+      var r = calc(S.inp);
+      payload._metric = {
+        irr: Math.round(r.levIrr * 10000) / 100, coc: Math.round(r.avgCoc * 10000) / 100,
+        em: Math.round(r.em * 100) / 100, price: Math.round(r.price * 10) / 10,
+        entryCap: Math.round(r.entryCap * 10000) / 100, exitValue: Math.round(r.exitValue)
+      };
+    }
     var rec = {
       id: 'val-' + Date.now().toString(36),
       name: name,
@@ -876,7 +1272,7 @@
     var hit = null;
     for (var i = 0; i < S.saved.length; i++) if (S.saved[i].id === id) hit = S.saved[i];
     if (!hit) return;
-    S.inp = clone(hit.payload);
+    S.inp = normalizeInp(clone(hit.payload));
     S.inp.anchor = 'price';
     S.presetId = '';
     renderAll();
@@ -937,7 +1333,7 @@
     }
     if (p) {
       S.presetId = p.id;
-      S.inp = clone(p.inp);
+      S.inp = normalizeInp(clone(p.inp));
       S.inp.asset_id = a.id;
       S.inp.name = a.name || S.inp.name;
     } else {
@@ -978,7 +1374,7 @@
     if (!S.inp) {
       var p = presetById(S.presetId) || PRESETS[0];
       S.presetId = p.id;
-      S.inp = clone(p.inp);
+      S.inp = normalizeInp(clone(p.inp));
       S.inp.anchor = 'price';
     }
     renderAll();
@@ -996,7 +1392,7 @@
     if (!$('#valView')) return;
     S.booted = true;
     var p = presetById(S.presetId) || PRESETS[0];
-    S.inp = clone(p.inp);
+    S.inp = normalizeInp(clone(p.inp));
     S.inp.anchor = 'price';
     document.addEventListener('click', function (e) {
       var t = e.target;
@@ -1005,7 +1401,7 @@
   }
 
   /* 노드 테스트용 코어 노출 */
-  window.NAI_VAL_CORE = { calc: calc, derive: derive, irr: irr, PRESETS: PRESETS };
+  window.NAI_VAL_CORE = { calc: calc, derive: derive, irr: irr, PRESETS: PRESETS, devCalc: devCalc, isDev: isDev };
   window.NAI_VAL = {
     show: show,
     openForAsset: openForAsset,

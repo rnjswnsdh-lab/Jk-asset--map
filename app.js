@@ -2540,14 +2540,24 @@
        타일이 엉뚱한 곳을 그리는 문제를 고칩니다(홈 첫 화면 도입 2026-11-23). */
     onShow: function () {
       if (!state.mapReady || !state.map) return;
-      try { state.map.relayout(); } catch (e) { /* noop */ }
-      var c = null;
-      try { c = state.map.getCenter(); } catch (e) { /* noop */ }
-      if (!c || (Math.abs(c.getLat()) < 1 && Math.abs(c.getLng()) < 1)) {
+      var relayout = function () { try { state.map.relayout(); } catch (e) { /* noop */ } };
+      var centerOk = function () {
+        var c = null;
+        try { c = state.map.getCenter(); } catch (e) { /* noop */ }
+        return !!(c && (Math.abs(c.getLat()) > 1 || Math.abs(c.getLng()) > 1));
+      };
+      var recenter = function () {
         state.map.setCenter(new kakao.maps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng));
         state.map.setLevel(DEFAULT_LEVEL);
-        fitBounds();
-      }
+      };
+      relayout();
+      if (!centerOk()) recenter();
+      /* 컨테이너가 숨김→표시되면 크기가 0에서 복구되므로 레이아웃이 끝난 뒤 한 번 더 */
+      setTimeout(relayout, 80);
+      setTimeout(function () {
+        relayout();
+        if (!centerOk()) { recenter(); fitBounds(); }
+      }, 260);
     },
     openAdd: function (prefill) { state._addPrefill = prefill || {}; state.panelMode = 'add'; renderDetail(); $('#detailPanel').classList.remove('hidden'); }
   };

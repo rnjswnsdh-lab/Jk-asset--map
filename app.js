@@ -2107,6 +2107,10 @@
     initFilters();
     applyFilters();
     updateStorageHint();
+    /* 데이터(2,429건)가 늦게 도착했을 때 열려 있는 AI 매칭 화면도 다시 그린다 */
+    if (window.NAI_MATCH && document.body.classList.contains('view-match')) {
+      try { window.NAI_MATCH.show(); } catch (e6) { /* noop */ }
+    }
     /* 데이터·권한이 도착한 뒤 밸류에이션 화면이 '읽기 전용'으로 남아 있지 않도록 재렌더 */
     var vv = document.getElementById('valView');
     if (vv && !vv.classList.contains('hidden') && window.NAI_VAL && window.NAI_VAL.show) {

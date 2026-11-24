@@ -26,7 +26,7 @@
   var S = {
     built: false, sub: 'visitor', loaded: false, loading: false,
     logs: [], byVisitor: {}, byAsset: {}, byId: {}, nameToId: {},
-    sessions: null, contacts: null, lois: null,
+    sessions: null, contacts: null, contactsRows: [], lois: null, extLoaded: false, extLoading: false, loisLoading: false,
     q: '', role: 'ALL', days: 0, sort: 'recent',
     expand: {}, assetFocus: null, note: '', dirty: false
   };
@@ -183,30 +183,34 @@
     });
   }
 
-  function loadSessions(force) {
-    if (S.sessions && !force) return Promise.resolve();
-    apiGet('sessions').then(function (j) {
-      S.sessions = (j && j.ok) ? (j.sessions || []) : [];
-      if (j && !j.ok) S.sessions = [];
+  function loadExt(force) {
+    if (S.extLoading) return;
+    if (S.extLoaded && !force) return;
+    S.extLoading = true;
+    Promise.all([apiGet('sessions'), apiGet('new_contacts'), apiGet('lois')]).then(function (arr) {
+      var se = arr[0], ct = arr[1], lo = arr[2];
+      S.sessions = (se && se.ok) ? (se.sessions || []) : [];
+      S.contactsRows = (ct && ct.ok) ? (ct.contacts || []) : [];
+      S.contacts = S.contactsRows.length;
+      if (lo && lo.ok) S.lois = lo.items || [];
+      S.extLoaded = true;
+      S.extLoading = false;
       render();
-    }).catch(function () { S.sessions = []; render(); });
-  }
-  function loadContacts(force) {
-    if (S.contacts && !force) return Promise.resolve();
-    Promise.all([apiGet('new_contacts'), apiGet('lois')]).then(function (arr) {
-      var c = arr[0], l = arr[1];
-      S.contacts = (c && c.ok) ? Math.max(0, (c.contacts || []).length) : 0;
-      S.contactsRows = (c && c.ok) ? (c.contacts || []) : [];
-      S.lois = (l && l.ok) ? (l.items || []) : [];
+    }).catch(function () {
+      S.sessions = []; S.contactsRows = []; S.extLoaded = true; S.extLoading = false;
       render();
-    }).catch(function () { render(); });
+    });
   }
+
   function loadLois(force) {
-    if (S.lois && !force) return Promise.resolve();
+    if (S.loisLoading) return;
+    if (S.lois && !force) return;
+    S.loisLoading = true;
     apiGet('lois').then(function (j) {
       S.lois = (j && j.ok) ? (j.items || []) : [];
+      S.loisLoading = false;
       render();
-    }).catch(function () { S.lois = []; render(); });
+    }).catch(function () { S.lois = []; S.loisLoading = false; render(); });
   }
 
   function setLoadNote(t) {
@@ -344,7 +348,7 @@
       S.sub = sub.getAttribute('data-ad-sub');
       S.assetFocus = null;
       $$('.ad-sub', $('#adminView')).forEach(function (b) { b.classList.toggle('is-active', b === sub); });
-      if (S.sub === 'ext') loadContacts();
+      if (S.sub === 'ext') loadExt();
       if (S.sub === 'tr') loadLois();
       render();
       return;
@@ -525,7 +529,7 @@
   function renderExt() {
     var html = '';
     html += '<div class="ad-hint">외부 방문자 세션(ext_sessions)과 신규 컨택(new_contacts) — 명함 인증·신규 등록으로 발급된 접근 기록.</div>';
-    if (!S.sessions) { loadContacts(); html += '<p class="ad-empty">불러오는 중…</p>'; return html; }
+    if (!S.extLoaded) { loadExt(); html += '<p class="ad-empty">불러오는 중…</p>'; return html; }
     html += '<h4 class="ad-h4">🔐 외부 세션 (' + nfmt((S.sessions || []).length) + ')</h4>';
     if (!(S.sessions || []).length) html += '<p class="ad-empty">발급된 외부 세션이 없습니다.</p>';
     else {
@@ -628,7 +632,7 @@
         b.classList.toggle('is-active', b.getAttribute('data-ad-sub') === 'asset');
       });
     }
-    loadLois(false);
+    loadExt(false);
     load(false).then(function () { if (assetId && S.loaded) render(); });
     render();
   }

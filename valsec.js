@@ -39,10 +39,11 @@
   }
 
   /** 개발형(골프·DC)은 조성비를 CAPEX 로 옮긴 사본으로 현금흐름을 계산한다 */
-  function finOf(inp, capexEok) {
+  function finOf(inp, capexEok, dev) {
     var o = {};
     for (var k in inp) if (Object.prototype.hasOwnProperty.call(inp, k)) o[k] = inp[k];
     o.capex_eok = capexEok;
+    o._dev = dev ? 1 : 0;
     return o;
   }
 
@@ -89,7 +90,7 @@
       dscrMin: dscrMin, entryCap: total > 0 ? noi1 / total * 100 : NaN
     };
     /* 매입가 미입력(0) 이면 IRR·수익률은 의미가 없으므로 '-' 처리 (공사비만 투자한 것으로 읽히는 것을 막는다) */
-    if (!(num(inp.price_eok) > 0)) {
+    if (!(num(inp.price_eok) > 0) && !inp._dev) {
       res.levIrr = NaN; res.unlevIrr = NaN; res.em = NaN; res.avgCoc = NaN; res.entryCap = NaN;
       res.needPrice = true;
     }
@@ -282,7 +283,7 @@
       var sga = rev * num(inp.sga_pct) / 100;
       var ebit = rev - maint - cartMgmt - fbCogs - otherCogs - sga;
       var totalInv = num(inp.dev_eok) + num(inp.land_eok) + num(inp.price_eok);
-      var fin = finOf(inp, num(inp.dev_eok) + num(inp.land_eok));
+      var fin = finOf(inp, num(inp.dev_eok) + num(inp.land_eok), true);
       var out = cf(fin, ebit, inp.noi_growth_pct);
       out.rev = rev; out.visitors = v; out.green = green; out.cart = cart; out.fb = fb; out.shelter = shelter; out.other = other;
       out.maint = maint; out.cartMgmt = cartMgmt; out.fbCogs = fbCogs; out.otherCogs = otherCogs; out.sga = sga;
@@ -449,7 +450,7 @@
       var noi = rev - opex;
       var dev = mw * num(inp.dev_per_mw);
       var total = dev + num(inp.land_eok) + num(inp.capex_eok) + num(inp.price_eok);
-      var out = cf(finOf(inp, dev + num(inp.land_eok)), noi, inp.noi_growth_pct);
+      var out = cf(finOf(inp, dev + num(inp.land_eok), true), noi, inp.noi_growth_pct);
       if (num(inp.price_eok) > 0 && dev <= 0) out.total = num(inp.price_eok) * (1 + num(inp.acq_cost_pct) / 100);
       out.rev = rev; out.power = power; out.opex = opex; out.noi = noi; out.dev = dev;
       out.devTotal = total; out.yield = total > 0 ? noi / total * 100 : NaN;

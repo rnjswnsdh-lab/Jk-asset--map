@@ -24,6 +24,7 @@
   function role() { return (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external'; }
   function me() { return (window.naiMap && window.naiMap.me) ? window.naiMap.me() : null; }
   function isAdmin() { return role() === 'admin'; }
+  function isLogi() { return role() === 'logi'; }
 
   function toast(msg, err) {
     var el = $('#toast');
@@ -179,7 +180,7 @@
     html += tile('➕', '물건등록', 'TM / IM / 직접 입력', 'register');
     html += tile('📝', '인수·임차의향서', '매입·임차 조건 제출', 'loi');
     html += tile('📝', '딜·참여 등록', '매각·매입·임대·TR·호텔·금융 6종', 'hub');
-    html += tile('🏢', '자문사 VDR', 'RFP·렌트롤·LOI·AI 쇼트리스트', 'vdr');
+    if (!isLogi()) html += tile('🏢', '자문사 VDR', 'RFP·렌트롤·LOI·AI 쇼트리스트', 'vdr'); /* 물류TF 는 VDR·FI·SI 접근 없음 */
     html += tile('📊', '3Q 마켓 리포트', 'NAI Research 2026 Q3', 'report');
     html += tile('💰', '대출요청·조건제시', '금액·LTV·금리·만기', 'loan');
     html += tile('📄', 'TM 제작', 'NAI 양식 티저·브리프', 'tm');

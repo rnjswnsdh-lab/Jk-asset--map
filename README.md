@@ -1,8 +1,38 @@
-# Open AI Asset Bridge (가칭)
+# Open AI Asset Bridge
 
 NAI Korea의 상업용 부동산 물건 DB(호텔 · 물류센터 · 오피스 · 데이터센터 · 화주·임차수요)와
 투자자 풀(SI·화주 / FI)을 카카오맵·카드 목록 위에서 조회·검색·필터·수정하는 단일 페이지 웹앱입니다.
 **로그인 후 첫 화면은 `🏠 홈`(딜 브릿지 대시보드)** 이고, 지도·SI/FI·밸류에이션은 상단 탭에서 이어집니다.
+
+## 🚀 2단계 대개편 (2026-11-24)
+
+| 기능 | 내용 | 파일 |
+| --- | --- | --- |
+| **📊 2026 3Q 마켓 리포트** | 헤더 `📊` 버튼·홈 배너로 팝업 뷰어. 권역별 NOC·공실률, 오피스/리테일 요약, 주요 거래 20건, 인사이트 | `report.js` `market_review_2026q3.js` |
+| **📝 딜·참여 등록 허브** | 기존 TR 모달을 6종으로 확장 — ①매각 ②매입/투자 ③임대·LM ④TR 임차의뢰 ⑤호텔 운영 ⑥대출/금융 PR. `lois` 시트에 `request_type` 컬럼 추가(기존 TR 데이터는 'TR'로 자동 인식) | `hub.js` `Hub.gs` |
+| **🏢 자문사 VDR** | 딜룸별 RFP·렌트롤·OPEX·CAPEX 등록·열람, LOI/최종입찰 접수·조회, **🤖 AI 쇼트리스트**(가격 40·자금조달 30·조건 30 가중 채점, 브라우저 내 계산 → 외부 API·키 없음) | `vdr.js` `Hub.gs` |
+| **🏗️ 밸류애드 시뮬레이터** | 임대료 상향률·공실 해소(%p)·CAPEX·Exit Cap 변동·성장률을 직접 조절해 As-Is vs Value-Add의 NOI·Exit 가치·IRR·EM·가치/CAPEX를 실시간 비교(프리셋 4종 포함) | `valuation.js` |
+| **📘 IM 프리뷰 개편** | 표지·Deal Summary·입지·건축·임대운영·수지·매각포인트·일정·Contact 9장. 원문 IM 보유 건은 `원문 열람 요청` 배너, 없으면 `제작 요청`(접수 → NAI 양식 PPTX/PDF 1~2영업일) | `home.js` |
+| **🚚 SI/화주/FI 3분리 + CRM** | `🏢 SI (사옥·전략투자)` · `🚚 물류센터 화주` · `🏦 FI 풀` 분리, 화주·SI 상세에 **미팅·의향 타임라인**과 기록 입력(→ `crm_logs`) | `investors.js` `crm.js` |
+| **🗺️ TR 임차수요 지도 레이어** | 지도 상단 `📋 TR 수요` 토글로 접수된 TR 임차의뢰를 지도에 표시 | `trmap.js` |
+| **🔑 NAI 매각 / 🔑 NAI 임대(LM)** | NAI 매각·LM 매물을 지도 없이 카드 목록으로. LM은 임차인 모집중 / 임대 진행중 / 임대 완료 상태 칩 | `nai.js` |
+
+### 권한 4단 (2026-11-24 개편)
+
+| 역할 | 접속코드 | 볼 수 있는 것 |
+| --- | --- | --- |
+| **관리자** | (별도 관리자 코드) | 전체 + 수정·삭제 + 접수 내역 + VDR 관리 |
+| **내부 CM팀** | `NAICM2027` | 전체 물건·SI·화주·FI·VDR 조회·등록. 전화번호는 서버에서 `비공개` |
+| **물류TF** | `NAILOGI2027` | 물류센터 섹터 · 물류 화주 풀 · 화주 CRM 만. VDR·FI·SI 탭 자체가 숨겨지고 서버도 거부 |
+| **외부 방문자** | 리멤버 명함 인증 | 조회·시뮬레이션만, 담당자 연락처 미제공 |
+
+> 코드는 앱 번들에 평문으로 두지 않고 SHA-256 해시만 서버에서 검증합니다(이전 `nai2026` 코드는 폐기).
+
+### VDR / 허브 API (Apps Script v7 · `Hub.gs`)
+
+- `GET ?type=requests|vdr_rooms|vdr_docs&room=|vdr_bids&room=|crm`
+- `POST {action:'submit_request'|'vdr_room_save'|'vdr_doc_save'|'vdr_doc_delete'|'vdr_bid_submit'|'vdr_bid_status'|'crm_save'}`
+- 최초 1회 편집기에서 `hubSetup` 실행 → `vdr_rooms`·`vdr_docs`·`vdr_bids`·`crm_logs` 시트 생성 + `lois` 헤더 확장
 
 ## 🏠 홈 — 딜 브릿지 대시보드 (2026-11-23 추가)
 
@@ -48,13 +78,14 @@ python3 work_tm_im/generate_tm_im.py --json <물건 JSON> --kind TM --preview
 - `GET ?type=lois|loans|doc_requests|proposals` — 관리자 전용
 - `POST {action:'submit_loi'|'submit_loan'}` · `{action:'request_doc', doc_type:'TM'|'IM'}` · `{action:'submit_asset', proposal:{…}}` — 전 권한(신원·권한은 세션에서 기록)
 - `POST {action:'article_save'|'article_delete'|'notice_save'|'notice_delete'|'proposal_approve'|'submission_status'}` — 관리자 전용
-**가칭 `Open AI Asset Bridge`**는 NAI Korea 물건 DB를 기반으로 만든 프로토타입입니다.
+**`Open AI Asset Bridge`**는 NAI Korea 물건 DB를 기반으로 만든 프로토타입입니다.
 빌드 도구 없이 정적 파일만으로 동작하며, GitHub Pages에서 서빙됩니다.
 
 - 배포 주소: <https://rnjswnsdh-lab.github.io/Jk-asset--map/>
-- 접속은 **3단계 권한**입니다. 코드/인증이 없으면 물건 데이터는 1건도 로드되지 않습니다.
+- 접속은 **4단계 권한**입니다. 코드/인증이 없으면 물건 데이터는 1건도 로드되지 않습니다.
   - **관리자** — 조회 + 수정·추가·삭제 + 저장 + 메일 발송
-  - **내부용** — 전체 조회(이메일 유지)만. 전화번호는 서버가 `비공개`로 가리고, 쓰기는 서버가 거부
+  - **내부 CM팀**(`NAICM2027`) — 전체 조회 + VDR·SI·FI 등록. 전화번호는 서버가 `비공개`로 가림
+  - **물류TF**(`NAILOGI2027`) — 물류센터 섹터·화주 풀·화주 CRM 만. VDR·FI·SI 차단
   - **외부 방문자** — 리멤버 명함 인증(또는 신규 등록)으로 발급된 세션. 조회·시뮬레이션만 가능하고
     담당자 컨택포인트(이름·직책·이메일·전화)는 서버가 내려주지 않으며 메일 발송 바가 숨겨집니다
 

@@ -186,7 +186,8 @@
       <p id="poolMeta" class="pool-meta">불러오는 중…</p>
     </div>
     <div class="pool-tools">
-      <button id="poolAddBtn" class="btn btn-primary hidden" type="button">＋ 대상 추가</button>
+      <button id="poolAddBtn" class="btn btn-primary hidden" type="button">＋ 컨택 추가</button>
+      <button id="poolXlsx" class="btn btn-ghost" type="button" title="현재 탭·필터 기준으로 엑셀(.xlsx) 다운로드">📥 엑셀 다운로드</button>
       <button id="poolRefresh" class="btn btn-ghost" type="button">↻ 새로고침</button>
     </div>
   </div>
@@ -202,6 +203,10 @@
       </span>
       <label class="pf-toggle"><input id="poolOnlyEmail" type="checkbox"> 이메일 있는 건만</label>
       <label class="pf-toggle hidden" id="poolFundOnlyWrap"><input id="poolFundOnly" type="checkbox"> 펀드 정보 있는 건만</label>
+      <select id="poolOwnerSel" class="pf-owner" aria-label="NAI 담당자 필터" title="NAI 담당자별로 보기">
+        <option value="ALL">담당자 전체</option>
+        <option value="__NONE__">담당 미지정</option>
+      </select>
       <span id="poolResultCount" class="pf-count">0건</span>
       <span class="pf-right">
         <button id="poolSelectAll" class="mini-btn" type="button">결과 전체 선택</button>
@@ -339,9 +344,10 @@ window.__errs = [];
 window.addEventListener('error', function (e) { window.__errs.push(String((e && e.message) || e)); });
 window.addEventListener('unhandledrejection', function (e) { window.__errs.push('rejection: ' + String(e && e.reason)); });
 </script>
-<script src="config.js?v=20261124y"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
+<script src="config.js?v=20261125b"></script>
 <script src="app.js?v=20261125a"></script>
-<script src="investors.js?v=20261124y"></script>
+<script src="investors.js?v=20261125b"></script>
 <script src="valsec.js?v=20261124y"></script>
 <script src="valuation.js?v=20261124y"></script>
 <script src="home.js?v=20261124y"></script>

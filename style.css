@@ -2469,3 +2469,12 @@ body.role-logi [data-home="loan"] { display: none !important; }
 .sh-spacer { flex: 1; }
 .action-btn.share { background: #eef4ff; color: #0b4a8f; border-color: #cfe0fa; }
 .hub-share { padding: 2px 7px; font-size: 12px; }
+
+/* ── 📇 SI·화주·FI 컨택포인트 · NAI 담당자 (2026-11-25) ─────────── */
+.pr-owner { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800;
+  color: #0b4a8f; background: #eaf2ff; border: 1px solid #d3e2fb; border-radius: 20px; padding: 1px 7px; }
+.pr-owner.none { color: #8a97a6; background: #f4f6f9; border-color: #e6ebf1; font-weight: 700; }
+.pf-owner { height: 30px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  font-size: 11.6px; color: var(--text-2); padding: 0 8px; max-width: 190px; }
+.pf-owner:focus { outline: none; border-color: var(--navy-3); box-shadow: 0 0 0 3px rgba(27,75,125,.12); }
+.mf-req { font-size: 9px; font-weight: 800; color: #0b6bcb; background: #e8f0fd; border-radius: 10px; padding: 1px 6px; margin-left: 3px; }

@@ -48,24 +48,40 @@
   }
 
   /* ───────────────────────── 메일 본문 생성 ───────────────────────── */
+  /* 본문에 넣어도 되는 조건만 남깁니다.
+     - 접수경로·연락처·자유 메모(메모=)는 제외: 실명·힌트가 섞일 수 있음
+     - 위 구조화 필드(권역·면적·예산·시기)와 겹치는 항목은 중복 제거 */
+  var DROP_SEG = /^(접수경로|연락처|메모)=/;
+  var DUP_SEG = /^(희망 지역 · 권역|희망 지역|희망 면적|희망 임대료 · 예산|입주 희망 시기|예산|필요 규모|희망 시기|섹터)=/;
   function cleanMemo(memo) {
     var s = String(memo || '');
     s = s.replace(/^\[[^\]]*\]\s*/, '');
-    s = s.split('|').map(function (p) {
+    return s.split('|').map(function (p) {
       var t = p.trim();
-      if (/^접수경로=/.test(t)) return '';
-      if (/^연락처=미확인$/.test(t)) return '';
+      if (!t) return '';
+      if (DROP_SEG.test(t) || DUP_SEG.test(t)) return '';
       return t;
     }).filter(Boolean).join(' · ');
-    return s;
+  }
+
+  /* 실명 차단 — 혹시 섞여 들어온 업체명·담당자명 토큰을 블라인드 표기로 바꿉니다 */
+  function scrub(text, tokens, blind) {
+    var out = String(text || '');
+    (tokens || []).forEach(function (tk) {
+      var t = String(tk || '').trim();
+      if (t.length < 2) return;
+      out = out.split(t).join(blind || '비공개 고객사');
+    });
+    return out;
   }
 
   function buildSubject(p) {
-    return '[NAI Korea] ' + p.badge + ' — ' + p.headline;
+    return scrub('[NAI Korea] ' + p.badge + ' — ' + p.headline, p.hideTokens, p.blindName);
   }
 
   function buildBody(p) {
     var L = [];
+    var blindLabel = p.blindName || '비공개 고객사';
     L.push('안녕하세요, NAI Korea 권준오 상무입니다.');
     L.push('');
     L.push(p.intro || '아래 건으로 확인 중인 수요/매물 조건을 공유드립니다. 부합하는 후보가 있으시면 회신 부탁드립니다.');
@@ -90,7 +106,7 @@
     L.push(ME.addr);
     L.push('');
     L.push('※ 본 메일은 확인된 조건만 담았으며, 수요 주체의 업체명은 비공개(블라인드)로 표기했습니다.');
-    return L.join('\n');
+    return scrub(L.join('\n'), p.hideTokens, blindLabel);
   }
 
   function rebuild() {
@@ -299,6 +315,8 @@
       ['주요 조건', cleanMemo(row.memo)]
     ];
     open({
+      blindName: blind,
+      hideTokens: row.hideTokens || [],
       badge: badge,
       headline: (row.region ? row.region + ' · ' : '') + (row.area_py ? row.area_py : kind),
       intro: '아래 ' + kind + ' 건을 공유드립니다. 부합하는 후보 물건이 있으시면 회신 부탁드립니다.',

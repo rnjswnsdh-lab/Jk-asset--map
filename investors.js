@@ -104,6 +104,7 @@
     q: '',
     onlyEmail: false,
     fundOnly: false,
+    owner: 'ALL',
     sel: {},
     busy: false
   };
@@ -231,7 +232,14 @@
     }).then(function (r) { return r.json(); });
   }
 
-  function canEdit() { return state.role === 'admin'; }
+  /* 컨택포인트 편집: 관리자·내부(CM) 허용, 물류TF는 화주(shipper)만, 외부는 불가 */
+  function canEdit() { return state.role === 'admin' || state.role === 'internal' || state.role === 'logi'; }
+  function canEditRow(r) {
+    if (state.role === 'admin' || state.role === 'internal') return true;
+    if (state.role === 'logi') return !r || r.kind === 'shipper';
+    return false;
+  }
+  function canDelete() { return state.role === 'admin'; }
   function isExternal() { return state.role === 'external'; }
   function isLogi_() { return state.role === 'logi' || ((window.naiMap && window.naiMap.role) ? window.naiMap.role() === 'logi' : false); }
   function normRole_(r) {
@@ -514,11 +522,93 @@
         '<span>' + esc(r) + '</span><span class="cnt">' + n + '</span></button>');
     });
     rc.innerHTML = rhtml.join('');
+    renderOwnerSel();
+  }
+
+  /** NAI 담당자 필터 — 현재 탭의 담당자 목록 */
+  function renderOwnerSel() {
+    var sel = $('#poolOwnerSel');
+    if (!sel) return;
+    var counts = {};
+    modeRows().forEach(function (r) {
+      var o = String(r.owner || '').trim();
+      var key = o || '__NONE__';
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    var keys = Object.keys(counts).filter(function (k) { return k !== '__NONE__'; })
+      .sort(function (a, b) { return counts[b] - counts[a]; });
+    var h = '<option value="ALL">담당자 전체 (' + modeRows().length + ')</option>';
+    keys.forEach(function (k) { h += '<option value="' + esc(k) + '">' + esc(k) + ' (' + counts[k] + ')</option>'; });
+    if (counts.__NONE__) h += '<option value="__NONE__">담당 미지정 (' + counts.__NONE__ + ')</option>';
+    sel.innerHTML = h;
+    if (state.owner && (state.owner === 'ALL' || counts[state.owner])) sel.value = state.owner;
+    else { state.owner = 'ALL'; sel.value = 'ALL'; }
+  }
+
+  /* ─────────────── 📥 엑셀 다운로드 (현재 탭·필터 기준) ─────────────── */
+  function kindLabel(k) { var x = KIND_MAP[normKind(k)] || KIND_MAP.office; return x.label; }
+  function ymd() {
+    var d = new Date();
+    var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    return '' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate());
+  }
+  function exportRows() {
+    var rows = filtered();
+    var mode = state.mode;
+    var m = {
+      si: {
+        name: 'SI', head: ['분류', '권역', '회사·기관', '업종·섹터', '성격·역할', '담당자', '직함', '이메일', '전화', 'NAI 담당자', '사례·비고', '확장·수요', '금액(억)', '출처'],
+        map: function (r) { return [kindLabel(r.kind), r.region, r.company, r.industry, r.role, r.contact, r.title, r.email, r.phone, r.owner, r.case_info || r.notes, r.expansion, r.amount, r.source]; }
+      },
+      ship: {
+        name: '물류화주', head: ['분류', '권역', '화주사', '업종', '담당자', '직함', '이메일', '전화', 'NAI 담당자', '온도대', '확인 센터수', '확장·수요 권역', '비고', '출처'],
+        map: function (r) { return [kindLabel(r.kind), r.region, r.company, r.industry, r.contact, r.title, r.email, r.phone, r.owner, r.temp, r.centers, r.expansion, r.notes, r.source]; }
+      },
+      fi: {
+        name: 'FI풀', head: ['분류', '권역', '운용사·기관', '전략·업종', '성격·역할', '담당자', '직함', '이메일', '전화', 'NAI 담당자', '펀드·전략 상세', '금액(억)', '연도', '출처', '비고'],
+        map: function (r) { return [kindLabel(r.kind), r.region, r.company, r.industry, r.role, r.contact, r.title, r.email, r.phone, r.owner, r.case_info, r.amount, r.year, r.source, r.notes]; }
+      }
+    }[mode] || null;
+    if (!m) return null;
+    return { name: m.name, head: m.head, body: rows.map(m.map), count: rows.length };
+  }
+
+  function csvCell(v) {
+    var s = String(v == null ? '' : v).replace(/"/g, '""');
+    return /[",\n]/.test(s) ? '"' + s + '"' : s;
+  }
+
+  function downloadXlsx() {
+    var d = exportRows();
+    if (!d) return;
+    if (!d.count) { toast('다운로드할 항목이 없습니다. 필터를 조정해 보세요.', true); return; }
+    var base = 'NAI_' + d.name + '_' + ymd();
+    var note = isExternal() ? '외부 공개본(연락처 비공개)' : (state.role === 'internal' || state.role === 'logi' ? '내부용(전화번호 비공개)' : '관리자용');
+    if (window.XLSX && window.XLSX.utils) {
+      try {
+        var aoa = [d.head].concat(d.body);
+        var ws = window.XLSX.utils.aoa_to_sheet(aoa);
+        ws['!cols'] = d.head.map(function (h) { return { wch: Math.max(10, Math.min(46, String(h).length * 2 + 8)) }; });
+        var wb = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb, ws, d.name.slice(0, 28));
+        window.XLSX.writeFile(wb, base + '.xlsx');
+        toast(d.count + '건을 엑셀(.xlsx)로 내려받았습니다 · ' + note);
+        return;
+      } catch (e) { /* 아래 CSV 대체로 */ }
+    }
+    var lines = [d.head.map(csvCell).join(',')].concat(d.body.map(function (r) { return r.map(csvCell).join(','); }));
+    var blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = base + '.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 500);
+    toast(d.count + '건을 CSV(엑셀 호환)로 내려받았습니다 · ' + note);
   }
 
   function haystack(r) {
     return [r.company, r.industry, r.role, r.case_info, r.contact, r.title, r.email, r.phone,
-      r.region, r.notes, r.expansion, r.temp, r.source, r.year, r.amount]
+      r.region, r.notes, r.expansion, r.temp, r.source, r.year, r.amount, r.owner]
       .concat(isFiKind(r.kind) ? fiData(r).tags : [])
       .join(' ').toLowerCase();
   }
@@ -530,6 +620,11 @@
       if (state.kind !== 'all' && r.kind !== state.kind) return false;
       if (state.region !== 'ALL' && r.region !== state.region) return false;
       if (state.onlyEmail && !r.email) return false;
+      if (state.owner && state.owner !== 'ALL') {
+        var ow = String(r.owner || '').trim();
+        if (state.owner === '__NONE__') { if (ow) return false; }
+        else if (ow !== state.owner) return false;
+      }
       if (state.mode === 'fi') {
         var d = fiData(r);
         if (state.fundOnly && !d.funds.length) return false;
@@ -550,6 +645,12 @@
         r.expansion ? '확장 ' + r.expansion : ''].filter(Boolean).join(' · ');
     }
     return [r.expansion ? '확장·수요: ' + r.expansion : '', r.notes || ''].filter(Boolean).join(' · ');
+  }
+
+  function ownerBadge(r) {
+    var o = String((r && r.owner) || '').trim();
+    if (!o) return '<span class="pr-owner none" title="NAI 담당자 미지정">👤 담당 미지정</span>';
+    return '<span class="pr-owner" title="NAI 담당자">👤 ' + esc(o) + '</span>';
   }
 
   function kindBadge(r) {
@@ -580,8 +681,8 @@
   function rowActions(r) {
     return '<div class="pr-actions">' +
       '<button type="button" class="mini-btn" data-open="' + esc(r.id) + '" title="상세 보기">🔎</button>' +
-      (canEdit() ? '<button type="button" class="mini-btn" data-edit="' + esc(r.id) + '">✏️</button>' +
-        '<button type="button" class="mini-btn danger" data-del="' + esc(r.id) + '">🗑</button>' : '') +
+      (canEditRow(r) ? '<button type="button" class="mini-btn" data-edit="' + esc(r.id) + '" title="컨택포인트·NAI 담당자 수정">✏️</button>' : '') +
+      (canDelete() ? '<button type="button" class="mini-btn danger" data-del="' + esc(r.id) + '">🗑</button>' : '') +
       '</div>';
   }
 
@@ -597,6 +698,7 @@
           (r.role ? '<span class="pr-role">' + esc(r.role) + '</span>' : '') +
           (r.year ? '<span class="pr-year">' + esc(r.year) + '</span>' : '') +
           (r.amount ? '<span class="pr-amount">' + esc(r.amount) + '억</span>' : '') +
+          ownerBadge(r) +
         '</div>' +
         '<div class="pr-name">' + esc(r.company) + (r.industry ? ' <span class="pr-industry">' + esc(r.industry) + '</span>' : '') + '</div>' +
         (r.case_info ? '<div class="pr-case">' + esc(r.case_info) + '</div>' : '') +
@@ -659,6 +761,7 @@
           (r.industry ? '<span class="pr-role">' + esc(r.industry) + '</span>' : '') +
           tags +
           (r.amount ? '<span class="pr-amount">D/P ' + esc(r.amount) + '억</span>' : '') +
+          ownerBadge(r) +
         '</div>' +
         '<div class="pr-name">' + esc(r.company) + (r.role ? ' <span class="pr-industry">' + esc(r.role) + '</span>' : '') + '</div>' +
         fundLine +
@@ -940,15 +1043,28 @@
     return '<label class="mf"><span>' + esc(label) + '</span><input data-k="' + key + '" type="text" value="' + v + '"></label>';
   }
 
+  /** NAI 담당자 후보 — 시트에 이미 지정된 이름 + 기본 팀원 */
+  var OWNER_BASE = ['권준오 상무'];
+  function ownerOptions() {
+    var set = {};
+    OWNER_BASE.forEach(function (x) { set[x] = 1; });
+    state.rows.forEach(function (r) { var o = String(r.owner || '').trim(); if (o) set[o] = 1; });
+    return Object.keys(set).sort().map(function (o) { return '<option value="' + esc(o) + '"></option>'; }).join('');
+  }
+
   function openEditor(row) {
     var isNew = !row;
     row = row || {
-      id: '', kind: (state.mode === 'fi' ? 'blind_fund' : 'office'), region: (state.mode === 'fi' ? '전국' : 'CBD'),
+      id: '',
+      kind: (state.role === 'logi' ? 'shipper' : (state.mode === 'fi' ? 'blind_fund' : 'office')),
+      region: (state.mode === 'fi' ? '전국' : 'CBD'),
       company: '', industry: '', role: '', case_info: '', amount: '', year: '', contact: '', title: '',
-      email: '', phone: '', temp: '', centers: '', expansion: '', notes: '', source: ''
+      email: '', phone: '', temp: '', centers: '', expansion: '', notes: '', source: '',
+      owner: ''
     };
     var kindPairs = KINDS.filter(function (x) { return x.k !== 'all'; })
       .map(function (x) { return [x.k, x.label]; });
+    if (state.role === 'logi') kindPairs = kindPairs.filter(function (p) { return p[0] === 'shipper'; });
     var regionOpts = regionsFor('all').concat(['CBD', 'GBD', 'YBD', '강남·서초·수서', '판교·분당', '서부·마곡·구로',
       '수도권 동남', '수도권 남부', '수도권 서부', '수도권 동부', '충청', '지방·전국', '전국·미확인',
       '서울 오피스', '수도권 물류·DC', '전국'])
@@ -975,6 +1091,9 @@
         fieldRow('확장·수요 권역', 'expansion', row.expansion) +
         fieldRow('비고·근거', 'notes', row.notes, { textarea: true, rows: 3 }) +
         fieldRow('출처', 'source', row.source) +
+        '<label class="mf"><span>NAI 담당자 <b class="mf-req">지정</b></span>' +
+          '<input data-k="owner" list="mfOwnerList" type="text" value="' + esc(row.owner || '') + '" placeholder="예) 권준오 상무 — 비우면 담당 미지정">' +
+          '<datalist id="mfOwnerList">' + ownerOptions() + '</datalist></label>' +
       '</div>' +
       '<div class="modal-foot">' +
         '<button type="button" class="btn btn-outline" data-close="1">취소</button>' +
@@ -996,7 +1115,7 @@
       }
       if (!out.company) { toast('회사·기관명을 입력하세요.', true); return; }
       out.updated_at = new Date().toISOString().slice(0, 10);
-      api(null, { action: 'upsert', investors: [out] }).then(function (j) {
+      api(null, { action: 'investor_save', investor: out }).then(function (j) {
         if (j && j.ok) {
           out.kind = normKind(out.kind);
           var i = state.rows.findIndex(function (r) { return r.id === out.id; });
@@ -1154,6 +1273,10 @@
     });
     $('#poolClearSel').addEventListener('click', function () { state.sel = {}; render(); });
     $('#poolRefresh').addEventListener('click', function () { state.loaded = false; load(true); });
+    var xb = $('#poolXlsx');
+    if (xb) xb.addEventListener('click', downloadXlsx);
+    var os = $('#poolOwnerSel');
+    if (os) os.addEventListener('change', function () { state.owner = os.value || 'ALL'; render(); });
     $('#poolAddBtn').addEventListener('click', function () {
       if (!canEdit()) { toast('읽기 전용 모드입니다.', true); return; }
       openEditor(null);

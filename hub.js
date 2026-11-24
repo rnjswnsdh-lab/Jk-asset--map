@@ -81,10 +81,14 @@
     for (var i = 0; i < LIST.items.length; i++) if (String(LIST.items[i].id) === String(id)) { row = LIST.items[i]; break; }
     if (!row) return;
     if (!window.NAI_SHARE) { toast('메일 공유 모듈을 불러오지 못했습니다. 새로고침해 주세요.', true); return; }
+    /* 항상 블라인드 표기를 넘깁니다 — 관리자 화면에서도 실명은 메일 본문에 넣지 않습니다 */
+    var blind = String(row.blind_name || '').trim() || blindNameOf(row.company, row.sector);
     window.NAI_SHARE.openRequest({
-      request_type: normType(row), blind_name: companyOf(row), region: row.region || '',
+      request_type: normType(row), blind_name: blind, region: row.region || '',
       area_py: row.area_py || '', price: row.price || '', rent: row.rent || '',
-      timeline: row.timeline || '', memo: row.memo || '', asset_name: row.asset_name || ''
+      timeline: row.timeline || '', memo: row.memo || '', asset_name: row.asset_name || '',
+      /* 본문에 섞여 들어갈 수 있는 실명 토큰 — 발견되면 블라인드 표기로 치환 */
+      hideTokens: [row.company, row.name, row.title]
     });
   }
 
@@ -687,7 +691,7 @@
         LIST.items = j.items;
         LIST.source = 'server';
         paint();
-        body.innerHTML += '<p class="hub-foot">비공개 시트 <b>lois</b> 기준 · 유형은 <b>request_type</b> 컴럼으로 구분합니다.' +
+        body.innerHTML += '<p class="hub-foot">비공개 시트 <b>lois</b> 기준 · 유형은 <b>request_type</b> 컬럼으로 구분합니다.' +
           (isAdmin() ? '' : ' 업체명은 관리자만 볼 수 있어 <b>문라인드</b>로 표시됩니다.') + '</p>';
         return;
       }

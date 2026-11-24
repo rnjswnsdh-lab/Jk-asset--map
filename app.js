@@ -2006,6 +2006,11 @@
     initFilters();
     applyFilters();
     updateStorageHint();
+    /* 데이터·권한이 도착한 뒤 밸류에이션 화면이 '읽기 전용'으로 남아 있지 않도록 재렌더 */
+    var vv = document.getElementById('valView');
+    if (vv && !vv.classList.contains('hidden') && window.NAI_VAL && window.NAI_VAL.show) {
+      try { window.NAI_VAL.show(); } catch (e) { /* noop */ }
+    }
   }
 
   /* ────────────────────────────── 이벤트 ────────────────────────────── */

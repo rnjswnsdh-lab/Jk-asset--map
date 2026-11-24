@@ -461,6 +461,11 @@
     } else {
       window.NAI_TEAM = null;
     }
+    /* 권한을 뒤늦게 알게 되어 '읽기 전용'으로 그려진 밸류에이션/홈도 다시 그린다 */
+    var vv0 = $('#valView');
+    if (vv0 && !vv0.classList.contains('hidden') && window.NAI_VAL && window.NAI_VAL.show) {
+      try { window.NAI_VAL.show(); } catch (e3) { /* noop */ }
+    }
     document.body.classList.toggle('readonly', !admin);
     document.body.classList.toggle('role-external', ext);
     document.body.classList.toggle('role-internal', role === 'internal');

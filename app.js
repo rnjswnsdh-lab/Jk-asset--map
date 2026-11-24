@@ -520,6 +520,10 @@
         if (v === 'pool' || v === 'fi' || v === 'vdr') b.classList.add('hidden');
       });
       if (window.NAI_HUB && window.NAI_HUB.restrict) { try { window.NAI_HUB.restrict('logi'); } catch (e0) { /* noop */ } }
+      /* 홈 타일도 VDR·FI·SI 는 감춥니다(홈이 역할 확정 전에 그려질 수 있어 DOM 에서 제거) */
+      ['vdr', 'loan'].forEach(function (act) {
+        $$('[data-home="' + act + '"]').forEach(function (el) { el.classList.add('hidden'); });
+      });
       var cur = document.querySelector('.vt-btn.is-active');
       if (cur && ['pool', 'fi', 'vdr'].indexOf(cur.getAttribute('data-view')) >= 0) {
         if (window.naiShowView) window.naiShowView('map');

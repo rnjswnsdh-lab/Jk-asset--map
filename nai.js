@@ -149,11 +149,12 @@
   function headerHTML(all) {
     var sale = all.filter(function (a) { var k = naiKind(a); return k === '매각' || k === '매각·LM' || k === '개발'; }).length;
     var lm = all.filter(function (a) { var k = naiKind(a); return k === 'LM' || k === '매각·LM'; }).length;
+    var ref = all.filter(function (a) { return naiKind(a) === '참고'; }).length;
     var team = S.teams.length;
     return '<div class="nai-head"><div class="nai-title"><h2>🏢 NAI 매각·LM</h2>' +
       '<p>NAI Korea 가 실제로 매각·임대 주관하는 물건입니다. 매각안내문(IM)·Flyer 로 확보한 스펙과 ' +
       '가격·임대조건을 그대로 담았고, 물건을 누르면 섹터별 밸류에이션 계산기가 열립니다.</p>' +
-      '<p class="nai-meta">매각 ' + sale + '건 · LM ' + lm + '건 · 자료 2026-11-24 동기화' +
+      '<p class="nai-meta">매각·개발 ' + sale + '건 · LM ' + lm + '건' + (ref ? ' · 참고 ' + ref + '건' : '') + ' · 자료 2026-11-24 동기화' +
       (isAdmin() ? ' · <b class="team-flag">🔒 팀장회의 ' + team + '건</b>' : '') + '</p></div>' +
       '<div class="nai-tools">' +
       '<label class="nai-search"><span aria-hidden="true">⌕</span><input id="naiSearch" type="search" placeholder="물건명 · 주소 · 매도인 검색" value="' + esc(S.q) + '"></label>' +

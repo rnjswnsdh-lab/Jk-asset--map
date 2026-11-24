@@ -519,6 +519,10 @@
     if (!a) return;
     var nm = String(a.name || a.id || '').replace(/[|]/g, '/').slice(0, 70);
     logEvent('asset_view', 'id=' + String(a.id || '') + '|name=' + nm + '|act=' + String(act || '상세'));
+    /* 상세 패널의 👁️ 열람 이력 배지에 이번 열람을 즉시 반영 */
+    if (state.role === 'admin' && window.NAI_LOGS && window.NAI_LOGS.noteView) {
+      try { window.NAI_LOGS.noteView(a.id); } catch (e) { /* noop */ }
+    }
   }
   function logEvent(kind, detail) {
     if (!isRemote() || !getToken()) return;

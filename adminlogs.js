@@ -601,16 +601,23 @@
 
   /* ───────────────────── 공개 인터페이스 ───────────────────── */
 
+  var sessionViews = {};
+  function noteView(assetId) {
+    if (!assetId) return;
+    sessionViews[assetId] = (sessionViews[assetId] || 0) + 1;
+  }
   function countFor(assetId) {
     if (!assetId) return 0;
+    var n = 0;
     var a = S.byAsset[assetId];
-    if (a) return a.items.length;
-    /* id 없이 이름만 남은 legacy 기록 */
-    var st = window.naiMap && window.naiMap.state;
-    var nm = st && st.index && st.index[assetId] ? st.index[assetId].name : '';
-    if (!nm) return 0;
-    var g = S.byAsset['name:' + nm];
-    return g ? g.items.length : 0;
+    if (a) n = a.items.length;
+    else {
+      /* id 없이 이름만 남은 legacy 기록 */
+      var st = window.naiMap && window.naiMap.state;
+      var nm = st && st.index && st.index[assetId] ? st.index[assetId].name : '';
+      if (nm) { var g = S.byAsset['name:' + nm]; n = g ? g.items.length : 0; }
+    }
+    return Math.max(n, sessionViews[assetId] || 0);
   }
   function recentFor(assetId, n) {
     var a = S.byAsset[assetId];
@@ -647,6 +654,7 @@
     load: load,
     prefetch: prefetch,
     countFor: countFor,
+    noteView: noteView,
     recentFor: recentFor,
     isReady: function () { return S.loaded; }
   };

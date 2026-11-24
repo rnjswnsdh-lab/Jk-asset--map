@@ -416,9 +416,10 @@
         var id2 = tr2.getAttribute('data-mt-tr');
         var as2 = assets().filter(function (x) { return x.id === id2; })[0] || {};
         openTR({
-          region: S.parsed && S.parsed.region ? S.parsed.region : (as2.region || ''),
+          region: S.parsed && (S.parsed.zone || S.parsed.region) ? (S.parsed.zone || S.parsed.region) : (as2.region || ''),
           sector: S.parsed && S.parsed.sector ? S.parsed.sector : (as2.sector || ''),
           area: S.parsed && S.parsed.area ? String(S.parsed.area) : '',
+          deal: (S.parsed && S.parsed.deal === 'sale') ? '매입' : '임차',
           memo: 'AI 매칭 후보 참고: ' + (as2.name || ''),
           source: 'ai-match'
         });

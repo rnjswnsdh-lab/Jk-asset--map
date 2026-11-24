@@ -105,7 +105,7 @@
     html += '</div></div>';
     html += '<div class="tr-sec"><h4>② 연락처</h4><div class="tr-grid">';
     html += field('회사', 'company', { req: true, ph: '예) ㈜OO물류', value: (me() && me().company) || '' });
-    html += field('성명', 'name', { req: true, ph: '예) 홍길동', value: (me() && me().name) || '' });
+    html += field('성명', 'name', { req: true, ph: '예) 홍길동', value: (role() === 'internal' ? '' : ((me() && me().name) || '')) });
     html += field('직책', 'title', { ph: '예) 물류기획팀 팀장', value: prefill.title || '' });
     html += field('연락처', 'phone', { req: true, type: 'tel', ph: '010-0000-0000', inputmode: 'tel' });
     html += field('이메일', 'email', { type: 'email', ph: 'name@company.com', wide: true });

@@ -997,7 +997,7 @@
   }
 
   /* ─────────────── 탭 전환 (홈 / 지도 / SI·화주 / FI / 밸류에이션) ─────────────── */
-  var VIEWS = ['home', 'map', 'nai', 'pool', 'fi', 'valuation'];
+  var VIEWS = ['home', 'map', 'nai', 'match', 'pool', 'fi', 'valuation', 'admin'];
   function showView(view) {
     if (VIEWS.indexOf(view) < 0) view = 'home';
     var home = view === 'home';
@@ -1006,10 +1006,27 @@
     var fi = view === 'fi';
     var poolLike = pool || fi;
     var val = view === 'valuation';
+    var match = view === 'match';
+    var adminView = view === 'admin';
+    /* 관리자 탭은 관리자만 — 아니면 홈으로 되돌립니다 */
+    if (adminView) {
+      var r0 = (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external';
+      if (r0 !== 'admin') {
+        if (window.naiToast) window.naiToast('관리자 전용 화면입니다.', true);
+        view = 'home'; adminView = false;
+        home = true;
+      }
+    }
     if (poolLike) setMode(fi ? 'fi' : 'si');
     document.body.classList.toggle('view-pool', poolLike);
     document.body.classList.toggle('view-val', val);
     document.body.classList.toggle('view-nai', nai);
+    document.body.classList.toggle('view-match', match);
+    document.body.classList.toggle('view-admin', adminView);
+    var mv = $('#matchView');
+    if (mv) mv.classList.toggle('hidden', !match);
+    var av = $('#adminView');
+    if (av) av.classList.toggle('hidden', !adminView);
     var hv = $('#homeView');
     if (hv) hv.classList.toggle('hidden', !home);
     var nv = $('#naiView');
@@ -1031,14 +1048,16 @@
       syncRoleFromApp();
     }
     if (val && window.NAI_VAL && window.NAI_VAL.show) window.NAI_VAL.show();
+    if (match && window.NAI_MATCH && window.NAI_MATCH.show) window.NAI_MATCH.show();
+    if (adminView && window.NAI_LOGS && window.NAI_LOGS.show) window.NAI_LOGS.show();
     if (home && window.NAI_HOME && window.NAI_HOME.show) window.NAI_HOME.show();
     if (nai && window.NAI_NAI && window.NAI_NAI.show) window.NAI_NAI.show();
     if (window.naiLog) {
-      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각·LM', pool: 'SI·화주 풀', fi: 'FI 풀', valuation: '밸류에이션' };
+      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각·LM', match: 'AI 매물 매칭', pool: 'SI·화주 풀', fi: 'FI 풀', valuation: '밸류에이션', admin: '관리자' };
       window.naiLog('tab', VIEW_LABEL[view] || view);
     }
     try {
-      history.replaceState(null, '', home ? '#home' : (nai ? '#nai' : (pool ? '#pool' : (fi ? '#fi' : (val ? '#valuation' : location.pathname + location.search)))));
+      history.replaceState(null, '', home ? '#home' : (nai ? '#nai' : (match ? '#match' : (adminView ? '#admin' : (pool ? '#pool' : (fi ? '#fi' : (val ? '#valuation' : location.pathname + location.search)))))));
     } catch (e) { /* noop */ }
   }
   window.naiShowView = showView;
@@ -1153,6 +1172,8 @@
     if (hash === '#pool') showView('pool');
     else if (hash === '#fi') showView('fi');
     else if (hash === '#valuation') showView('valuation');
+    else if (hash === '#match') showView('match');
+    else if (hash === '#admin') showView('admin');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

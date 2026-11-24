@@ -70,5 +70,11 @@ window.NAI_MAP_CONFIG = {
   },
 
   /* 목록에 표시할 최대 건수 (검색·필터 결과가 많을 때 성능 보호) */
-  LIST_RENDER_LIMIT: 600
+  LIST_RENDER_LIMIT: 600,
+
+  /* 목록 페이징 단위 — 처음 이 건수만 그리고 '더 보기'로 이만큼씩 추가 (2026-11-24) */
+  LIST_PAGE: 200,
+
+  /* 🤖 AI 매물 매칭 · 피클 초대 링크 (2026-11-24) */
+  PICKLE_INVITE_URL: "https://pickle.com/i/2X6HQCBL47MN"
 };

@@ -171,8 +171,10 @@
     html += '<div class="hc-head"><h2>⚡ 바로 하기</h2></div>';
     html += '<div class="quick-grid">';
     html += tile('🔍', '물건검색', '섹터·권역·가격·키워드', 'search');
+    html += tile('🤖', 'AI 매물 매칭', '문장으로 조건 검색', 'match');
     html += tile('➕', '물건등록', 'TM / IM / 직접 입력', 'register');
     html += tile('📝', '인수·임차의향서', '매입·임차 조건 제출', 'loi');
+    html += tile('📋', 'TR 임차의뢰', '화주·임차인 희망조건 접수', 'tr');
     html += tile('💰', '대출요청·조건제시', '금액·LTV·금리·만기', 'loan');
     html += tile('📄', 'TM 제작', 'NAI 양식 티저·브리프', 'tm');
     html += tile('📘', 'IM 제작', 'NAI 양식 IM 브리프', 'im');
@@ -1144,6 +1146,8 @@
       }
       if (act === 'search') { var s = $('#hcSearch'); if (s) { s.scrollIntoView({ behavior: 'smooth', block: 'center' }); var q = $('#hsQ'); if (q) q.focus(); } return; }
       if (act === 'register') { openRegister('직접'); return; }
+      if (act === 'match') { if (window.naiShowView) window.naiShowView('match'); return; }
+      if (act === 'tr') { if (window.NAI_TR) window.NAI_TR.open({ source: 'home' }); else toast('TR 모듈을 불러오지 못했습니다.', true); return; }
       if (act === 'loi') { openLOI(''); return; }
       if (act === 'loan') { openLoan(''); return; }
       if (act === 'tm' || act === 'im') {

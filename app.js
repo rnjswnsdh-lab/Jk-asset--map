@@ -482,6 +482,18 @@
     }
     var codeBtn = $('#btnCodeChange');
     if (codeBtn) codeBtn.title = ext ? '외부 세션 종료 (접속 화면으로)' : '접속코드 변경 (관리자 / 내부용)';
+    /* 🛰️ 관리자 탭 — 관리자에게만 보입니다 */
+    var adTab = $('#btnAdminTab');
+    if (adTab) {
+      adTab.classList.toggle('hidden', !admin);
+      adTab.disabled = !admin;
+    }
+    if (!admin && document.body.classList.contains('view-admin') && window.naiShowView) {
+      try { window.naiShowView('home'); } catch (e4) { /* noop */ }
+    }
+    if (admin && window.NAI_LOGS && window.NAI_LOGS.prefetch) {
+      try { window.NAI_LOGS.prefetch(); } catch (e5) { /* noop */ }
+    }
     $$('#exportMenu [data-export="im-import"], #exportMenu [data-export="reset"]').forEach(function (b) {
       b.classList.toggle('hidden', !admin);
     });
@@ -499,6 +511,15 @@
 
   /** 주요 조회·탭 이동·물건 클릭을 비동기로 서버(access_logs)에 남깁니다. */
   var lastLog = { key: '', at: 0 };
+
+  /** 물건별 열람 추적 — 관리자 탭(방문자별·물건별 이력)이 이 형식을 파싱합니다.
+   *  detail = 'id=<asset_id>|name=<물건명>|act=<상세|IM|밸류에이션|등기|TM제작|IM제작|TR>'
+   *  role/name/company 는 서버가 토큰에서 채우므로 위조할 수 없습니다. */
+  function logAsset(a, act) {
+    if (!a) return;
+    var nm = String(a.name || a.id || '').replace(/[|]/g, '/').slice(0, 70);
+    logEvent('asset_view', 'id=' + String(a.id || '') + '|name=' + nm + '|act=' + String(act || '상세'));
+  }
   function logEvent(kind, detail) {
     if (!isRemote() || !getToken()) return;
     var key = String(kind || '') + '|' + String(detail || '');
@@ -684,6 +705,7 @@
       return String(a.name).localeCompare(String(b.name), 'ko');
     });
 
+    state.listShown = LIST_PAGE;
     renderList();
     renderMarkers();
     updateResultCount();
@@ -696,10 +718,15 @@
   }
 
   /* ────────────────────────────── 목록 ────────────────────────────── */
+  /* 목록 페이징 — 2,429건 전체를 한 번에 DOM 에 그리지 않습니다.
+     처음 LIST_PAGE 건만 그리고 '더 보기'로 200건씩 추가합니다. */
+  var LIST_PAGE = CFG.LIST_PAGE || 200;
+  function listPage() { return state.listShown || LIST_PAGE; }
+
   function renderList() {
     var host = $('#assetList');
     var items = state.filtered;
-    var limit = state.listExpanded ? items.length : Math.min(items.length, LIST_LIMIT);
+    var limit = Math.min(items.length, listPage());
     if (!items.length) {
       host.innerHTML = '<div class="empty-state">조건에 맞는 물건이 없습니다.<br>검색어나 필터를 조정해 보세요.</div>';
       $('#listMore').classList.add('hidden');
@@ -735,7 +762,10 @@
     var more = $('#listMore');
     if (items.length > limit) {
       more.classList.remove('hidden');
-      more.innerHTML = '전체 ' + items.length + '건 중 ' + limit + '건 표시 — <button type="button" class="mini-btn" id="btnListMore">모두 보기</button>';
+      more.innerHTML = '전체 <b>' + items.length.toLocaleString('ko-KR') + '</b>건 중 ' + limit.toLocaleString('ko-KR') + '건 표시 — ' +
+        '<button type="button" class="mini-btn" id="btnListMore">더 보기 +' +
+        Math.min(LIST_PAGE, items.length - limit).toLocaleString('ko-KR') + '건</button> ' +
+        '<button type="button" class="mini-btn" id="btnListAll">모두 보기</button>';
     } else {
       more.classList.add('hidden');
     }
@@ -761,7 +791,7 @@
     highlightRows(prev, id);
     if (opts.pan !== false) panTo(a);
     if (state.roadview) showRoadview(a);
-    logEvent('asset', a.name || id);
+    logAsset(a, '상세');
     try { history.replaceState(null, '', '#' + encodeURIComponent(id)); } catch (e) { /* file:// 등 */ }
   }
 
@@ -832,6 +862,8 @@
     else if (a._edited) badges.push('<span class="badge edited">수정됨</span>');
     if (!(a.lat && a.lng)) badges.push('<span class="badge warn">좌표 미확정</span>');
 
+    var viewN = (state.role === 'admin' && window.NAI_LOGS) ? window.NAI_LOGS.countFor(a.id) : 0;
+
     var html = '';
     html += '<div class="detail-head">';
     html += '<div class="detail-top"><span class="sector-dot" style="background:' + sectorColor(a.sector) + '"></span>';
@@ -853,6 +885,10 @@
       if (a.lat && a.lng && state.mapReady) html += '<button type="button" class="action-btn" data-act="roadview">🛣 로드뷰</button>';
       html += '<button type="button" class="action-btn" data-act="kakaomap">카카오맵에서 열기</button>';
       html += '<button type="button" class="action-btn" data-act="copy">주소 복사</button>';
+    }
+    html += '<button type="button" class="action-btn reg" data-act="registry" title="주소를 복사하고 인터넷등기소(iros.go.kr)를 새 창으로 엽니다">📜 등기부 바로열람</button>';
+    if (state.role === 'admin') {
+      html += '<button type="button" class="action-btn logs" data-act="assetlogs" title="관리자 탭 · 이 물건의 열람 이력">👁️ 열람 이력 ' + viewN + '건</button>';
     }
     html += '</div>';
     if (isHttp(a.im_url)) {
@@ -949,6 +985,8 @@
       }
     }
 
+    html += dartSection(a);
+
     if (siblings.length > 1) {
       html += '<section class="detail-section"><h4>같은 위치의 물건 ' + siblings.length + '건</h4><div class="sibling-list">';
       siblings.forEach(function (s) {
@@ -998,6 +1036,68 @@
     root.innerHTML = html;
     root.classList.remove('hidden');
     $('.detail-scroll', root).scrollTop = 0;
+  }
+
+  /* ── 🏢 기업·소유주 재무 (Open DART 연계 대비) ─────────────────────────────
+     지금은 assets 의 facts 에 있는 재무 항목만 표시하고, 없으면 '—'.
+     DART Open API(https://opendart.fss.or.kr) 연계를 붙이면 이 칸이 채워집니다. */
+  var DART_ROWS = ['대표자', '매출액', '영업이익', '당기순이익', '부채총계', '자본총계', '신용등급', '최근 공시'];
+  function dartFact(a, key) {
+    var f = a.facts || [];
+    for (var i = 0; i < f.length; i++) {
+      var l = String(f[i].label || '');
+      if (l.indexOf(key) >= 0) return String(f[i].value || '');
+    }
+    return '';
+  }
+  function dartSection(a) {
+    var corp = String(a.owner_amc || a.fund_vehicle || '').trim();
+    var html = '';
+    html += '<section class="detail-section dart-block"><h4>🏢 기업·소유주 재무 <span class="dart-badge">Open DART 연계</span></h4>';
+    html += '<div class="dart-corp"><span class="dart-k">기업·소유주</span><span class="dart-v">' + esc(corp || '미기재') + '</span>' +
+      (a.fund_vehicle && a.fund_vehicle !== corp ? '<span class="dart-sub">' + esc(a.fund_vehicle) + '</span>' : '') + '</div>';
+    html += '<div class="dart-grid">';
+    DART_ROWS.forEach(function (k) {
+      var v = dartFact(a, k);
+      html += '<div class="dart-cell"><span class="dart-k">' + esc(k) + '</span>' +
+        '<span class="dart-v' + (v ? '' : ' empty') + '">' + esc(v || '—') + '</span></div>';
+    });
+    html += '</div>';
+    var q = encodeURIComponent(corp || a.name || '');
+    html += '<div class="dart-foot">' +
+      '<a class="dart-link" href="https://dart.fss.or.kr/dsab007/main.do?option=corp&amp;textCrpNm=' + q + '" target="_blank" rel="noopener noreferrer">Open DART에서 “' + esc(corp || a.name || '') + '” 조회 ↗</a>' +
+      '<span class="dart-note">재무제표·공시는 Open DART Open API 연계 예정(2026-12) — 지금은 공개 공시에서 직접 확인하세요.</span></div>';
+    html += '</section>';
+    return html;
+  }
+
+  /** 📜 등기부 바로열람 — 주소를 클립보드에 복사하고 인터넷등기소를 새 창으로 엽니다. */
+  function openRegistry(a) {
+    if (!a) return;
+    var addr = String(a.address || '').trim();
+    var txt = [a.name, addr].filter(Boolean).join(' ');
+    var done = function () {
+      toast(addr ? ('주소 복사 완료 — 인터넷등기소에서 열람주소에 붙여넣으세요: ' + addr.slice(0, 40)) : '주소가 없습니다. 물건 주소를 먼저 등록하세요.', !addr);
+      window.open('https://www.iros.go.kr', '_blank', 'noopener');
+      logAsset(a, '등기');
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(done).catch(function () {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        } catch (e) { /* noop */ }
+        done();
+      });
+    } else {
+      try {
+        var ta2 = document.createElement('textarea');
+        ta2.value = txt; ta2.style.position = 'fixed'; ta2.style.opacity = '0';
+        document.body.appendChild(ta2); ta2.select(); document.execCommand('copy'); ta2.remove();
+      } catch (e2) { /* noop */ }
+      done();
+    }
   }
 
   function formField(label, name, value, opts) {
@@ -2038,10 +2138,18 @@
       return;
     }
     if (act === 'simulate' && a) {
+      logAsset(a, '밸류에이션');
       if (window.NAI_VAL && window.NAI_VAL.openForAsset) window.NAI_VAL.openForAsset(a);
       else toast('시뮬레이터를 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true);
       return;
     }
+    if (act === 'registry' && a) { openRegistry(a); return; }
+    if (act === 'assetlogs' && a) {
+      if (window.NAI_LOGS) window.NAI_LOGS.show(a.id);
+      else toast('로그 뷰어를 불러오지 못했습니다. 새로고침해 주세요.', true);
+      return;
+    }
+    if ((act === 'tm' || act === 'im') && a) { logAsset(a, act === 'tm' ? 'TM제작' : 'IM제작'); /* home.js 가 브리프를 엽니다 */ }
     if (act === 'edit' && a) {
       if (!canEdit()) { toast('읽기 전용 모드입니다. 수정할 수 없습니다.', true); return; }
       state.panelMode = 'edit'; renderDetail(); return;
@@ -2203,11 +2311,26 @@
       selectAsset(row.getAttribute('data-id'), { pan: true });
     });
     $('#listMore').addEventListener('click', function (e) {
-      if (e.target.id === 'btnListMore') { state.listExpanded = true; renderList(); }
+      if (e.target.id === 'btnListMore') {
+        state.listShown = listPage() + LIST_PAGE;
+        renderList();
+      } else if (e.target.id === 'btnListAll') {
+        state.listShown = state.filtered.length;
+        renderList();
+      }
     });
 
     // 상세 패널
     $('#detailPanel').addEventListener('click', onPanelClick);
+    /* IM 열람 추적 — 상세 패널의 📄 IM 열기 / IM 링크 클릭 */
+    $('#detailPanel').addEventListener('click', function (e) {
+      var link = e.target.closest('a.im-btn, .detail-section a[href]');
+      if (!link) return;
+      var a = state.index[state.selectedId];
+      if (!a) return;
+      var isIm = /im_url|im_label|drive|pdf/i.test(String(link.getAttribute('href') || '') + ' ' + String(link.className || ''));
+      logAsset(a, isIm ? 'IM' : '링크');
+    });
     $('#detailPanel').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.form) {
         e.preventDefault();
@@ -2600,6 +2723,8 @@
     isNai: isNaiDeal,
     teamCount: teamCount,
     log: logEvent,
+    logAsset: logAsset,
+    repaintDetail: function () { if (state.selectedId) { try { renderDetail(); } catch (e) { /* noop */ } } },
     /* 지도 탭이 보일 때 호출 — 숨김 상태에서 생성되면 중심이 (0,0)으로 잡혀
        타일이 엉뚱한 곳을 그리는 문제를 고칩니다(홈 첫 화면 도입 2026-11-23). */
     onShow: function () {
@@ -2633,6 +2758,7 @@
     openAdd: function (prefill) { state._addPrefill = prefill || {}; state.panelMode = 'add'; renderDetail(); $('#detailPanel').classList.remove('hidden'); }
   };
   window.naiLog = logEvent;
+  window.naiToast = toast;
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

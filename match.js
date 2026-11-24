@@ -15,7 +15,7 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
-  var S = { built: false, q: '', parsed: null, results: [], shown: 0, page: 20, ranAt: 0 };
+  var S = { built: false, q: '', parsed: null, results: [], shown: 0, page: 20, ranAt: 0, loose: false, total: 0 };
   var PICKLE_URL = CFG.PICKLE_INVITE_URL || 'https://pickle.com/i/2X6HQCBL47MN';
 
   function esc(s) {
@@ -82,9 +82,8 @@
 
   function parseQuery(q) {
     var raw = String(q || '').trim();
-    var low = raw.toLowerCase();
-    var p = { raw: raw, sector: null, region: null, zone: null, deal: null, area: null,
-      price: null, temp: null, tokens: [], notes: [] };
+    var p = { raw: raw, sector: null, region: null, city: null, zone: null, deal: null, area: null,
+      price: null, priceMode: 'eq', temp: null, tokens: [], notes: [] };
 
     /* 섹터 */
     for (var i = 0; i < SECTOR_RULES.length; i++) {
@@ -93,11 +92,10 @@
 
     /* 권역 코드 (CBD/GBD/BBD/YBD) — 시·군보다 우선 */
     for (var z = 0; z < ZONE_RULES.length; z++) {
-      var zm = raw.match(ZONE_RULES[z].re);
-      if (zm) { p.zone = ZONE_RULES[z].zone; break; }
+      if (ZONE_RULES[z].re.test(raw)) { p.zone = ZONE_RULES[z].zone; break; }
     }
 
-    /* 지역 */
+    /* 지역 (긴 이름 우선: '광주시' > '광주') */
     for (var c = 0; c < CITY_REGION.length; c++) {
       if (raw.indexOf(CITY_REGION[c][0]) >= 0) {
         p.region = CITY_REGION[c][1];
@@ -108,12 +106,10 @@
 
     /* 거래 유형 */
     if (/경매|공매|경·공매|입찰/.test(raw)) p.deal = 'auction';
-    else if (/매입|매수|인수|사들/.test(raw)) p.deal = 'sale';
-    else if (/매각|매도|엑시트|매물/.test(raw)) p.deal = 'sale';
-    else if (/임차|임대|리스|입주|세들|lease/i.test(raw)) p.deal = 'lease';
+    else if (/매입|매수|인수|매각|매도|엑시트/.test(raw)) p.deal = 'sale';
+    else if (/임차|임대|리스|입주|lease/i.test(raw)) p.deal = 'lease';
     else if (/개발|신축|컨버전|증축|리모델링|재개발|용도변경/.test(raw)) p.deal = 'dev';
-    if (/컨버전|용도변경/.test(raw) && !p.deal) p.deal = 'dev';
-    if (/컨버전/.test(raw)) p.notes.push('컨버전');
+    if (/컨버전|용도변경/.test(raw)) { p.notes.push('컨버전'); if (!p.deal) p.deal = 'dev'; }
 
     /* 면적 — "15,000평" / "1만5천평" / "3,000 ㎡" */
     var man = raw.match(/(\d+(?:\.\d+)?)\s*만\s*(\d+(?:\.\d+)?)?\s*평/);
@@ -127,7 +123,9 @@
       p.area = Math.round(Number(String(m2[1]).replace(/,/g, '')) / 3.3058);
     }
 
-    /* 가격 — "3,000억" / "1조 2,000억" */
+    /* 가격 — "3,000억" / "1조 2,000억" / "3,000억 이하" */
+    if (/이하|미만|까지|max/i.test(raw)) p.priceMode = 'max';
+    else if (/이상|부터|최소/i.test(raw)) p.priceMode = 'min';
     var jo = raw.match(/([\d,\.]+)\s*조/);
     var eok = raw.match(/([\d,\.]+)\s*억/);
     var won = raw.match(/([\d,]{3,})\s*원/);
@@ -140,21 +138,29 @@
     }
 
     /* 온도대 */
-    if (/냉동|-?\s*2[0-9]\s*℃|저온\s*냉동/.test(raw)) p.temp = '냉동';
+    if (/냉동|-?\s*2[0-9]\s*℃/.test(raw)) p.temp = '냉동';
     else if (/냉장/.test(raw)) p.temp = '냉장';
     else if (/상온/.test(raw)) p.temp = '상온';
     else if (/신선|콜드체인/.test(raw)) p.temp = '신선';
 
-    /* 남은 검색어 토큰 */
+    /* 남은 검색어 토큰 — 이미 조건으로 읽은 말(지역·섹터·거래·단위)은 제외 */
     var strip = raw
       .replace(/([\d,.]+\s*(만)?\s*(억|조|평|py|㎡|m2|원|℃))/gi, ' ')
-      .replace(/(매입|매각|매수|매도|인수|임차|임대|입주|개발|신축|컨버전|경매|공매|경·공매|물건|알려\s*줘|찾아\s*줘|추천|이상|이하|대략|정도|내외|규모|면적|가격)/g, ' ');
+      .replace(/(매입|매각|매수|매도|인수|임차|임대|입주|개발|신축|컨버전|경매|공매|경·공매|물건|알려\s*줘|찾아\s*줘|추천|보여\s*줘|이하|이상|미만|까지|대략|정도|내외|규모|면적|가격)/g, ' ');
+    if (p.city) strip = strip.split(p.city).join(' ');
+    if (p.zone) strip = strip.split(p.zone).join(' ');
     p.tokens = strip.split(/\s+/).map(function (t) { return t.replace(/[.,·]/g, '').trim(); })
       .filter(function (t) { return t.length >= 2; })
       .filter(function (t) {
-        return !(p.sector && SECTOR_RULES.filter(function (r) { return r.k === p.sector; })[0].label.indexOf(t) >= 0);
+        if (p.region && t === p.region) return false;
+        if (p.sector) {
+          var rule = SECTOR_RULES.filter(function (r) { return r.k === p.sector; })[0];
+          if (rule && rule.label.indexOf(t) >= 0) return false;
+          if (rule && (t === '물류센터' || t === '오피스' || t === '호텔' || t === '사옥')) return false;
+        }
+        return true;
       })
-      .slice(0, 8);
+      .slice(0, 6);
     return p;
   }
 
@@ -233,10 +239,11 @@
     }
 
     if (p.region) {
-      var cityHit = p.city ? String(a.name + ' ' + a.address).indexOf(p.city) >= 0 : false;
-      if (String(a.region || '') === p.region) { sc += 26; why.push({ ok: true, t: (p.city || p.region) }); }
-      else if (cityHit) { sc += 22; why.push({ ok: true, t: p.city }); }
-      else if (String(a.region || '').indexOf(p.region) >= 0) { sc += 16; }
+      var where = String(a.name || '') + ' ' + String(a.address || '');
+      var cityHit = p.city ? where.indexOf(p.city) >= 0 : false;
+      if (cityHit) { sc += 34; why.push({ ok: true, t: p.city }); }
+      else if (String(a.region || '') === p.region) { sc += 14; why.push({ ok: true, t: p.region + ' 권역' }); }
+      else if (String(a.region || '').indexOf(p.region) >= 0) sc += 10;
       else sc -= 14;
     }
 
@@ -273,20 +280,27 @@
     if (p.price) {
       var pv = priceOf(a);
       if (pv) {
-        var rp = pv / p.price;
-        if (rp >= 0.75 && rp <= 1.3) { sc += 14; why.push({ ok: true, t: nfmt(pv) + '억' }); }
-        else if (rp >= 0.4 && rp <= 2.0) { sc += 7; why.push({ ok: false, t: nfmt(pv) + '억' }); }
-        else sc -= 4;
-      }
+        var okPrice = false, nearPrice = false;
+        if (p.priceMode === 'max') { okPrice = pv <= p.price * 1.05; nearPrice = pv <= p.price * 1.5; }
+        else if (p.priceMode === 'min') { okPrice = pv >= p.price * 0.95; nearPrice = pv >= p.price * 0.6; }
+        else {
+          var rp = pv / p.price;
+          okPrice = (rp >= 0.8 && rp <= 1.25);
+          nearPrice = (rp >= 0.5 && rp <= 1.8);
+        }
+        if (okPrice) { sc += 14; why.push({ ok: true, t: nfmt(pv) + '억' }); }
+        else if (nearPrice) { sc += 6; why.push({ ok: false, t: nfmt(pv) + '억' }); }
+        else sc -= 8;
+      } else sc -= 3;
     }
 
     if (p.temp) {
       var tv = factOf(a, ['온도대', '온도']) + ' ' + String(a.scale_info || '') + ' ' + String(a.name || '') + ' ' + String(a.notes || '');
-      if (p.temp === '냉동' && /냉동/.test(tv)) { sc += 12; why.push({ ok: true, t: '냉동' }); }
-      else if (p.temp === '냉장' && /냉장|냉동/.test(tv)) { sc += 10; why.push({ ok: true, t: '냉장' }); }
-      else if (p.temp === '신선' && /신선|냉장|냉동/.test(tv)) { sc += 10; why.push({ ok: true, t: '신선·저온' }); }
-      else if (p.temp === '상온' && /상온/.test(tv)) { sc += 10; why.push({ ok: true, t: '상온' }); }
-      else sc -= 4;
+      if (p.temp === '냉동' && /냉동/.test(tv)) { sc += 14; why.push({ ok: true, t: '냉동' }); }
+      else if (p.temp === '냉장' && /냉장|냉동/.test(tv)) { sc += 12; why.push({ ok: true, t: '냉장' }); }
+      else if (p.temp === '신선' && /신선|냉장|냉동/.test(tv)) { sc += 12; why.push({ ok: true, t: '신선·저온' }); }
+      else if (p.temp === '상온' && /상온/.test(tv)) { sc += 12; why.push({ ok: true, t: '상온' }); }
+      else sc -= 6;
     }
 
     if (p.tokens.length) {
@@ -294,30 +308,37 @@
       for (var t = 0; t < p.tokens.length; t++) {
         if (hay.indexOf(String(p.tokens[t]).toLowerCase()) >= 0) hit++;
       }
-      if (hit) { sc += Math.min(18, hit * 5); why.push({ ok: true, t: '키워드 ' + hit + '/' + p.tokens.length }); }
+      if (hit) { sc += Math.min(18, hit * 6); why.push({ ok: true, t: '키워드 ' + hit + '/' + p.tokens.length }); }
+      else sc -= 4;
     }
 
     if (String(a.im_url || '').match(/^https?:/)) sc += 2;
 
-    return { score: Math.max(0, Math.min(100, Math.round(sc))), why: why };
+    return { score: sc, pct: Math.max(0, Math.min(100, Math.round(sc))), why: why };
   }
 
-  function runQuery(q) {
+  /* 후보 기준선 — 강한 조건(섹터·지역·권역)이 있으면 60, 없으면 40 */
+  function thresholdFor(p) {
+    return (p.sector || p.region || p.zone) ? 60 : 40;
+  }
+
+  function runQuery(q, loose) {
     var p = parseQuery(q);
     var list = assets();
     if (!list.length) return { parsed: p, results: [] };
-    var out = [];
+    var all = [];
     for (var i = 0; i < list.length; i++) {
       var r = scoreAsset(list[i], p);
-      if (r.score >= (p.sector || p.region || p.zone || p.tokens.length ? 18 : 30)) {
-        out.push({ a: list[i], score: r.score, why: r.why });
-      }
+      if (r.score >= 20) all.push({ a: list[i], score: r.score, pct: r.pct, why: r.why });
     }
-    out.sort(function (x, y) {
+    all.sort(function (x, y) {
       if (y.score !== x.score) return y.score - x.score;
       return String(x.a.name).localeCompare(String(y.a.name), 'ko');
     });
-    return { parsed: p, results: out };
+    var th = loose ? 20 : thresholdFor(p);
+    var out = all.filter(function (x) { return x.score >= th; });
+    if (out.length < 4 && !loose) out = all.filter(function (x) { return x.score >= 35; }).slice(0, 40);
+    return { parsed: p, results: out, total: all.length, threshold: th };
   }
 
   /* ───────────────────────── 화면 ───────────────────────── */
@@ -404,7 +425,9 @@
         return;
       }
       var more = e.target.closest('#mtMore');
-      if (more) { S.shown = Math.min(S.results.length, S.shown + S.page); renderResults(); }
+      if (more) { S.shown = Math.min(S.results.length, S.shown + S.page); renderResults(); return; }
+      var loose = e.target.closest('#mtLoose');
+      if (loose) { run(S.q, !S.loose); return; }
     });
   }
 
@@ -426,7 +449,7 @@
     if (p.region) bits.push(chip('지역', p.city || p.region));
     if (p.deal) bits.push(chip('거래', { auction: '경·공매', sale: '매각·매입', lease: '임차', dev: '개발·컨버전' }[p.deal] || p.deal));
     if (p.area) bits.push(chip('면적', nfmt(p.area) + '평'));
-    if (p.price) bits.push(chip('가격', nfmt(p.price) + '억'));
+    if (p.price) bits.push(chip('가격', nfmt(p.price) + '억' + (p.priceMode === 'max' ? ' 이하' : (p.priceMode === 'min' ? ' 이상' : ''))));
     if (p.temp) bits.push(chip('온도', p.temp));
     if (p.tokens.length) bits.push(chip('키워드', p.tokens.join(' · ')));
     host.classList.remove('hidden');
@@ -442,8 +465,12 @@
       return;
     }
     var shown = Math.min(S.results.length, S.shown || S.page);
+    var hiddenN = Math.max(0, (S.total || 0) - S.results.length);
     var html = '<div class="mt-rhead"><span><b>' + nfmt(S.results.length) + '건</b> 부합도 순' +
-      (S.parsed && S.parsed.raw ? ' · “' + esc(S.parsed.raw) + '”' : '') + '</span>' +
+      (S.parsed && S.parsed.raw ? ' · “' + esc(S.parsed.raw) + '”' : '') +
+      (hiddenN ? ' <button type="button" class="mini-btn mt-loose" id="mtLoose">' +
+        (S.loose ? '기준 높이기 (상위 60%↑)' : '인근·낮은 부합도 ' + nfmt(hiddenN) + '건 더 보기') + '</button>' : '') +
+      '</span>' +
       '<span class="mt-rtime">' + nfmt(assets().length) + '건 전체 대조</span></div>';
     html += '<div class="mt-list">';
     for (var i = 0; i < shown; i++) {
@@ -454,7 +481,7 @@
       var av = areaOf(a);
       html += '<article class="mt-card">';
       html += '<div class="mt-rank">' + (i + 1) + '</div>';
-      html += '<div class="mt-score" style="--sc:' + o.score + '"><span>' + o.score + '</span><em>%</em></div>';
+      html += '<div class="mt-score" style="--sc:' + (o.pct != null ? o.pct : o.score) + '"><span>' + (o.pct != null ? o.pct : o.score) + '</span><em>%</em></div>';
       html += '<div class="mt-main">';
       html += '<div class="mt-name-row"><span class="mt-dot" style="background:' + (sm.color || '#64748b') + '"></span>' +
         '<strong class="mt-name">' + esc(a.name) + '</strong>' +
@@ -481,14 +508,15 @@
     host.innerHTML = html;
   }
 
-  function run(q) {
+  function run(q, loose) {
     q = String(q || '').trim();
     if (!q) { toast('조건을 입력하세요. 예) 용인 15,000평 임차 물류센터', true); return; }
     if (!S.built) renderShell();
     var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
-    var res = runQuery(q);
+    var res = runQuery(q, !!loose);
     var ms = Math.round(((window.performance && performance.now) ? performance.now() : Date.now()) - t0);
-    S.q = q; S.parsed = res.parsed; S.results = res.results; S.shown = S.page; S.ranAt = Date.now();
+    S.q = q; S.parsed = res.parsed; S.results = res.results; S.total = res.total || res.results.length;
+    S.loose = !!loose; S.shown = S.page; S.ranAt = Date.now();
     renderParsed(res.parsed);
     renderResults();
     var head = $('#mtResult .mt-rtime');
@@ -505,7 +533,7 @@
     }
   }
 
-  window.NAI_MATCH = { show: show, run: run, parse: parseQuery, score: scoreAsset, areaOf: areaOf, priceOf: priceOf };
+  window.NAI_MATCH = { show: show, run: run, parse: parseQuery, score: scoreAsset, query: runQuery, areaOf: areaOf, priceOf: priceOf };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { /* lazy */ });
 })();

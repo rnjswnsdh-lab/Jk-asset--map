@@ -394,6 +394,92 @@
     };
   }
 
+  /* ═══════════════ 밸류에이드(Value-add) 레이어 — 2026-11-24 ═══════════════
+     사용자가 직접 조절하는 5개 파라미터를 기본 입력(inp)에 적용한 사본을 만들어
+     As-Is 와 같은 엔진(calc)으로 다시 계산합니다. 별도 근사식이 아니라 동일 엔진이므로
+     NOI·매각가·IRR·CoC 가 같은 기준으로 비교됩니다. */
+  function vaInput(inp) {
+    var o = clone(inp);
+    var up = num(VA.uplift) / 100;
+    if (up) {
+      if (o.rent_mode === 'pyeong') o.rent_per_py_month = num(o.rent_per_py_month) * (1 + up);
+      else o.rent_annual = num(o.rent_annual) * (1 + up);
+    }
+    if (num(VA.vacancy)) o.vacancy_pct = Math.max(0, num(o.vacancy_pct) - num(VA.vacancy));
+    if (num(VA.capex)) o.capex_initial = num(o.capex_initial) + num(VA.capex);
+    if (num(VA.exitCap)) o.exit_cap_pct = Math.max(0.5, num(o.exit_cap_pct) + num(VA.exitCap));
+    if (num(VA.growth)) o.rent_growth_pct = num(o.rent_growth_pct) + num(VA.growth);
+    return o;
+  }
+  function vaActive() { return !!(num(VA.uplift) || num(VA.vacancy) || num(VA.capex) || num(VA.exitCap) || num(VA.growth)); }
+
+  function vaDelta(a, b, fmt, invert) {
+    if (a === null || a === undefined || b === null || b === undefined || !isFinite(a) || !isFinite(b)) return '<span class="va-d">-</span>';
+    var d = b - a;
+    if (Math.abs(d) < 1e-9) return '<span class="va-d">±0</span>';
+    var good = invert ? d < 0 : d > 0;
+    return '<span class="va-d ' + (good ? 'up' : 'down') + '">' + (d > 0 ? '▲ ' : '▼ ') + fmt(Math.abs(d)) + '</span>';
+  }
+
+  function vaField(label, key, val, min, max, step, unit, hint) {
+    return '<div class="va-f"><div class="va-fhead"><span>' + esc(label) + '</span>' +
+      '<b><input type="number" data-va="' + key + '" value="' + esc(val) + '" step="' + step + '" min="' + min + '" max="' + max + '">' + unit + '</b></div>' +
+      '<input type="range" data-va-range="' + key + '" value="' + esc(val) + '" min="' + min + '" max="' + max + '" step="' + step + '">' +
+      '<em>' + esc(hint) + '</em></div>';
+  }
+
+  function vaSectionHTML(r) {
+    var base = vaInput(S.inp);
+    var vr = calc(base);
+    var rows = [
+      ['Y1 NOI (억/년)', n1(r.noi1), n1(vr.noi1), vaDelta(r.noi1, vr.noi1, function (v) { return n1(v); })],
+      ['연 임대수입 (억)', n1(r.d.eff), n1(vr.d.eff), vaDelta(r.d.eff, vr.d.eff, function (v) { return n1(v); })],
+      ['공실률 (%)', pct1(num(S.inp.vacancy_pct)), pct1(num(base.vacancy_pct)), vaDelta(num(S.inp.vacancy_pct), num(base.vacancy_pct), function (v) { return pct1(v); }, true)],
+      ['총투자비 (억)', n0(r.total), n0(vr.total), vaDelta(r.total, vr.total, function (v) { return n0(v) + '억'; }, true)],
+      ['에케티 (억)', n0(r.equity), n0(vr.equity), vaDelta(r.equity, vr.equity, function (v) { return n0(v) + '억'; }, true)],
+      ['Exit Cap (%)', pct2(num(S.inp.exit_cap_pct)), pct2(num(base.exit_cap_pct)), vaDelta(num(S.inp.exit_cap_pct), num(base.exit_cap_pct), function (v) { return v.toFixed(2) + '%p'; }, true)],
+      ['Exit 매각가 (억)', n0(r.exitValue), n0(vr.exitValue), vaDelta(r.exitValue, vr.exitValue, function (v) { return n0(v) + '억'; })],
+      ['Levered IRR', irrPct(r.levIrr), irrPct(vr.levIrr), vaDelta(r.levIrr * 100, vr.levIrr * 100, function (v) { return pct2(v) + 'p'; })],
+      ['Unlevered IRR', irrPct(r.unlevIrr), irrPct(vr.unlevIrr), vaDelta(r.unlevIrr * 100, vr.unlevIrr * 100, function (v) { return pct2(v) + 'p'; })],
+      ['Equity Multiple', isFinite(r.em) ? r.em.toFixed(2) + 'x' : '-', isFinite(vr.em) ? vr.em.toFixed(2) + 'x' : '-', vaDelta(r.em, vr.em, function (v) { return v.toFixed(2) + 'x'; })],
+      ['평균 CoC', pct2(r.avgCoc * 100), pct2(vr.avgCoc * 100), vaDelta(r.avgCoc * 100, vr.avgCoc * 100, function (v) { return pct2(v) + 'p'; })]
+    ];
+    var capex = num(VA.capex);
+    var capGain = (isFinite(r.exitValue) && isFinite(vr.exitValue)) ? (vr.exitValue - r.exitValue) : NaN;
+    var mult = (capex > 0 && isFinite(capGain)) ? (capGain / capex) : NaN;
+
+    return '<section class="val-block va-block" id="valVA"><div class="val-block-head"><h3>🏗️ 밸류에이드(Value-add) 시뮬레이터</h3>' +
+      '<span class="va-tag' + (vaActive() ? ' on' : '') + '">' + (vaActive() ? '적용 중' : 'As-Is 기준') + '</span>' +
+      '<button type="button" class="mini-btn" id="vaReset">초기화</button></div>' +
+      '<div class="va-presets">' +
+      [['경량 CAPEX', { uplift: 3, vacancy: 2, capex: 20, exitCap: 0, growth: 0 }],
+       ['표준 리포지셔닝', { uplift: 8, vacancy: 3, capex: 80, exitCap: -0.25, growth: 0.5 }],
+       ['적극 리모델링', { uplift: 15, vacancy: 5, capex: 200, exitCap: -0.5, growth: 1 }]]
+        .map(function (p) { return '<button type="button" class="va-preset" data-va-preset="' + esc(p[0]) + '">' + esc(p[0]) + '</button>'; }).join('') +
+      '</div>' +
+      '<div class="va-grid">' +
+      vaField('임대료 상향률', 'uplift', VA.uplift, 0, 30, 0.5, '%', '임대 롤오버·리뉴얼로 명목 임대료를 올리는 폭') +
+      vaField('공실 해소', 'vacancy', VA.vacancy, 0, 15, 0.5, '%p', '공실률을 낮추어 임대수입을 회수하는 폭') +
+      vaField('리모델링 CAPEX', 'capex', VA.capex, 0, 600, 5, '억원', '초기 투자비에 더해지는 공사·설비 투자') +
+      vaField('Exit Cap 변동', 'exitCap', VA.exitCap, -1.5, 1.5, 0.05, '%p', '매각 시점 캔레이트 (음수 = 자산가치 상승)') +
+      vaField('임대료 상승률 가속', 'growth', VA.growth, 0, 3, 0.1, '%p', '연 임대료 상승률에 더하는 폭') +
+      '</div>' +
+      '<div class="va-summary">' +
+      '<div class="va-sum"><span>자산가치 증가</span><b>' + (isFinite(capGain) ? (capGain > 0 ? '+' : '') + n1(capGain) + '억' : '-') + '</b><em>Exit 매각가 기준</em></div>' +
+      '<div class="va-sum"><span>투입 CAPEX</span><b>' + (capex ? n1(capex) + '억' : '-') + '</b><em>초기 투자비 가산</em></div>' +
+      '<div class="va-sum"><span>가치/CAPEX 배수</span><b>' + (isFinite(mult) ? mult.toFixed(2) + 'x' : '-') + '</b><em>1.0x 이상이면 가치 창출</em></div>' +
+      '<div class="va-sum"><span>IRR 변화</span><b class="' + (vr.levIrr >= r.levIrr ? 'good' : 'bad') + '">' +
+      (isFinite(vr.levIrr) && isFinite(r.levIrr) ? ((vr.levIrr - r.levIrr) * 100 > 0 ? '+' : '') + ((vr.levIrr - r.levIrr) * 100).toFixed(2) + '%p' : '-') + '</b><em>Levered IRR</em></div>' +
+      '</div>' +
+      '<div class="val-table-wrap"><table class="vt va-table"><thead><tr><th>지표</th><th>As-Is</th><th>Value-Add</th><th>변화</th></tr></thead><tbody>' +
+      rows.map(function (x) {
+        return '<tr><th>' + esc(x[0]) + '</th><td>' + x[1] + '</td><td class="b">' + x[2] + '</td><td>' + x[3] + '</td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<p class="va-note">밸류에이드 값은 기본 입력 위에 얹혀 <b>같은 엔진</b>으로 다시 계산됩니다(별도 근사 없음). ' +
+      'CAPEX 는 초기 투자비·에케티에 더해지고, Exit Cap 하락은 매각가를 올립니다. 실제 집행 전 공사비·임대차 조건을 확인하세요.</p>' +
+      '</section>';
+  }
+
   /* ═══════════════════ 공동주택 개발형(RLV) 엔진 ═══════════════════════ */
   /* 2026-11-23 오산 케이카 개발형 수지 검토식 그대로 구현:
      순대지 = 사업지 × (1−기부채납)
@@ -494,6 +580,7 @@
   }
 
   /* ═════════════════════════════ 상태 ══════════════════════════════════ */
+  var VA = { uplift: 0, vacancy: 0, capex: 0, exitCap: 0, growth: 0 };
   var S = {
     inp: null,
     presetId: 'jp-office',
@@ -549,7 +636,7 @@
   var FIELDS = [
     { g: '기초 자산', items: [
       { k: 'name', l: '물건명', t: 'text', w: 2 },
-      { k: 'sector', l: '섹터', t: 'select', w: 1, opts: [['office', '오피스'], ['logistics', '물류센터'], ['datacenter', '데이터센터'], ['hotel', '호텔']] },
+      { k: 'sector', l: '섹터', t: 'select', w: 1, opts: [['office', '오피스'], ['logistics', '물류센터'], ['datacenter', '데이터센터'], ['hotel', '호텔'], ['retail', '리테일'], ['senior', '👴 시니어 하우징']] },
       { k: 'area_py', l: '연면적(평)', t: 'num', step: 1, w: 1 },
       { k: 'hold_years', l: '보유기간(년)', t: 'num', step: 1, min: 3, max: 10, w: 1 }
     ] },
@@ -1027,6 +1114,7 @@
     html += valBarHTML();
     html += '<div class="val-kpis" id="valKpis">' + kpiHTML(r) + '</div>';
     html += '<section class="val-block"><h3>연도별 현금흐름 <span>(단위: 억원)</span></h3><div class="val-table-wrap" id="valCF">' + cashflowHTML(r) + '</div></section>';
+    html += vaSectionHTML(r);
 
     html += '<section class="val-block"><div class="val-block-head"><h3>① 이니셜 캡 × 엑시트 캡</h3>' +
       '<span class="seg-mini" data-metric1>' +
@@ -1142,6 +1230,8 @@
     var r = calc(S.inp);
     var k = $('#valKpis'); if (k) k.innerHTML = kpiHTML(r);
     var cf = $('#valCF'); if (cf) cf.innerHTML = cashflowHTML(r);
+    var va = $('#valVA');
+    if (va) { var tmp = document.createElement('div'); tmp.innerHTML = vaSectionHTML(r); va.parentNode.replaceChild(tmp.firstChild, va); bindVA(); }
     var m1 = $('#valM1'); if (m1) m1.innerHTML = matrix1(r);
     var m2 = $('#valM2'); if (m2) m2.innerHTML = matrix2(r);
     var tag = $('#valCalcTag');
@@ -1253,6 +1343,59 @@
     });
   }
 
+  /** 밸류애드 슬라이더·숫자·프리셋 바인딩 */
+  function bindVA() {
+    var host = $('#valView');
+    if (!host || !$('#valVA')) return;
+    $$('[data-va]', host).forEach(function (el) {
+      if (el._vaBound) return;
+      el._vaBound = 1;
+      el.addEventListener('change', function () {
+        var k = el.getAttribute('data-va');
+        VA[k] = num(el.value);
+        var rg = $('[data-va-range="' + k + '"]', host);
+        if (rg) rg.value = VA[k];
+        recalcOnly();
+      });
+    });
+    $$('[data-va-range]', host).forEach(function (el) {
+      if (el._vaBound) return;
+      el._vaBound = 1;
+      el.addEventListener('input', function () {
+        var k = el.getAttribute('data-va-range');
+        VA[k] = num(el.value);
+        var nm = $('[data-va="' + k + '"]', host);
+        if (nm) nm.value = VA[k];
+        recalcOnly();
+      });
+    });
+    $$('[data-va-preset]', host).forEach(function (el) {
+      if (el._vaBound) return;
+      el._vaBound = 1;
+      el.addEventListener('click', function () {
+        var name = el.getAttribute('data-va-preset');
+        var sets = {
+          '경량 CAPEX': { uplift: 3, vacancy: 2, capex: 20, exitCap: 0, growth: 0 },
+          '표준 리포지셔닝': { uplift: 8, vacancy: 3, capex: 80, exitCap: -0.25, growth: 0.5 },
+          '적극 리모델링': { uplift: 15, vacancy: 5, capex: 200, exitCap: -0.5, growth: 1 }
+        };
+        var st = sets[name];
+        if (!st) return;
+        for (var k in st) if (Object.prototype.hasOwnProperty.call(st, k)) VA[k] = st[k];
+        renderAll();
+        toast('밸류에이드 프리셋 「' + name + '」을 적용했습니다.');
+      });
+    });
+    var rst = $('#vaReset', host);
+    if (rst && !rst._vaBound) {
+      rst._vaBound = 1;
+      rst.addEventListener('click', function () {
+        VA.uplift = 0; VA.vacancy = 0; VA.capex = 0; VA.exitCap = 0; VA.growth = 0;
+        renderAll();
+      });
+    }
+  }
+
   function bindAll() {
     var host = $('#valView');
     if (!host) return;
@@ -1270,6 +1413,7 @@
       });
     });
 
+    bindVA();
     if (isDev(S.inp)) bindDevInputs();
     else if (isSector(S.inp)) {
       if (window.NAI_VALSEC) window.NAI_VALSEC.bind(host, function () { return S.inp; }, function () { recalcOnly(); });

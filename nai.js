@@ -19,7 +19,7 @@
   var SYNC_URL = CFG.SYNC_URL || '';
 
   var S = {
-    q: '', kind: 'ALL', sector: 'ALL', sort: 'kind',
+    q: '', kind: 'ALL', sector: 'ALL', sort: 'kind', mode: 'sale', lm: 'ALL',
     teams: [], weekly: [], loaded: false, loading: false, err: '', open: {}
   };
   /** 어느 토큰으로 팀장회의 데이터를 받았는지 기록 — 권한이 바뀌면 반드시 버린다 */
@@ -60,12 +60,25 @@
     for (var i = 0; i < fs.length; i++) if (String(fs[i].label) === label) return String(fs[i].value || '');
     return '';
   }
+  /** 임대(LM) 물건의 진행상태 — 매각과 달리 임차인 모집/임대 진행/임대 완료로 표시 */
+  function lmStatus(a) {
+    var s = String((a && a.status) || '') + ' ' + fact(a, 'NAI 상태') + ' ' + fact(a, '임대');
+    if (/임대\s*완료|만실|계약\s*완료|100%/.test(s)) return '임대 완료';
+    if (/보류|철회|중단|중지/.test(s)) return '임대 보류';
+    if (/임대\s*진행|임대\s*중|협의\s*중|계약\s*진행|오퍼/.test(s)) return '임대 진행 중';
+    return '임차인 모집 중';
+  }
+  function isLm(a) { var k = naiKind(a); return k === 'LM' || k === '매각·LM'; }
+  function isSale(a) { var k = naiKind(a); return k === '매각' || k === '매각·LM' || k === '개발'; }
   function naiKind(a) {
-    var k = fact(a, 'NAI 구분');
-    if (/LM/.test(k) && /매각/.test(k)) return '매각·LM';
-    if (/LM/.test(k)) return 'LM';
+    var k = String(fact(a, 'NAI 구분') || '');
+    if (!k) return '매각';
     if (/참고/.test(k)) return '참고';
-    if (/개발/.test(k)) return '개발';
+    if (/개발|투자제안/.test(k)) return '개발';
+    var hasLm = /LM|임대|임차/.test(k);
+    var hasSale = /매각|매도/.test(k);
+    if (hasLm && hasSale) return '매각·LM';
+    if (hasLm) return 'LM';
     return '매각';
   }
   var SECTOR_LABEL = {
@@ -140,7 +153,11 @@
   function list() {
     var q = S.q.trim().toLowerCase();
     return assets().filter(isNai).filter(function (a) {
-      if (S.kind !== 'ALL' && naiKind(a) !== S.kind) return false;
+      if (S.mode === 'lm') { if (!isLm(a)) return false; }
+      else { if (naiKind(a) === 'LM') return false; }
+      if (S.mode === 'lm') {
+        if (S.lm !== 'ALL' && lmStatus(a) !== S.lm) return false;
+      } else if (S.kind !== 'ALL' && naiKind(a) !== S.kind) return false;
       if (S.sector !== 'ALL' && a.sector !== S.sector) return false;
       if (!q) return true;
       var hay = [a.name, a.address, a.owner_amc, a.tenants, a.notes, a.scale_info, a.price_info, a.sub_type, a.region]
@@ -167,12 +184,19 @@
     var lm = all.filter(function (a) { var k = naiKind(a); return k === 'LM' || k === '매각·LM'; }).length;
     var ref = all.filter(function (a) { return naiKind(a) === '참고'; }).length;
     var team = S.teams.length;
-    return '<div class="nai-head"><div class="nai-title"><h2>🏢 NAI 매각·LM</h2>' +
-      '<p>NAI Korea 가 실제로 매각·임대 주관하는 물건입니다. 매각안내문(IM)·Flyer 로 확보한 스펙과 ' +
-      '가격·임대조건을 그대로 담았고, 물건을 누르면 섹터별 밸류에이션 계산기가 열립니다.</p>' +
-      '<p class="nai-meta">매각·개발 ' + sale + '건 · LM ' + lm + '건' + (ref ? ' · 참고 ' + ref + '건' : '') + ' · 자료 2026-11-24 동기화' +
+    var lmMode = S.mode === 'lm';
+    var hire = all.filter(function (a) { return isLm(a) && lmStatus(a) === '임차인 모집 중'; }).length;
+    return '<div class="nai-head"><div class="nai-title"><h2>' + (lmMode ? '🔑 NAI 임대(LM)' : '🏷️ NAI 매각') + '</h2>' +
+      '<p>' + (lmMode
+        ? 'NAI Korea 가 임대(LM)를 맡은 물건입니다. 임대면적·임대료·입주 시점을 그대로 담았고, 진행상태는 <b>임차인 모집 중 · 임대 진행 중 · 임대 완료</b>로 구분합니다.'
+        : 'NAI Korea 가 실제로 매각을 주관하는 물건입니다. 매각안내문(IM)·Flyer 로 확보한 스펙과 가격을 그대로 담았고, 물건을 누르면 섹터별 밸류에이션 계산기가 열립니다.') + '</p>' +
+      '<p class="nai-meta">' + (lmMode
+        ? 'LM ' + lm + '건 — 임차인 모집 중 ' + hire + '건 · 임대 진행 중 ' + all.filter(function (a) { return isLm(a) && lmStatus(a) === '임대 진행 중'; }).length + '건 · 임대 완료 ' + all.filter(function (a) { return isLm(a) && lmStatus(a) === '임대 완료'; }).length + '건'
+        : '매각·개발 ' + sale + '건' + (ref ? ' · 참고 ' + ref + '건' : '')) +
+      ' · 자료 2026-11-24 동기화' +
       (isAdmin() ? ' · <b class="team-flag">🔒 팀장회의 ' + team + '건</b>' : '') + '</p></div>' +
       '<div class="nai-tools">' +
+      '<button type="button" class="btn btn-ghost" id="naiSwitch">' + (lmMode ? '🏷️ 매각 탭으로' : '🔑 임대(LM) 탭으로') + '</button>' +
       '<label class="nai-search"><span aria-hidden="true">⌕</span><input id="naiSearch" type="search" placeholder="물건명 · 주소 · 매도인 검색" value="' + esc(S.q) + '"></label>' +
       '<button type="button" class="btn btn-ghost" id="naiRefresh">↻ 새로고침</button>' +
       (isAdmin() ? '<button type="button" class="btn btn-ghost" id="naiTeamJump">🔒 팀장회의</button>' : '') +
@@ -180,7 +204,23 @@
   }
 
   function chipsHTML() {
-    var kinds = [['ALL', '전체'], ['매각', '매각'], ['LM', 'LM(임대)'], ['개발', '개발'], ['참고', '참고자료']];
+    if (S.mode === 'lm') {
+      var lmKinds = [['ALL', '전체'], ['임차인 모집 중', '임차인 모집 중'], ['임대 진행 중', '임대 진행 중'], ['임대 완료', '임대 완료'], ['임대 보류', '임대 보류']];
+      var lmSectors = ['ALL'].concat(Object.keys(SECTOR_LABEL).filter(function (k) {
+        return assets().some(function (a) { return isNai(a) && isLm(a) && a.sector === k; });
+      }));
+      return '<div class="nai-filters">' +
+        '<div class="chip-wrap">' + lmKinds.map(function (k) {
+          return '<button type="button" class="pf-chip lm-chip' + (S.lm === k[0] ? ' on' : '') + '" data-nai-lm="' + k[0] + '">' + k[1] + '</button>';
+        }).join('') + '</div>' +
+        '<div class="chip-wrap">' + lmSectors.map(function (k) {
+          return '<button type="button" class="pf-chip' + (S.sector === k ? ' on' : '') + '" data-nai-sector="' + k + '">' + (k === 'ALL' ? '섹터 전체' : sectorLabel(k)) + '</button>';
+        }).join('') + '</div>' +
+        '<span class="nai-sort">정렬 <button type="button" class="mini-btn' + (S.sort === 'kind' ? ' on' : '') + '" data-nai-sort="kind">구분</button>' +
+        '<button type="button" class="mini-btn' + (S.sort === 'price' ? ' on' : '') + '" data-nai-sort="price">가격</button>' +
+        '<button type="button" class="mini-btn' + (S.sort === 'name' ? ' on' : '') + '" data-nai-sort="name">이름</button></span></div>';
+    }
+    var kinds = [['ALL', '전체'], ['매각', '매각'], ['개발', '개발'], ['참고', '참고자료']];
     var sectors = ['ALL'].concat(Object.keys(SECTOR_LABEL).filter(function (k) {
       return assets().some(function (a) { return isNai(a) && a.sector === k; });
     }));
@@ -212,15 +252,16 @@
     var rows = picks.map(function (r) {
       return '<div class="nc-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>';
     }).join('');
-    return '<article class="nai-card' + (kind === '참고' ? ' is-ref' : '') + '" data-nai-card="' + esc(a.id) + '">' +
-      '<div class="nc-top"><span class="nc-kind ' + esc(kind.replace('·', '')) + '">' + esc(kind) + '</span>' +
+    var lmBadge = isLm(a) ? '<span class="nc-lm lm-' + esc(lmStatus(a).replace(/\s/g, '')) + '">' + esc(lmStatus(a)) + '</span>' : '';
+    return '<article class="nai-card' + (kind === '참고' ? ' is-ref' : '') + (isLm(a) ? ' is-lm' : '') + '" data-nai-card="' + esc(a.id) + '">' +
+      '<div class="nc-top"><span class="nc-kind ' + esc(kind.replace('·', '')) + '">' + esc(kind) + '</span>' + lmBadge +
       '<span class="nc-sector">' + esc(sectorLabel(a.sector)) + '</span>' +
       (tcount ? '<span class="nc-team" title="팀장회의에서 다룬 물건">🔒 팀장회의 ' + tcount + '</span>' : '') +
       '</div>' +
       '<h3 class="nc-name">' + esc(a.name) + '</h3>' +
       '<p class="nc-addr">' + esc(a.address || '') + '</p>' +
       '<div class="nc-rows">' + rows + '</div>' +
-      '<p class="nc-state">' + esc(a.status || '') + '</p>' +
+      '<p class="nc-state">' + esc(isLm(a) ? lmStatus(a) + (a.status ? ' · ' + a.status : '') : (a.status || '')) + '</p>' +
       '<div class="nc-foot">' + esc(a.owner_amc || '') + '</div>' +
       '<div class="nc-acts">' +
       '<button type="button" class="mini-btn act" data-nai-val="' + esc(a.id) + '">📊 밸류에이션</button>' +
@@ -334,6 +375,8 @@
     }
     var rf = $('#naiRefresh');
     if (rf) rf.addEventListener('click', function () { if (window.naiMap && window.naiMap.reload) window.naiMap.reload(); loadTeam(true).then(render); });
+    var sw = $('#naiSwitch');
+    if (sw) sw.addEventListener('click', function () { setMode(S.mode === 'lm' ? 'sale' : 'lm'); });
     var tj = $('#naiTeamJump');
     if (tj) tj.addEventListener('click', function () {
       var s = $('#naiTeamSection');
@@ -342,6 +385,8 @@
     host.addEventListener('click', function (e) {
       var k = e.target.closest('[data-nai-kind]');
       if (k) { S.kind = k.getAttribute('data-nai-kind'); render(); return; }
+      var lmc = e.target.closest('[data-nai-lm]');
+      if (lmc) { S.lm = lmc.getAttribute('data-nai-lm'); render(); return; }
       var sc = e.target.closest('[data-nai-sector]');
       if (sc) { S.sector = sc.getAttribute('data-nai-sector'); render(); return; }
       var so = e.target.closest('[data-nai-sort]');
@@ -397,7 +442,15 @@
   }
   function gotoDetail(id) { gotoMap(id); }
 
-  function show() {
+  function setMode(mode) {
+    S.mode = (mode === 'lm') ? 'lm' : 'sale';
+    S.kind = 'ALL';
+    S.lm = 'ALL';
+    render();
+  }
+
+  function show(mode) {
+    if (mode === 'lm' || mode === 'sale') S.mode = mode;
     loadTeam(false).then(function () { render(); });
     render();
   }
@@ -414,7 +467,7 @@
     }
   }
 
-  window.NAI_NAI = { show: show, reset: reset, state: S, isNai: isNai, team: function () { return S.teams; } };
+  window.NAI_NAI = { show: show, setMode: setMode, reset: reset, state: S, isNai: isNai, lmStatus: lmStatus, team: function () { return S.teams; } };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { loadTeam(false); });
   else loadTeam(false);

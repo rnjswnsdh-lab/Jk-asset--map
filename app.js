@@ -1,5 +1,5 @@
 /* =========================================================================
-   Open AI Asset Bridge (가칭) — app.js
+   Open AI Asset Bridge — app.js
    - NAI Korea 상업용 부동산 통합 지도 (프로토타입)
    - 상단 탭: 🗺️ 물건 지도 | 🤝 SI·화주 풀 | 🏦 FI 풀 | 📊 밸류에이션
    - 카카오맵 JavaScript API 기반 (키 없으면 좌표 미리보기 모드)
@@ -101,6 +101,44 @@
   var NAI_TAG = 'NAI 매각·LM';
   function isNaiDeal(a) {
     return !!(a && String(a.source || '').indexOf(NAI_TAG) === 0);
+  }
+  /** NAI 구분(사실값) — 매각 / LM / 매각·LM / 개발 / 참고. (2026-11-24 매각·임대 분리) */
+  function naiKindOf(a) {
+    if (!isNaiDeal(a)) return '';
+    var k = String(factValue(a, 'NAI 구분') || '');
+    if (!k) return '매각';
+    if (/참고/.test(k)) return '참고';
+    if (/개발|투자제안/.test(k)) return '개발';
+    var hasLm = /LM|임대|임차/.test(k);
+    var hasSale = /매각|매도/.test(k);
+    if (hasLm && hasSale) return '매각·LM';
+    if (hasLm) return 'LM';
+    return '매각';
+  }
+  function isNaiLm(a) { var k = naiKindOf(a); return k === 'LM' || k === '매각·LM'; }
+  function isNaiSale(a) { var k = naiKindOf(a); return k === '매각' || k === '매각·LM' || k === '개발'; }
+  /** 임대(LM) 물건은 매각과 다른 진행상태로 표시합니다 — '거래진행중' 대신 임차인 모집/임대 진행/임대 완료 */
+  function lmStatusOf(a) {
+    var s = String((a && a.status) || '') + ' ' + factValue(a, 'NAI 상태') + ' ' + factValue(a, '임대');
+    if (/임대\s*완료|만실|계약\s*완료|100%/.test(s)) return '임대 완료';
+    if (/보류|철회|중단|중지/.test(s)) return '임대 보류';
+    if (/임대\s*진행|임대\s*중|협의\s*중|계약\s*진행|오퍼/.test(s)) return '임대 진행 중';
+    return '임차인 모집 중';
+  }
+  /** 목록·상세 공통 상태 표시 (LM 이면 임대 전용 상태) */
+  function displayStatus(a) {
+    if (!a) return '';
+    if (a._tr) return '임차수요';
+    if (isNaiLm(a) || (a.sector === 'tr')) return (a.sector === 'tr') ? '임차수요' : lmStatusOf(a);
+    return a.status_group || a.status || '';
+  }
+  function displayStatusColor(a) {
+    if (a && a._tr) return STATUS_COLORS['임차수요'] || '#0ea5e9';
+    if (a && (isNaiLm(a) || a.sector === 'tr')) {
+      var st = displayStatus(a);
+      return STATUS_COLORS[st] || '#0f766e';
+    }
+    return statusColor(a.status_group);
   }
   /** 관리자 응답에만 존재하는 팀장회의 색인 — 없으면 배지도 표시하지 않음 */
   function teamCount(id) {
@@ -447,7 +485,12 @@
   /* ──────────────────── 권한 3단 (관리자 / 내부용 / 외부 방문자) ──────────────────── */
   function canEdit() { return state.role === 'admin'; }
   function isExternal() { return state.role === 'external'; }
-  function roleLabel(r) { return r === 'admin' ? '관리자' : (r === 'internal' ? '내부용' : '외부 방문자'); }
+  function roleLabel(r) {
+    if (r === 'admin') return '관리자';
+    if (r === 'internal') return '내부용(CM팀)';
+    if (r === 'logi') return '물류TF';
+    return '외부 방문자';
+  }
 
   /** 접속 권한에 따른 화면 잠금: 내부용은 수정 불가, 외부용은 수정·추가·삭제·메일 바를 숨깁니다. */
   function applyRoleUI() {
@@ -469,16 +512,30 @@
     document.body.classList.toggle('readonly', !admin);
     document.body.classList.toggle('role-external', ext);
     document.body.classList.toggle('role-internal', role === 'internal');
+    document.body.classList.toggle('role-logi', role === 'logi');
+    /* 물류TF — 물류센터·화주 외 영역은 탭 자체를 숨깁니다 */
+    if (role === 'logi') {
+      $$('.vt-btn').forEach(function (b) {
+        var v = b.getAttribute('data-view');
+        if (v === 'pool' || v === 'fi' || v === 'vdr') b.classList.add('hidden');
+      });
+      if (window.NAI_HUB && window.NAI_HUB.restrict) { try { window.NAI_HUB.restrict('logi'); } catch (e0) { /* noop */ } }
+      var cur = document.querySelector('.vt-btn.is-active');
+      if (cur && ['pool', 'fi', 'vdr'].indexOf(cur.getAttribute('data-view')) >= 0) {
+        if (window.naiShowView) window.naiShowView('map');
+      }
+    }
     var addBtn = $('#btnAdd');
     if (addBtn) { addBtn.classList.toggle('hidden', !admin); addBtn.disabled = !admin; }
     var badge = $('#roleBadge');
     if (badge) {
       badge.classList.remove('hidden');
       badge.textContent = roleLabel(role);
-      badge.className = 'role-chip' + (role === 'internal' ? ' is-internal' : (ext ? ' is-external' : ''));
+      badge.className = 'role-chip' + ((role === 'internal' || role === 'logi') ? ' is-internal' : (ext ? ' is-external' : ''));
       badge.title = ext
         ? ('리멤버 명함 인증 세션' + (state.me && state.me.name ? ' · ' + state.me.name : '') + ' — 담당자 연락처 비공개')
-        : (role === 'internal' ? '내부용 — 전화번호는 서버에서 가려집니다' : '관리자 — 전체 조회·수정·저장·삭제');
+        : (role === 'logi' ? '물류TF — 물류센터·화주 데이터만 (전화번호 가림)'
+          : (role === 'internal' ? 'CM팀 내부용 — 전체 섹터, 전화번호는 서버에서 가려집니다' : '관리자 — 전체 조회·수정·저장·삭제'));
     }
     var codeBtn = $('#btnCodeChange');
     if (codeBtn) codeBtn.title = ext ? '외부 세션 종료 (접속 화면으로)' : '접속코드 변경 (관리자 / 내부용)';
@@ -562,11 +619,25 @@
   /* ────────────────────────────── 데이터 ────────────────────────────── */
 
 
+  /** 시니어 하우징 분류 보정 — 실버타운·시니어레지던스·요양시설 키워드는 senior 섹터로 표시 (2026-11-24) */
+  function applySeniorSector(a) {
+    if (!a || a.sector === 'senior') return;
+    var txt = String(a.name || '') + ' ' + String(a.sub_type || '') + ' ' + String(a.notes || '').slice(0, 80);
+    if (/시니어\s*레지던스|실버타운|실버스테이|노인복지주택|요양원|요양시설|시니어\s*하우징/.test(txt)) a.sector = 'senior';
+  }
+
   function buildAssets() {
     // 서버(비공개 Google 시트)에서 받은 목록이 원본입니다.
     state.index = {};
     state.assets = state.base.slice();
-    state.assets.forEach(function (a) { state.index[a.id] = a; });
+    /* 📋 TR 임차의뢰 수요 레이어 — 켜져 있을 때만 희망 권역 핀을 합칩니다(trmap.js) */
+    if (window.NAI_TR_LAYER && window.NAI_TR_LAYER.items) {
+      try {
+        var trq = window.NAI_TR_LAYER.items() || [];
+        if (trq.length) state.assets = state.assets.concat(trq);
+      } catch (e0) { /* noop */ }
+    }
+    state.assets.forEach(function (a) { applySeniorSector(a); state.index[a.id] = a; });
     indexSearch();
   }
 
@@ -583,14 +654,17 @@
   /* ────────────────────────────── 필터 ────────────────────────────── */
   function initFilters() {
     var sc = {}, gc = {}, regions = {}, subTypes = {};
-    var dealCount = { ALL: state.assets.length, general: 0, auction: 0, nai: 0 };
+    var dealCount = { ALL: state.assets.length, general: 0, auction: 0, nai: 0, naiSale: 0, naiLm: 0 };
     state.assets.forEach(function (a) {
       sc[a.sector] = (sc[a.sector] || 0) + 1;
       if (a.status_group) gc[a.status_group] = (gc[a.status_group] || 0) + 1;
       if (a.region) regions[a.region] = (regions[a.region] || 0) + 1;
       if (a.sub_type) subTypes[a.sub_type] = (subTypes[a.sub_type] || 0) + 1;
-      if (isNaiDeal(a)) dealCount.nai++;
-      else if (isAuction(a)) dealCount.auction++;
+      if (isNaiDeal(a)) {
+        dealCount.nai++;
+        if (isNaiSale(a)) dealCount.naiSale++;
+        if (isNaiLm(a)) dealCount.naiLm++;
+      } else if (isAuction(a)) dealCount.auction++;
       else dealCount.general++;
     });
     SECTOR_KEYS.forEach(function (k) {
@@ -604,7 +678,8 @@
       var dealItems = [
         ['ALL', '전체', dealCount.ALL, '#334155'],
         ['general', '🏢 일반 자산', dealCount.general, '#0b2a4a'],
-        ['nai', '🏢 NAI 매각·LM', dealCount.nai, '#0f766e'],
+        ['naiSale', '🏷️ NAI 매각', dealCount.naiSale, '#0b6bcb'],
+        ['naiLm', '🔑 NAI 임대(LM)', dealCount.naiLm, '#0f766e'],
         ['auction', '🏛️ 경·공매', dealCount.auction, '#b45309']
       ];
       dhost.innerHTML = dealItems.map(function (it) {
@@ -618,11 +693,15 @@
     if (dealHint) {
       dealHint.textContent = cur === 'auction'
         ? '경·공매 ' + dealCount.auction + '건 — 토지 100억↑ · 건물포함 300억↑ (온비드 2026-11-22 수집)'
-        : (cur === 'nai'
-          ? 'NAI 매각·LM ' + dealCount.nai + '건 — 매각 IM/Flyer·임대 Flyer 확보분 (2026-11-24 동기화)'
-          : (cur === 'general'
-            ? '일반 자산 ' + dealCount.general + '건 — AMC·리츠·오너 보유 및 거래·개발 자산'
-            : '전체 ' + dealCount.ALL + '건 — 일반 ' + dealCount.general + ' · NAI ' + dealCount.nai + ' · 경·공매 ' + dealCount.auction));
+        : (cur === 'naiSale'
+          ? '🏷️ NAI 매각 ' + dealCount.naiSale + '건 — 매각 IM/Flyer 확보분 (2026-11-24 동기화)'
+          : (cur === 'naiLm'
+            ? '🔑 NAI 임대(LM) ' + dealCount.naiLm + '건 — 임대 Flyer 확보분 · 상태는 임차인 모집/임대 진행/임대 완료'
+            : (cur === 'nai'
+              ? 'NAI 매각·임대(LM) ' + dealCount.nai + '건 — 매각 ' + dealCount.naiSale + ' · 임대 ' + dealCount.naiLm
+              : (cur === 'general'
+                ? '일반 자산 ' + dealCount.general + '건 — AMC·리츠·오너 보유 및 거래·개발 자산'
+                : '전체 ' + dealCount.ALL + '건 — 일반 ' + dealCount.general + ' · NAI 매각 ' + dealCount.naiSale + ' · NAI 임대 ' + dealCount.naiLm + ' · 경·공매 ' + dealCount.auction))));
     }
 
     // 섹터 칩
@@ -687,6 +766,8 @@
         var nai = isNaiDeal(a);
         if (f.dealType === 'auction' && !au) return false;
         if (f.dealType === 'nai' && !nai) return false;
+        if (f.dealType === 'naiSale' && !isNaiSale(a)) return false;
+        if (f.dealType === 'naiLm' && !isNaiLm(a)) return false;
         if (f.dealType === 'general' && (au || nai)) return false;
       }
       if (f.sectors[a.sector] === false) return false;
@@ -753,11 +834,11 @@
         '<button type="button" class="asset-row' + (a.id === state.selectedId ? ' is-selected' : '') + (auc ? ' is-auction' : '') + '" data-id="' + esc(a.id) + '" role="listitem">' +
         '<span class="bar" style="background:' + color + '"></span>' +
         '<span class="row-main">' +
-        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + (isNaiDeal(a) ? '<span class="nai-tag">🏢 NAI</span> ' : '') + esc(a.name) + (isHttp(a.im_url) ? ' <span class="im-mini" title="IM 링크 있음">📄</span>' : '') + (hasDiscFact(a) ? ' <span class="disc-mini" title="공시자료 연동됨">📋</span>' : '') + (teamCount(a.id) ? ' <span class="team-mini" title="팀장회의 안건 있음(관리자)">🔒</span>' : '') + '</span>' +
+        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + (isNaiDeal(a) ? '<span class="nai-tag">' + (isNaiLm(a) ? '🔑 LM' : '🏷️ NAI') + '</span> ' : '') + esc(a.name) + (isHttp(a.im_url) ? ' <span class="im-mini" title="IM 링크 있음">📄</span>' : '') + (hasDiscFact(a) ? ' <span class="disc-mini" title="공시자료 연동됨">📋</span>' : '') + (teamCount(a.id) ? ' <span class="team-mini" title="팀장회의 안건 있음(관리자)">🔒</span>' : '') + '</span>' +
         '<span class="row-sub">' + esc(rowSub) + '</span>' +
         '</span>' +
         '<span class="row-right">' +
-        '<span class="pill" style="background:' + statusColor(a.status_group) + '">' + esc(auc ? (a.status || a.status_group) : (a.status_group || a.status || '')) + '</span>' +
+        '<span class="pill" style="background:' + displayStatusColor(a) + '">' + esc(auc ? (a.status || a.status_group) : displayStatus(a)) + '</span>' +
         '<span class="row-meta">' + esc(rowMeta) + '</span>' +
         '</span></button>'
       );
@@ -838,7 +919,7 @@
     var rows = [
       ['섹터', sectorLabel(a.sector)],
       ['구분', a.sub_type],
-      ['진행상태', a.status || a.status_group],
+      ['진행상태', (isNaiLm(a) ? lmStatusOf(a) + ' (' + (a.status || 'LM') + ')' : (a.status || a.status_group))],
       [aucInfo ? '진행기관(신탁사)' : '운용사/소유주', aucInfo ? aucInfo.institution : a.owner_amc],
       ['펀드/리츠', a.fund_vehicle],
       ['규모', a.scale_info],
@@ -856,11 +937,11 @@
     if (aucInfo) {
       badges.push('<span class="badge auc">🏛️ 경·공매 · ' + esc(aucInfo.kind) + '</span>');
     }
-    badges.push('<span class="badge status" style="background:' + statusColor(a.status_group) + '">' + esc(a.status_group || '상태 미정') + '</span>');
+    badges.push('<span class="badge status" style="background:' + displayStatusColor(a) + '">' + esc(displayStatus(a) || '상태 미정') + '</span>');
     if (a.sub_type && a.sub_type !== a.status_group) badges.push('<span class="badge type">' + esc(a.sub_type) + '</span>');
     var disc = discGroups(a);
     if (disc.length) badges.push('<span class="badge disc">📋 공시 ' + disc.length + '</span>');
-    if (isNaiDeal(a)) badges.push('<span class="badge nai">🏢 NAI 매각·LM</span>');
+    if (isNaiDeal(a)) badges.push('<span class="badge nai">' + (isNaiLm(a) ? '🔑 NAI 임대(LM)' : '🏷️ NAI 매각') + '</span>');
     if (teamCount(a.id)) badges.push('<span class="badge team">🔒 팀장회의 ' + teamCount(a.id) + '</span>');
     if (a._added) badges.push('<span class="badge added">신규 추가됨</span>');
     else if (a._edited) badges.push('<span class="badge edited">수정됨</span>');
@@ -2652,6 +2733,7 @@
   function roleOfServer_(j) {
     var r = String((j && j.role) || '');
     if (r === 'admin') return 'admin';
+    if (r === 'logi') return 'logi';
     if (r === 'internal' || r === 'readonly') return 'internal';
     return 'external';
   }
@@ -2734,6 +2816,11 @@
     role: function () { return state.role; },
     me: function () { return state.me; },
     isNai: isNaiDeal,
+    naiKind: naiKindOf,
+    isNaiLm: isNaiLm,
+    lmStatus: lmStatusOf,
+    displayStatus: displayStatus,
+    displayStatusColor: displayStatusColor,
     teamCount: teamCount,
     log: logEvent,
     logAsset: logAsset,

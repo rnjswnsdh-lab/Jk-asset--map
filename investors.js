@@ -1,5 +1,5 @@
 /* =========================================================================
-   Open AI Asset Bridge (가칭) — 🤝 SI·화주 풀 / 🏦 FI 풀 (investors 시트)
+   Open AI Asset Bridge — 🤝 SI·화주 풀 / 🏦 FI 풀 (investors 시트)
    - 하나의 비공개 시트(investors) + Apps Script type=investors GET/POST
    - 5개 분류: 오피스 SI / 물류 화주 | 블라인드펀드 / 리츠·해외투자사 / 연기금·LP
    - 상단 탭에서 🤝 SI·화주 풀(kind: office_si, shipper)과
@@ -34,12 +34,21 @@
   var MODES = {
     si: {
       key: 'si',
-      title: '🤝 SI·화주 풀',
-      kinds: ['office', 'shipper'],
-      desc: '오피스 SI · 물류 화주 — 티저 메일 발송 연계',
+      title: '🏢 SI (사옥·전략투자)',
+      kinds: ['office'],
+      desc: '오피스 사옥·전략적 투자(SI) 기업 — 티저 메일 발송 연계',
       searchPlaceholder: '회사 · 업종 · 사례 · 담당자 · 이메일 검색',
       composeTitle: '📧 티저 메일 발송',
       limit: 400
+    },
+    ship: {
+      key: 'ship',
+      title: '🚚 물류센터 화주',
+      kinds: ['shipper'],
+      desc: '물류센터 화주(사용·임차 수요) — 부족권역·확장 계획·담당자',
+      searchPlaceholder: '화주사 · 업종 · 사용센터 · 부족권역 · 담당자 검색',
+      composeTitle: '📧 물류센터 제안 메일 발송',
+      limit: 500
     },
     fi: {
       key: 'fi',
@@ -120,6 +129,7 @@
   function modeKinds() { return modeDef(state.mode).kinds; }
   function inMode(r) { return modeKinds().indexOf(r.kind) >= 0; }
   function isFiKind(k) { return MODES.fi.kinds.indexOf(k) >= 0; }
+  function isShipMode() { return state.mode === 'ship'; }
 
   function snapshotMode() {
     modeStore[state.mode] = {
@@ -223,9 +233,11 @@
 
   function canEdit() { return state.role === 'admin'; }
   function isExternal() { return state.role === 'external'; }
+  function isLogi_() { return state.role === 'logi' || ((window.naiMap && window.naiMap.role) ? window.naiMap.role() === 'logi' : false); }
   function normRole_(r) {
     var s = String(r || '');
     if (s === 'admin') return 'admin';
+    if (s === 'logi') return 'logi';
     if (s === 'internal' || s === 'readonly') return 'internal';
     return 'external';
   }
@@ -335,12 +347,15 @@
         return;
       }
       state.role = normRole_(j.role);
+      /* 물류TF — 화주 풀만 사용 */
+      if (state.role === 'logi') { try { setMode('ship'); } catch (e0) { /* noop */ } }
       state.rows = (j.investors || []).map(function (r) {
         var o = Object.assign({}, r);
         o.kind = normKind(o.kind);
         return o;
       });
       state.loaded = true;
+      window.NAI_POOL_ROWS = state.rows;   /* 🗒 CRM 모듈이 카드 정보를 찾을 수 있게 노출 */
       try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), rows: state.rows })); } catch (e) { /* noop */ }
       applyRole();
       renderChips();
@@ -556,6 +571,12 @@
       '</div>';
   }
 
+  function crmInline(r) {
+    if (!window.NAI_CRM) return '';
+    if (window.NAI_CRM.visible && !window.NAI_CRM.visible()) return '';
+    try { return window.NAI_CRM.inline(r, isFiKind(r.kind) ? 'FI' : (r.kind === 'shipper' ? '화주' : 'SI')); } catch (e) { return ''; }
+  }
+
   function rowActions(r) {
     return '<div class="pr-actions">' +
       '<button type="button" class="mini-btn" data-open="' + esc(r.id) + '" title="상세 보기">🔎</button>' +
@@ -581,8 +602,13 @@
         (r.case_info ? '<div class="pr-case">' + esc(r.case_info) + '</div>' : '') +
         (sub ? '<div class="pr-sub">' + esc(sub) + '</div>' : '') +
         contactHtml(r) +
+        crmInline(r) +
       '</div>' + rowActions(r) +
       '</div>';
+  }
+
+  function fiRowHtmlTail(r) {
+    return crmInline(r);
   }
 
   /** 🏦 FI 카드 — 펀드 메타데이터(전략·IRR·드라이파우더·지역·만기)를 한눈에 */
@@ -638,6 +664,7 @@
         fundLine +
         (kv.length ? '<div class="pr-fundkv">' + kv.join('') + '</div>' : '') +
         contactHtml(r) +
+        crmInline(r) +
       '</div>' + rowActions(r) +
       '</div>';
   }
@@ -656,9 +683,12 @@
         ' · 리츠·해외투자사 ' + countByKind('reit_foreign') + '건(' + countCompany('reit_foreign') + '개사)' +
         ' · 연기금·LP ' + countByKind('pension_lp') + '건(' + countCompany('pension_lp') + '개사)' +
         ' — 총 ' + modeRows().length.toLocaleString('ko-KR') + '건 · 2026-11-22 기준';
+    } else if (state.mode === 'ship') {
+      $('#poolMeta').textContent = '물류센터 화주 ' + countByKind('shipper') + '건(' + countCompany('shipper') + '개사)' +
+        ' — 사용센터·부족권역·확장계획 기준 · 총 ' + modeRows().length.toLocaleString('ko-KR') + '건';
     } else {
-      $('#poolMeta').textContent = '오피스 SI ' + countByKind('office') + '건 · 물류 화주 ' + countByKind('shipper') + '건' +
-        ' — 총 ' + modeRows().length.toLocaleString('ko-KR') + '건 · 2026-11-22 기준';
+      $('#poolMeta').textContent = '오피스 SI ' + countByKind('office') + '건(' + countCompany('office') + '개사)' +
+        ' — 사옥 매입·전략투자 · 총 ' + modeRows().length.toLocaleString('ko-KR') + '건 · 2026-11-22 기준';
     }
 
     if (!rows.length) {
@@ -851,6 +881,10 @@
     if (r.source) {
       body += '<div class="dc-sec"><h4>출처</h4><div class="dc-text">' + esc(r.source) + (r.updated_at ? ' · ' + esc(r.updated_at) : '') + '</div></div>';
     }
+    /* 🗒 미팅·의향 히스토리 (내부용·관리자만) */
+    if (window.NAI_CRM) {
+      try { body += window.NAI_CRM.detail(r, isFiKind(r.kind) ? 'FI' : (r.kind === 'shipper' ? '화주' : 'SI')); } catch (e) { /* noop */ }
+    }
 
     var selOn = !!state.sel[r.id];
     var html = '<div class="modal-card dc-card" role="dialog" aria-modal="true">' +
@@ -997,14 +1031,16 @@
   }
 
   /* ─────────────── 탭 전환 (홈 / 지도 / SI·화주 / FI / 밸류에이션) ─────────────── */
-  var VIEWS = ['home', 'map', 'nai', 'match', 'pool', 'fi', 'valuation', 'admin'];
+  var VIEWS = ['home', 'map', 'nai', 'lm', 'vdr', 'match', 'pool', 'ship', 'fi', 'valuation', 'admin'];
   function showView(view) {
     if (VIEWS.indexOf(view) < 0) view = 'home';
     var home = view === 'home';
-    var nai = view === 'nai';
+    var lmMode = view === 'lm';
+    var nai = view === 'nai' || lmMode;
+    var vdr = view === 'vdr';
     var pool = view === 'pool';
     var fi = view === 'fi';
-    var poolLike = pool || fi;
+    var poolLike = pool || fi || view === 'ship';
     var val = view === 'valuation';
     var match = view === 'match';
     var adminView = view === 'admin';
@@ -1017,10 +1053,11 @@
         home = true;
       }
     }
-    if (poolLike) setMode(fi ? 'fi' : 'si');
+    if (poolLike) setMode(view === 'ship' ? 'ship' : (fi ? 'fi' : 'si'));
     document.body.classList.toggle('view-pool', poolLike);
     document.body.classList.toggle('view-val', val);
     document.body.classList.toggle('view-nai', nai);
+    document.body.classList.toggle('view-vdr', vdr);
     document.body.classList.toggle('view-match', match);
     document.body.classList.toggle('view-admin', adminView);
     var mv = $('#matchView');
@@ -1034,6 +1071,8 @@
     $('#poolView').classList.toggle('hidden', !poolLike);
     var vv = $('#valView');
     if (vv) vv.classList.toggle('hidden', !val);
+    var dv = $('#vdrView');
+    if (dv) dv.classList.toggle('hidden', !vdr);
     $$('.vt-btn').forEach(function (b) {
       var on = b.getAttribute('data-view') === view;
       b.classList.toggle('is-active', on);
@@ -1051,13 +1090,14 @@
     if (match && window.NAI_MATCH && window.NAI_MATCH.show) window.NAI_MATCH.show();
     if (adminView && window.NAI_LOGS && window.NAI_LOGS.show) window.NAI_LOGS.show();
     if (home && window.NAI_HOME && window.NAI_HOME.show) window.NAI_HOME.show();
-    if (nai && window.NAI_NAI && window.NAI_NAI.show) window.NAI_NAI.show();
+    if (nai && window.NAI_NAI && window.NAI_NAI.show) window.NAI_NAI.show(lmMode ? 'lm' : 'sale');
+    if (vdr && window.NAI_VDR && window.NAI_VDR.show) window.NAI_VDR.show();
     if (window.naiLog) {
-      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각·LM', match: 'AI 매물 매칭', pool: 'SI·화주 풀', fi: 'FI 풀', valuation: '밸류에이션', admin: '관리자' };
+      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각', lm: 'NAI 임대(LM)', vdr: '자문사 VDR', match: 'AI 매물 매칭', pool: 'SI (사옥·전략투자)', ship: '물류센터 화주', fi: 'FI 풀', valuation: '밸류에이션', admin: '관리자' };
       window.naiLog('tab', VIEW_LABEL[view] || view);
     }
     try {
-      history.replaceState(null, '', home ? '#home' : (nai ? '#nai' : (match ? '#match' : (adminView ? '#admin' : (pool ? '#pool' : (fi ? '#fi' : (val ? '#valuation' : location.pathname + location.search)))))));
+      history.replaceState(null, '', home ? '#home' : (nai ? (lmMode ? '#lm' : '#nai') : (vdr ? '#vdr' : (match ? '#match' : (adminView ? '#admin' : ((view === 'ship') ? '#ship' : (pool ? '#pool' : (fi ? '#fi' : (val ? '#valuation' : location.pathname + location.search)))))))));
     } catch (e) { /* noop */ }
   }
   window.naiShowView = showView;
@@ -1171,9 +1211,13 @@
     var hash = location.hash || '';
     if (hash === '#pool') showView('pool');
     else if (hash === '#fi') showView('fi');
+    else if (hash === '#ship') showView('ship');
     else if (hash === '#valuation') showView('valuation');
     else if (hash === '#match') showView('match');
     else if (hash === '#admin') showView('admin');
+    else if (hash === '#lm') showView('lm');
+    else if (hash === '#vdr') showView('vdr');
+    else if (hash === '#nai') showView('nai');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

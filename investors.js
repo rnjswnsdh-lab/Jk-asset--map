@@ -997,10 +997,11 @@
   }
 
   /* ─────────────── 탭 전환 (홈 / 지도 / SI·화주 / FI / 밸류에이션) ─────────────── */
-  var VIEWS = ['home', 'map', 'pool', 'fi', 'valuation'];
+  var VIEWS = ['home', 'map', 'nai', 'pool', 'fi', 'valuation'];
   function showView(view) {
     if (VIEWS.indexOf(view) < 0) view = 'home';
     var home = view === 'home';
+    var nai = view === 'nai';
     var pool = view === 'pool';
     var fi = view === 'fi';
     var poolLike = pool || fi;
@@ -1008,8 +1009,11 @@
     if (poolLike) setMode(fi ? 'fi' : 'si');
     document.body.classList.toggle('view-pool', poolLike);
     document.body.classList.toggle('view-val', val);
+    document.body.classList.toggle('view-nai', nai);
     var hv = $('#homeView');
     if (hv) hv.classList.toggle('hidden', !home);
+    var nv = $('#naiView');
+    if (nv) nv.classList.toggle('hidden', !nai);
     $('#poolView').classList.toggle('hidden', !poolLike);
     var vv = $('#valView');
     if (vv) vv.classList.toggle('hidden', !val);
@@ -1028,12 +1032,13 @@
     }
     if (val && window.NAI_VAL && window.NAI_VAL.show) window.NAI_VAL.show();
     if (home && window.NAI_HOME && window.NAI_HOME.show) window.NAI_HOME.show();
+    if (nai && window.NAI_NAI && window.NAI_NAI.show) window.NAI_NAI.show();
     if (window.naiLog) {
-      var VIEW_LABEL = { home: '홈', map: '물건 지도', pool: 'SI·화주 풀', fi: 'FI 풀', valuation: '밸류에이션' };
+      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각·LM', pool: 'SI·화주 풀', fi: 'FI 풀', valuation: '밸류에이션' };
       window.naiLog('tab', VIEW_LABEL[view] || view);
     }
     try {
-      history.replaceState(null, '', home ? '#home' : (pool ? '#pool' : (fi ? '#fi' : (val ? '#valuation' : location.pathname + location.search))));
+      history.replaceState(null, '', home ? '#home' : (nai ? '#nai' : (pool ? '#pool' : (fi ? '#fi' : (val ? '#valuation' : location.pathname + location.search)))));
     } catch (e) { /* noop */ }
   }
   window.naiShowView = showView;

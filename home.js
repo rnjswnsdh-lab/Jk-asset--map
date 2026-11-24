@@ -366,7 +366,13 @@
       apiGet('articles').catch(function () { return null; }),
       apiGet('notices').catch(function () { return null; })
     ]).then(function (res) {
-      BOOT.articles = (res[0] && res[0].items) || [];
+      BOOT.articles = ((res[0] && res[0].items) || []).filter(function (a) {
+        /* 🔒 팀장회의·월요회의 자료는 NAI 탭에서만 본다 (관리자에게만 내려오는 비공개 글) */
+        var t = String(a.tags || '');
+        if (t.indexOf('팀장회의') >= 0 || t.indexOf('월요회의') >= 0) return false;
+        if (String(a.status || '') === '비공개') return false;
+        return true;
+      });
       BOOT.notices = (res[1] && res[1].items) || [];
       BOOT.loaded = true;
       renderArticles();
@@ -382,7 +388,7 @@
     closeModal();
     opts = opts || {};
     modalEl = document.createElement('div');
-    modalEl.className = 'home-modal' + (opts.wide ? ' wide' : '');
+    modalEl.className = 'home-modal' + (opts.wide ? ' wide' : '') + (opts.deck ? ' deck' : '');
     modalEl.innerHTML = '<div class="hm-card" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">' +
       '<div class="hm-head"><strong>' + esc(title) + '</strong><button type="button" class="hm-close" aria-label="닫기">×</button></div>' +
       '<div class="hm-body">' + bodyHTML + '</div></div>';
@@ -627,6 +633,169 @@
     return '<div class="naip-brand"><span class="naip-logo">NAI<span>KOREA</span></span>' +
       '<span class="naip-conf">CONFIDENTIAL · 내부 검토용</span></div>';
   }
+
+  /* ══════════ IM 슬라이드 프리뷰 (16:9) — 2026-11-24 ══════════
+     와이즈파크 매각안내문(41p)의 구성(표지 · Executive Summary · 입지/교통 · 건축개요 ·
+     임차/운영실적 · 수지/밸류에이션 · 매각구조 · Contact)을 그대로 따릅니다.
+     값은 assets 시트 + facts 에서만 가져오므로 없는 항목은 '-'로 표시합니다. */
+  function pickNum(s) {
+    var m = String(s || '').match(/([\d,]+(?:\.\d+)?)/);
+    return m ? Number(String(m[1]).replace(/,/g, '')) : 0;
+  }
+  function factsOf(a) { return (a.facts || []).filter(function (f) { return String(f.label || '') !== '§DISC'; }); }
+  function factBy(a, re) {
+    var fs = factsOf(a);
+    for (var i = 0; i < fs.length; i++) if (re.test(String(fs[i].label))) return fs[i].value;
+    return '';
+  }
+  function engineOfAsset(a) {
+    var txt = String(a.sub_type || '') + ' ' + String(a.name || '') + ' ' + String(a.scale_info || '');
+    if (/골프/.test(txt)) return 'golf';
+    if (/리조트|콘도/.test(txt)) return 'resort';
+    if (a.sector === 'hotel') return 'hotel';
+    if (a.sector === 'datacenter') return 'datacenter';
+    return '';
+  }
+  function valSnapshot(a) {
+    var eng = engineOfAsset(a);
+    if (!eng || !window.NAI_VALSEC || !window.NAI_VALSEC.has(eng)) return null;
+    try {
+      var inp = window.NAI_VALSEC.defaults(eng, a);
+      var r = window.NAI_VALSEC.calc(eng, inp);
+      return { eng: eng, inp: inp, r: r, label: window.NAI_VALSEC.engine(eng).label };
+    } catch (e) { return null; }
+  }
+  function n0s(v) { return (v === null || v === undefined || !isFinite(v)) ? '-' : Math.round(v).toLocaleString('ko-KR'); }
+  function n1s(v) { return (v === null || v === undefined || !isFinite(v)) ? '-' : (Math.round(v * 10) / 10).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+  function p1s(v) { return (v === null || !isFinite(v)) ? '-' : (Math.round(v * 10) / 10).toFixed(1) + '%'; }
+  function p2s(v) { return (v === null || !isFinite(v)) ? '-' : (Math.round(v * 100) / 100).toFixed(2) + '%'; }
+
+  function slide(title, no, inner, cls) {
+    return '<section class="im-slide' + (cls ? ' ' + cls : '') + '">' +
+      '<div class="ims-head"><span class="ims-logo">NAI<span>KOREA</span></span>' +
+      '<span class="ims-no">' + (no || '') + '</span></div>' +
+      '<div class="ims-body">' + inner + '</div>' +
+      '<div class="ims-foot"><span>' + esc(title || '') + '</span><span>CONFIDENTIAL · ' + esc(todayStr()) + '</span></div></section>';
+  }
+
+  function imDeckHTML(a) {
+    var fs = factsOf(a);
+    var highlights = [];
+    [['투자 구조', '수익 구조'], ['컨버전 규모', '업사이드'], ['관광 수요', '수요 기반'], ['입지', '입지'], ['재분석 결론', '검토 결론'], ['매각 조건', '매각 조건'], ['개발', '개발 계획'], ['임차·운영', '운영 구조'], ['특화', '특화'], ['운영', '운영 구조']].forEach(function (p) {
+      if (highlights.length >= 3) return;
+      var v = factBy(a, new RegExp('^' + p[0]));
+      if (v) highlights.push([p[1], v]);
+    });
+    if (!highlights.length) {
+      ['규모', '가격', '진행상태'].forEach(function (l) {
+        var v = factBy(a, new RegExp('^' + l));
+        if (v) highlights.push([l, v]);
+      });
+    }
+    var specLabels = /^(소재지|용도지역|대지면적|건축면적|연면적|규모|건폐율|용적률|사용승인일|주차|승강기|구조|구성|건축 개요|층별|부지|모집 규모|임대 토지|임대 건물|개발비|밀도)/;
+    var specs = fs.filter(function (f) { return specLabels.test(String(f.label)); }).slice(0, 12);
+    var opsLabels = /^(임대차 구조|임대 조건|임대조건|보증금|비용 부담|중도해지|임차인|임차인 주주|임차인 실적|호텔 운영|호텔 실적|호텔 최고월|전대|현황|운영사|책임임대차|임대율|가용 시점|사용 기간|완공|공실)/;
+    var ops = fs.filter(function (f) { return opsLabels.test(String(f.label)); }).slice(0, 10);
+    var snap = valSnapshot(a);
+
+    var html = '<div class="im-deck">';
+
+    /* 1. 표지 */
+    html += slide('COVER', '',
+      '<div class="ims-cover"><p class="ims-kicker">INFORMATION MEMORANDUM</p>' +
+      '<h1>' + esc(a.name) + '</h1>' +
+      '<p class="ims-loc">' + esc([sectorLabel(a.sector), a.region, a.address].filter(Boolean).join(' · ')) + '</p>' +
+      '<div class="ims-cover-meta">' +
+      (a.price_info ? '<span>' + esc(a.price_info) + '</span>' : '') +
+      (a.owner_amc ? '<span>' + esc(a.owner_amc) + '</span>' : '') + '</div>' +
+      '<p class="ims-draft">2026 · NAI Korea 매각자문</p></div>', 'cover');
+
+    /* 2. 목차 */
+    html += slide('Table of Contents', '02',
+      '<h2 class="ims-h2">Table of Contents</h2><div class="ims-toc">' +
+      ['01 Investment Highlights', '02 Property Overview', '03 Operation &amp; Lease', '04 Valuation', '05 Sale Structure']
+        .map(function (t) { return '<div class="toc-row"><span>' + t.split(' ')[0] + '</span><b>' + t.slice(3) + '</b></div>'; }).join('') +
+      '</div>');
+
+    /* 3. Executive Summary */
+    html += slide('01 Investment Highlights', '03',
+      '<h2 class="ims-h2">Investment Highlights</h2><div class="ims-cards">' +
+      (highlights.length ? highlights.map(function (h) {
+        return '<div class="imsc"><span>' + esc(h[0]) + '</span><p>' + esc(h[1]) + '</p></div>';
+      }).join('') : '<div class="imsc"><p>' + esc(a.notes || '자료 업데이트 중입니다.') + '</p></div>') +
+      '</div>');
+
+    /* 4. 입지 · 교통 */
+    var locFacts = fs.filter(function (f) { return /^(입지|교통|접근성|관광|상권|주변|개발 호재|거래사례)/.test(String(f.label)); }).slice(0, 4);
+    html += slide('02 Property Overview — Location', '04',
+      '<h2 class="ims-h2">입지 · 교통</h2>' +
+      '<div class="ims-two"><div class="ims-maplike"><span>📍</span><b>' + esc(a.address || '-') + '</b>' +
+      '<i>' + esc((a.lat && a.lng) ? (a.lat + ', ' + a.lng) : '좌표 미확정') + '</i>' +
+      '<em>' + esc(a.region || '') + '</em></div>' +
+      '<div class="ims-side">' + (locFacts.length ? locFacts.map(function (f) {
+        return '<div class="ims-li"><span>' + esc(f.label) + '</span><p>' + esc(f.value) + '</p></div>';
+      }).join('') : '<p class="ims-empty">입지·교통 항목은 상세 스펙에서 확인하세요.</p>') + '</div></div>');
+
+    /* 5. 건축 개요 */
+    html += slide('02 Property Overview — Building', '05',
+      '<h2 class="ims-h2">건축 개요</h2><table class="ims-table"><tbody>' +
+      (specs.length ? specs.map(function (f) { return '<tr><th>' + esc(f.label) + '</th><td>' + esc(f.value) + '</td></tr>'; }).join('')
+        : '<tr><th>규모</th><td>' + esc(a.scale_info || '-') + '</td></tr><tr><th>주소</th><td>' + esc(a.address || '-') + '</td></tr>') +
+      '</tbody></table>');
+
+    /* 6. 운영 · 임차 */
+    html += slide('03 Operation & Lease', '06',
+      '<h2 class="ims-h2">운영 · 임차 현황</h2>' +
+      '<table class="ims-table"><tbody>' +
+      '<tr><th>임차인·운영</th><td>' + esc(a.tenants || factBy(a, /^임차/) || '-') + '</td></tr>' +
+      '<tr><th>만기·일정</th><td>' + esc(a.maturity_schedule || '-') + '</td></tr>' +
+      (ops.slice(0, 6).map(function (f) { return '<tr><th>' + esc(f.label) + '</th><td>' + esc(f.value) + '</td></tr>'; }).join('')) +
+      '</tbody></table>');
+
+    /* 7. 수지 시뮬레이션 */
+    var valBody;
+    if (snap) {
+      var r = snap.r;
+      valBody = '<div class="ims-kpis">' +
+        '<div class="imsk"><span>총투자비</span><b>' + n1s(r.total) + '억</b></div>' +
+        '<div class="imsk"><span>Y1 NOI</span><b>' + n1s(r.noi !== undefined ? r.noi : r.ebit) + '억</b></div>' +
+        '<div class="imsk"><span>수익률</span><b>' + (r.entryCap !== undefined ? p2s(r.entryCap) : p1s(r.yield)) + '</b></div>' +
+        '<div class="imsk"><span>Levered IRR</span><b>' + (isFinite(r.levIrr) ? p2s(r.levIrr * 100) : '-') + '</b></div>' +
+        '</div>' +
+        '<table class="ims-table"><tbody>' + (r.lines || []).slice(0, 8).map(function (l) {
+          return '<tr><th>' + esc(l[0]) + '</th><td class="' + (l[1] < 0 ? 'neg' : '') + '">' + (l[1] < 0 ? '(' + n1s(Math.abs(l[1])) + ')' : n1s(l[1])) + '</td></tr>';
+        }).join('') + '</tbody></table>' +
+        '<p class="ims-note">' + esc(snap.label) + ' 엔진 기본가정 기준 — 웹 <b>📊 밸류에이션</b> 탭에서 OCC·ADR·공사비·금리를 바꿔 실시간 재계산됩니다.</p>';
+    } else {
+      valBody = '<div class="ims-empty">' +
+        (a.price_info ? '<p>가격: ' + esc(a.price_info) + '</p>' : '') +
+        '<p>이 물건은 아직 섹터 수지 기본값이 없습니다. <b>📊 밸류에이션</b> 탭에서 렌트롤·OPEX 를 넣어 계산하세요.</p></div>';
+    }
+    html += slide('04 Valuation', '07', '<h2 class="ims-h2">수지 시뮬레이션</h2>' + valBody);
+
+    /* 8. 매각 구조 */
+    html += slide('05 Sale Structure', '08',
+      '<h2 class="ims-h2">매각 구조 · 진행</h2>' +
+      '<div class="ims-two"><div class="ims-side">' +
+      '<div class="ims-li"><span>구분</span><p>' + esc(a.sub_type || '-') + '</p></div>' +
+      '<div class="ims-li"><span>진행상태</span><p>' + esc(a.status || '-') + '</p></div>' +
+      '<div class="ims-li"><span>가격·조건</span><p>' + esc(a.price_info || '-') + '</p></div>' +
+      '<div class="ims-li"><span>매도인·자문</span><p>' + esc(a.owner_amc || '-') + '</p></div>' +
+      '</div><div class="ims-steps">' +
+      ['NDA 체결', 'IM·자료 제공', '현장 실사', '가격 제안', '우선협상·계약'].map(function (s, i) {
+        return '<div class="ims-step"><span>' + (i + 1) + '</span>' + esc(s) + '</div>';
+      }).join('') + '</div></div>' +
+      '<p class="ims-note">' + esc(a.im_label || '') + '</p>');
+
+    /* 9. Contact */
+    html += slide('Contact', '09',
+      '<h2 class="ims-h2">Contact Point</h2>' +
+      '<div class="ims-contact"><div><b>NAI Korea</b><p>서울시 강남구 테헤란로 516 정헌빌딩 10층</p><p>TEL 02-508-1180 · FAX 02-508-1184</p><p>www.naikorea.com</p></div>' +
+      '<div><b>담당</b><p>권준오 상무 · 010-7731-4316 · jk@naikorea.com</p><p>본 자료는 잠재 매수자 검토용이며, 매도인·매각자문사의 서면 동의 없이 복사·배포할 수 없습니다.</p></div></div>');
+
+    html += '</div>';
+    return html;
+  }
   function briefHTML(a, kind) {
     var isTM = kind === 'TM';
     var title = isTM ? 'TEASER MEMORANDUM' : 'INFORMATION MEMORANDUM';
@@ -702,16 +871,20 @@
     var a = assets().filter(function (x) { return x.id === assetId; })[0];
     if (!a) { toast('물건을 찾을 수 없습니다.', true); return; }
     var isTM = kind === 'TM';
-    var body = '<div class="brief-bar"><span>' + (isTM ? '📄 TM' : '📘 IM') + ' 브리프 미리보기</span>' +
-      '<span class="bb-right"><button type="button" class="btn btn-solid" data-home="brief-print">🖨 인쇄 / PDF 저장</button>' +
+    var body = '<div class="brief-bar"><span>' + (isTM ? '📄 TM' : '📘 IM') + (isTM ? ' 브리프 미리보기' : ' 매각안내문 프리뷰 · 16:9 슬라이드') + '</span>' +
+      '<span class="bb-right">' +
+      '<button type="button" class="btn btn-solid" data-home="brief-print">🖨 인쇄 / PDF 저장</button>' +
+      (isTM ? '' : '<button type="button" class="btn btn-ghost" data-home="brief-pptx" data-id="' + esc(a.id) + '">📊 .pptx 제작 요청</button>' +
+        '<button type="button" class="btn btn-ghost" data-home="brief-pdf" data-id="' + esc(a.id) + '">📄 .pdf 제작 요청</button>') +
       '<button type="button" class="btn btn-ghost" data-home="brief-request" data-id="' + esc(a.id) + '" data-kind="' + kind + '">제작 요청 보내기</button></span></div>' +
-      '<div class="brief-sheet" id="briefSheet">' + briefHTML(a, kind) + '</div>';
-    openModal((isTM ? '📄 TM' : '📘 IM') + ' 제작 — ' + a.name, body, { wide: true });
+      (isTM ? '<div class="brief-sheet" id="briefSheet">' + briefHTML(a, kind) + '</div>'
+        : '<div class="im-deck-wrap" id="briefSheet">' + imDeckHTML(a) + '</div>');
+    openModal((isTM ? '📄 TM' : '📘 IM') + ' 제작 — ' + a.name, body, { wide: true, deck: !isTM });
     // 요청은 미리보기를 여는 즉시 시트에 기록(브리프 요구: 미리보기 + 요청 동시)
     apiPost({
       action: 'request_doc', doc_type: kind, asset_id: a.id, asset_name: a.name,
       requester: (me() && me().name) || '', company: (me() && me().company) || '',
-      note: '웹 미리보기에서 생성'
+      note: isTM ? '웹 미리보기에서 생성' : '웹 16:9 IM 슬라이드 프리뷰에서 생성'
     }).then(function (j) {
       if (j && j.ok) {
         var bar = $('.brief-bar');
@@ -724,6 +897,22 @@
         if (isAdmin()) renderSubs();
       }
     }).catch(function () { /* noop */ });
+  }
+
+  /** .pptx / .pdf 제작 요청 — doc_requests 에 양식별 메모와 함께 기록 */
+  function requestExport(assetId, fmt) {
+    var a = assets().filter(function (x) { return x.id === assetId; })[0];
+    if (!a) { toast('물건을 찾을 수 없습니다.', true); return; }
+    apiPost({
+      action: 'request_doc', doc_type: 'IM', asset_id: a.id, asset_name: a.name,
+      requester: (me() && me().name) || '', company: (me() && me().company) || '',
+      note: fmt.toUpperCase() + ' 원본 제작 요청 (IM 슬라이드 프리뷰 기준)'
+    }).then(function (j) {
+      if (j && j.ok) {
+        toast(fmt.toUpperCase() + ' 제작 요청을 접수했습니다. NAI 양식으로 만들어 전달드립니다.');
+        if (isAdmin()) renderSubs();
+      } else toast('요청 접수에 실패했습니다.', true);
+    }).catch(function () { toast('네트워크 오류로 요청하지 못했습니다.', true); });
   }
 
   /* ─────────────────── 아티클/공지 읽기 ─────────────────── */
@@ -962,6 +1151,8 @@
       if (act === 'loi-submit') { submitLOI(); return; }
       if (act === 'loan-submit') { submitLoan(); return; }
       if (act === 'brief-print') { printBrief(); return; }
+      if (act === 'brief-pptx') { requestExport(btn.getAttribute('data-id'), 'pptx'); return; }
+      if (act === 'brief-pdf') { requestExport(btn.getAttribute('data-id'), 'pdf'); return; }
       if (act === 'brief-request') { requestDoc(btn.getAttribute('data-id'), btn.getAttribute('data-kind')); return; }
       if (act === 'open-article') { openArticle(Number(btn.getAttribute('data-idx'))); return; }
       if (act === 'open-notice') { openNotice(Number(btn.getAttribute('data-idx'))); return; }

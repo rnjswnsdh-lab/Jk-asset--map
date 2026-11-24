@@ -403,6 +403,30 @@
      RLV(감당 지가) = 분양수입 − 사업비                                            */
   function isDev(inp) { return !!inp && inp.mode === 'dev_res'; }
 
+  /* 섹터 엔진 선택 — 호텔·골프장·리조트·데이터센터는 valsec.js, 나머지는 기존 엔진 */
+  function engineOf(inp) {
+    if (!inp) return 'income';
+    if (inp.mode === 'dev_res') return 'dev_res';
+    if (inp.engine) return inp.engine;
+    return 'income';
+  }
+  function isSector(inp) {
+    var e = engineOf(inp);
+    return !!(window.NAI_VALSEC && window.NAI_VALSEC.has(e));
+  }
+  /** 물건 → 엔진 코드 (섹터·구분 키워드 기반) */
+  function engineForAsset(a) {
+    if (!a) return 'income';
+    var txt = String(a.sub_type || '') + ' ' + String(a.name || '') + ' ' + String(a.scale_info || '');
+    if (/골프/.test(txt)) return 'golf';
+    if (/리조트|콘도/.test(txt)) return 'resort';
+    if (a.sector === 'hotel') return 'hotel';
+    if (a.sector === 'datacenter') return 'datacenter';
+    if (a.sector === 'land') return 'dev_res';
+    if (a.sector === 'living' && /(개발|신축|예정|재개발)/.test(txt)) return 'dev_res';
+    return 'income';
+  }
+
   var DEV_DEFAULTS = {
     area_py: 7669, far_pct: 280, donation_pct: 17, sale_price_py: 1650,
     dev_cost_py: 680, soft_cost_pct: 18, profit_pct: 10,
@@ -480,8 +504,40 @@
     saved: [],            // 시트 저장 시나리오
     savedLoaded: false,
     role: 'readonly',
-    booted: false
+    booted: false,
+    favs: [],             // ⭐ 즐겨찾기 (localStorage)
+    recent: []            // 🔥 최근 검토 물건 (localStorage)
   };
+
+  /* ── 즐겨찾기 · 최근 검토 (2026-11-24) ──────────────────────────────
+     즐겨찾기 = 물건 또는 섹터 계산기. 최근 검토 = 계산기를 연 물건 (최대 8건). */
+  var FAV_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':val-favs:v1';
+  var RECENT_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':val-recent:v1';
+  function loadList(key) {
+    try { var v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  }
+  function saveList(key, list) { try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) { /* noop */ } }
+  function loadPrefs() { S.favs = loadList(FAV_KEY); S.recent = loadList(RECENT_KEY); }
+  function pushRecent(a, eng) {
+    if (!a || !a.id) return;
+    S.recent = (S.recent || []).filter(function (x) { return x.id !== a.id; });
+    S.recent.unshift({ id: a.id, name: a.name || a.id, engine: eng || '', at: Date.now() });
+    S.recent = S.recent.slice(0, 8);
+    saveList(RECENT_KEY, S.recent);
+  }
+  function favKeyOf(o) { return (o.kind || 'asset') + ':' + (o.id || o.engine); }
+  function isFav(o) {
+    var k = favKeyOf(o);
+    return (S.favs || []).some(function (x) { return favKeyOf(x) === k; });
+  }
+  function toggleFav(o) {
+    var k = favKeyOf(o);
+    var had = isFav(o);
+    S.favs = (S.favs || []).filter(function (x) { return favKeyOf(x) !== k; });
+    if (!had) S.favs.unshift(o);
+    S.favs = S.favs.slice(0, 20);
+    saveList(FAV_KEY, S.favs);
+  }
 
   function clone(o) {
     var out = {};
@@ -1000,21 +1056,76 @@
     return html;
   }
 
+  function agoText(ts) {
+    if (!ts) return '';
+    var d = Math.max(0, Date.now() - ts);
+    var m = Math.round(d / 60000);
+    if (m < 1) return '방금';
+    if (m < 60) return m + '분 전';
+    var h = Math.round(m / 60);
+    if (h < 24) return h + '시간 전';
+    return Math.round(h / 24) + '일 전';
+  }
+  function assetById(id) {
+    var st = window.naiMap && window.naiMap.state;
+    return (st && st.index && st.index[id]) ? st.index[id] : null;
+  }
+  function favChipsHTML() {
+    var list = S.favs || [];
+    var chips = list.map(function (o) {
+      var lb = o.kind === 'preset' ? ('프리셋 · ' + (o.name || o.id)) : ('⭐ ' + (o.name || o.id));
+      return '<button type="button" class="vf-chip" data-fav-open="' + esc(o.id) + '" data-fav-kind="' + esc(o.kind || 'asset') + '">' + esc(lb) + '<span class="vf-x" data-fav-del="' + esc(o.id) + '" data-fav-kinddel="' + esc(o.kind || 'asset') + '">×</span></button>';
+    }).join('');
+    if (!chips) chips = '<span class="vf-empty">계산기 왼쪽의 ⭐ 즐겨찾기 버튼으로 물건을 고정해 두세요.</span>';
+    return chips;
+  }
+  function recentChipsHTML() {
+    var list = S.recent || [];
+    if (!list.length) return '<span class="vf-empty">지도·목록에서 물건을 클릭하면 여기에 쌓입니다.</span>';
+    return list.map(function (o) {
+      return '<button type="button" class="vf-chip recent" data-recent-open="' + esc(o.id) + '">' + esc(o.name || o.id) +
+        '<span class="vf-time">' + esc(agoText(o.at)) + '</span></button>';
+    }).join('');
+  }
+  function launcherHTML() {
+    if (!window.NAI_VALSEC) return '';
+    var keys = ['hotel', 'logistics', 'office', 'datacenter', 'golf', 'resort', 'dev_res', 'retail'];
+    var label = { hotel: '🏨 호텔', logistics: '🚚 물류', office: '🏢 오피스', datacenter: '🖥 DC', golf: '⛳ 골프장', resort: '🏖 리조트', dev_res: '🏗 공동주택(RLV)', retail: '🛍 리테일' };
+    return '<div class="val-launch"><span class="vl-t">섹터 계산기</span><div class="vl-chips">' +
+      keys.map(function (k) { return '<button type="button" class="vl-chip' + (engineOf(S.inp) === k ? ' on' : '') + '" data-launch="' + k + '">' + label[k] + '</button>'; }).join('') +
+      '</div><details class="val-presets-fold"><summary>기존 검토 프리셋 6종</summary><div class="val-presets">' + presetHTML() + '</div></details></div>';
+  }
+
   function topHTML() {
     var dev = isDev(S.inp);
-    return '<div class="val-top"><div class="val-title"><h2>' +
-      (dev ? '🏗️ 공동주택 개발형 수지 · RLV' : '📊 물건별 밸류에이션 · 민감도') + '</h2><p>' +
-      (dev
-        ? '사업지·용적률·기부채납·분양가·공사비 → 분양수입·사업비 → 감당 가능 지가(RLV). 장부원가 대비 갭과 원가 회수 필요 분양가를 실시간 계산합니다.'
-        : '렌트롤·OPEX·CAPEX → 연도별 현금흐름 → IRR·EM·CoC. 이니셜 캡·엑시트 캡·구간별 금리를 바꿔 즉시 재계산합니다.') +
-      '</p></div><div class="val-presets">' + presetHTML() + '</div></div>';
+    var eng = engineOf(S.inp);
+    var sec = (window.NAI_VALSEC && window.NAI_VALSEC.engine) ? window.NAI_VALSEC.engine(eng) : null;
+    var title = dev ? '🏗️ 공동주택 개발형 수지 · RLV' : (sec ? (sec.label + ' ' + sec.name) : '📊 물건별 밸류에이션 · 민감도');
+    var sub = dev
+      ? '사업지·용적률·기부채납·분양가·공사비 → 분양수입·사업비 → 감당 가능 지가(RLV). 장부원가 대비 갭과 원가 회수 필요 분양가를 실시간 계산합니다.'
+      : (sec ? sec.desc : '렌트롤·OPEX·CAPEX → 연도별 현금흐름 → IRR·EM·CoC. 이니셜 캡·엑시트 캡·구간별 금리를 바꿔 즉시 재계산합니다.');
+    var curAsset = S.inp && S.inp.asset_id ? assetById(S.inp.asset_id) : null;
+    var favOn = curAsset ? isFav({ kind: 'asset', id: curAsset.id }) : false;
+    return '<div class="val-top"><div class="val-title"><h2>' + title + '</h2><p>' + sub + '</p>' +
+      (curAsset ? '<p class="val-cur">🗂 선택 물건: <b>' + esc(curAsset.name) + '</b>' +
+        '<button type="button" class="mini-btn" data-fav-toggle="' + esc(curAsset.id) + '">' + (favOn ? '⭐ 즐겨찾기 해제' : '⭐ 즐겨찾기') + '</button>' +
+        '<button type="button" class="mini-btn" data-goto-map="' + esc(curAsset.id) + '">지도에서 보기</button></p>' : '') +
+      '</div>' +
+      '<div class="val-favbar">' +
+      '<div class="vf-block"><span class="vf-t">⭐ 즐겨찾기</span><div class="vf-chips">' + favChipsHTML() + '</div></div>' +
+      '<div class="vf-block"><span class="vf-t">🔥 최근 검토</span><div class="vf-chips">' + recentChipsHTML() + '</div></div>' +
+      '</div>' + launcherHTML() + '</div>';
   }
 
   function renderAll() {
     var host = $('#valView');
     if (!host) return;
-    var dev = isDev(S.inp);
-    var html = '<div class="val-shell">' + topHTML() + (dev ? devBody() : incBody(calc(S.inp))) + '</div>';
+    var eng = engineOf(S.inp);
+    var bodyHtml;
+    if (isDev(S.inp)) bodyHtml = devBody();
+    else if (window.NAI_VALSEC && window.NAI_VALSEC.has(eng)) bodyHtml = window.NAI_VALSEC.body(eng, S.inp);
+    else bodyHtml = incBody(calc(S.inp));
+    var html = '<div class="val-shell">' + topHTML() + bodyHtml + '</div>';
     host.innerHTML = html;
     bindAll();
   }
@@ -1022,6 +1133,12 @@
   /** 값 변경 시 결과부만 다시 그림 (입력 포커스 유지) */
   function recalcOnly() {
     if (isDev(S.inp)) { recalcDevOnly(); return; }
+    if (isSector(S.inp)) {
+      try { window.NAI_VALSEC.refresh(engineOf(S.inp), S.inp, $('#valView')); } catch (e) { /* noop */ }
+      var tg = $('#valCalcTag');
+      if (tg) tg.textContent = '기준: ' + (S.inp.name || '사용자 입력');
+      return;
+    }
     var r = calc(S.inp);
     var k = $('#valKpis'); if (k) k.innerHTML = kpiHTML(r);
     var cf = $('#valCF'); if (cf) cf.innerHTML = cashflowHTML(r);
@@ -1153,7 +1270,101 @@
       });
     });
 
-    if (isDev(S.inp)) bindDevInputs(); else bindIncomeInputs();
+    if (isDev(S.inp)) bindDevInputs();
+    else if (isSector(S.inp)) {
+      if (window.NAI_VALSEC) window.NAI_VALSEC.bind(host, function () { return S.inp; }, function () { recalcOnly(); });
+    } else bindIncomeInputs();
+
+    /* ── 섹터 계산기 띄우기 / 즐겨찾기 / 최근 검토 ── */
+    $$('[data-launch]', host).forEach(function (b) {
+      b.addEventListener('click', function () {
+        var k = b.getAttribute('data-launch');
+        loadPrefs();
+        if (k === 'dev_res') {
+          S.presetId = '';
+          S.inp = normalizeInp({ mode: 'dev_res', name: '공동주택 개발 검토' });
+          toast('🏗 공동주택 개발형(RLV) 계산기를 열었습니다.');
+        } else if (window.NAI_VALSEC && window.NAI_VALSEC.has(k)) {
+          S.presetId = '';
+          S.inp = window.NAI_VALSEC.defaults(k, null);
+          toast(window.NAI_VALSEC.engine(k).name + ' 계산기를 열었습니다.');
+        } else {
+          var secKey = (k === 'logistics' || k === 'office' || k === 'retail') ? k : 'office';
+          S.presetId = '';
+          S.inp = normalizeInp({
+            mode: 'income', name: secKey === 'logistics' ? '물류센터' : (secKey === 'retail' ? '리테일' : '오피스'),
+            sector: secKey, area_py: 10000, hold_years: 5, anchor: 'price', price_eok: 1000, entry_cap: 0,
+            acq_cost_pct: secKey === 'logistics' ? 4.6 : 6.4, exit_cost_pct: 0.5,
+            exit_cap_pct: secKey === 'office' ? 4.5 : 5.5, rent_mode: 'pyeong', rent_annual: 0,
+            rent_per_py_month: secKey === 'office' ? 95000 : 35000, rf_months: 2, other_income: 0,
+            vacancy_pct: 3, rent_growth_pct: 2, opex: 0, opex_growth_pct: 2, other_cost: 0,
+            capex_initial: 0, capex_annual: 0, exit_capex: 0, add_noi: 0, add_noi_start: 2,
+            ltv_senior: 60, ltv_mezz: 0, deposit_eok: 0, s_rate1: 5.2, s_rate2: 4.8, s_rate3: 4.5,
+            m_rate1: 6.7, m_rate2: 6.2, m_rate3: 5.8, target_irr: 10
+          });
+        }
+        renderAll();
+      });
+    });
+    $$('[data-fav-toggle]', host).forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-fav-toggle');
+        var a = assetById(id);
+        if (!a) return;
+        toggleFav({ kind: 'asset', id: a.id, name: a.name });
+        renderAll();
+        toast(isFav({ kind: 'asset', id: a.id }) ? '⭐ 즐겨찾기에 담았습니다.' : '즐겨찾기에서 뺐습니다.');
+      });
+    });
+    var favBtn = $('#valFavBtn', host);
+    if (favBtn) favBtn.addEventListener('click', function () {
+      var id = S.inp && S.inp.asset_id;
+      var a = id ? assetById(id) : null;
+      if (!a && !S.inp.engine) { toast('물건을 먼저 고르세요.', true); return; }
+      var o = a ? { kind: 'asset', id: a.id, name: a.name } : { kind: 'engine', id: S.inp.engine, name: (window.NAI_VALSEC ? window.NAI_VALSEC.engine(S.inp.engine).name : S.inp.engine) };
+      toggleFav(o);
+      renderAll();
+    });
+    $$('[data-fav-open]', host).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        if (ev.target.closest('[data-fav-del]')) return;
+        var id = b.getAttribute('data-fav-open');
+        var kind = b.getAttribute('data-fav-kind') || 'asset';
+        loadPrefs();
+        if (kind === 'preset') {
+          var p = presetById(id);
+          if (p) { S.presetId = p.id; S.inp = normalizeInp(clone(p.inp)); renderAll(); }
+          return;
+        }
+        var a = assetById(id);
+        if (a) { openForAsset(a); return; }
+        if (kind === 'engine' && window.NAI_VALSEC && window.NAI_VALSEC.has(id)) {
+          S.presetId = ''; S.inp = window.NAI_VALSEC.defaults(id, null); renderAll();
+        }
+      });
+    });
+    $$('[data-fav-del]', host).forEach(function (x) {
+      x.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var id = x.getAttribute('data-fav-del');
+        var kind = x.getAttribute('data-fav-kinddel') || 'asset';
+        toggleFav({ kind: kind, id: id });
+        renderAll();
+      });
+    });
+    $$('[data-recent-open]', host).forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = assetById(b.getAttribute('data-recent-open'));
+        if (a) openForAsset(a); else toast('해당 물건을 찾을 수 없습니다.', true);
+      });
+    });
+    $$('[data-goto-map]', host).forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-goto-map');
+        if (window.naiShowView) window.naiShowView('map');
+        if (window.naiMap && window.naiMap.select) window.naiMap.select(id);
+      });
+    });
 
     $$('[data-metric1] button', host).forEach(function (b) {
       b.addEventListener('click', function () {
@@ -1324,10 +1535,58 @@
     return { auction: auc, minBid: minBid };
   }
 
-  /** 지도 상세 패널의 [📊 수익성 시뮬레이션] → 해당 물건 프리셋으로 이동 */
+  /** 지도 상세 패널의 [📊 수익성 시뮬레이션] → 해당 물건의 섹터 엔진·프리셋으로 이동 */
+  function assetAreaPy(a) {
+    var m = String((a && a.scale_info) || '').match(/([\d,\.]+)\s*평/);
+    return m ? num(String(m[1]).replace(/,/g, '')) : 0;
+  }
+  function assetPriceEok(a) {
+    var s = String((a && a.price_info) || '');
+    var m = s.match(/([\d,]{2,})\s*억/);
+    return m ? num(String(m[1]).replace(/,/g, '')) : 0;
+  }
+
   function openForAsset(a) {
     if (!a) return;
     var au = aucMinBid(a);
+    var eng = engineForAsset(a);
+    loadPrefs();
+
+    /* 섹터 엔진 (호텔·골프·리조트·DC) */
+    if (window.NAI_VALSEC && window.NAI_VALSEC.has(eng)) {
+      S.presetId = '';
+      S.inp = window.NAI_VALSEC.defaults(eng, a);
+      S.inp.asset_id = a.id;
+      S.inp.name = a.name || S.inp.name;
+      var pr = assetPriceEok(a);
+      if (au.minBid) pr = au.minBid;
+      if (pr > 0) S.inp.price_eok = pr;
+      pushRecent(a, eng);
+      showView();
+      renderAll();
+      toast('🎯 ' + (window.NAI_VALSEC.engine(eng).name) + '으로 열었습니다. 시장 가정치는 자료에 맞게 보정하세요.');
+      return;
+    }
+
+    /* 공동주택 개발형(RLV) — 토지·개발부지 */
+    if (eng === 'dev_res') {
+      var ar = assetAreaPy(a);
+      S.presetId = '';
+      var base = clone(DEV_DEFAULTS);
+      base.mode = 'dev_res';
+      base.name = a.name || '개발부지';
+      base.asset_id = a.id;
+      if (ar) base.area_py = Math.round(ar);
+      var pe = assetPriceEok(a);
+      if (pe) base.book_eok = pe;
+      S.inp = normalizeInp(base);
+      pushRecent(a, 'dev_res');
+      showView();
+      renderAll();
+      toast('🏗 공동주택 개발형(RLV)으로 열었습니다 — 사업지 면적·용적률·분양가를 확인하세요.');
+      return;
+    }
+
     var p = null;
     for (var i = 0; i < PRESETS.length; i++) {
       if (PRESETS[i].asset_ids && PRESETS[i].asset_ids.indexOf(a.id) >= 0) { p = PRESETS[i]; break; }
@@ -1366,12 +1625,14 @@
         : '이 물건은 아직 원문 수지 프리셋이 없습니다. 임대료·OPEX를 평당 시장 가정치로 채웠으니 실제 자료로 보정하세요.');
     }
     S.inp.asset_id = a.id;
+    pushRecent(a, 'income');
     showView();
     renderAll();
   }
 
   function show() {
     readRole();
+    loadPrefs();
     if (!S.inp) {
       var p = presetById(S.presetId) || PRESETS[0];
       S.presetId = p.id;

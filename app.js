@@ -95,6 +95,24 @@
   /* ─────────── 일반 자산 ↔ 경·공매 구분 (2026-11-22 신설) ───────────
      경·공매 물건은 시트에 별도 컬럼이 없어 ① id 접두 'auc-'(온비드 수집분)
      ② facts 의 '경매구분' ③ status_group '경·공매' 셋 중 하나로 판별합니다. */
+  /* ─────────── 🏢 NAI 매각·LM 물건 판별 (2026-11-24 신설) ───────────
+     assets 시트의 source 가 'NAI 매각·LM' 으로 시작하면 NAI 주관 물건으로 봅니다.
+     (source 컬럼을 쓰므로 시트 스키마·서버 코드를 바꾸지 않습니다) */
+  var NAI_TAG = 'NAI 매각·LM';
+  function isNaiDeal(a) {
+    return !!(a && String(a.source || '').indexOf(NAI_TAG) === 0);
+  }
+  /** 관리자 응답에만 존재하는 팀장회의 색인 — 없으면 배지도 표시하지 않음 */
+  function teamCount(id) {
+    var t = window.NAI_TEAM;
+    return (t && t.byAsset && t.byAsset[id]) ? t.byAsset[id] : 0;
+  }
+  function teamItemsFor(id) {
+    var t = window.NAI_TEAM;
+    if (!t || !t.items) return [];
+    return t.items.filter(function (x) { return x.asset === id; });
+  }
+
   function isAuction(a) {
     if (!a) return false;
     if (a.deal_type === 'auction') return true;
@@ -528,13 +546,15 @@
   /* ────────────────────────────── 필터 ────────────────────────────── */
   function initFilters() {
     var sc = {}, gc = {}, regions = {}, subTypes = {};
-    var dealCount = { ALL: state.assets.length, general: 0, auction: 0 };
+    var dealCount = { ALL: state.assets.length, general: 0, auction: 0, nai: 0 };
     state.assets.forEach(function (a) {
       sc[a.sector] = (sc[a.sector] || 0) + 1;
       if (a.status_group) gc[a.status_group] = (gc[a.status_group] || 0) + 1;
       if (a.region) regions[a.region] = (regions[a.region] || 0) + 1;
       if (a.sub_type) subTypes[a.sub_type] = (subTypes[a.sub_type] || 0) + 1;
-      if (isAuction(a)) dealCount.auction++; else dealCount.general++;
+      if (isNaiDeal(a)) dealCount.nai++;
+      else if (isAuction(a)) dealCount.auction++;
+      else dealCount.general++;
     });
     SECTOR_KEYS.forEach(function (k) {
       if (state.filters.sectors[k] === undefined) state.filters.sectors[k] = true;
@@ -547,6 +567,7 @@
       var dealItems = [
         ['ALL', '전체', dealCount.ALL, '#334155'],
         ['general', '🏢 일반 자산', dealCount.general, '#0b2a4a'],
+        ['nai', '🏢 NAI 매각·LM', dealCount.nai, '#0f766e'],
         ['auction', '🏛️ 경·공매', dealCount.auction, '#b45309']
       ];
       dhost.innerHTML = dealItems.map(function (it) {
@@ -560,9 +581,11 @@
     if (dealHint) {
       dealHint.textContent = cur === 'auction'
         ? '경·공매 ' + dealCount.auction + '건 — 토지 100억↑ · 건물포함 300억↑ (온비드 2026-11-22 수집)'
-        : (cur === 'general'
-          ? '일반 자산 ' + dealCount.general + '건 — AMC·리츠·오너 보유 및 거래·개발 자산'
-          : '전체 ' + dealCount.ALL + '건 — 일반 ' + dealCount.general + ' · 경·공매 ' + dealCount.auction);
+        : (cur === 'nai'
+          ? 'NAI 매각·LM ' + dealCount.nai + '건 — 매각 IM/Flyer·임대 Flyer 확보분 (2026-11-24 동기화)'
+          : (cur === 'general'
+            ? '일반 자산 ' + dealCount.general + '건 — AMC·리츠·오너 보유 및 거래·개발 자산'
+            : '전체 ' + dealCount.ALL + '건 — 일반 ' + dealCount.general + ' · NAI ' + dealCount.nai + ' · 경·공매 ' + dealCount.auction));
     }
 
     // 섹터 칩
@@ -624,8 +647,10 @@
     state.filtered = state.assets.filter(function (a) {
       if (f.dealType && f.dealType !== 'ALL') {
         var au = isAuction(a);
+        var nai = isNaiDeal(a);
         if (f.dealType === 'auction' && !au) return false;
-        if (f.dealType === 'general' && au) return false;
+        if (f.dealType === 'nai' && !nai) return false;
+        if (f.dealType === 'general' && (au || nai)) return false;
       }
       if (f.sectors[a.sector] === false) return false;
       if (f.statuses[a.status_group] === false) return false;
@@ -685,7 +710,7 @@
         '<button type="button" class="asset-row' + (a.id === state.selectedId ? ' is-selected' : '') + (auc ? ' is-auction' : '') + '" data-id="' + esc(a.id) + '" role="listitem">' +
         '<span class="bar" style="background:' + color + '"></span>' +
         '<span class="row-main">' +
-        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + esc(a.name) + (isHttp(a.im_url) ? ' <span class="im-mini" title="IM 링크 있음">📄</span>' : '') + (hasDiscFact(a) ? ' <span class="disc-mini" title="공시자료 연동됨">📋</span>' : '') + '</span>' +
+        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + (isNaiDeal(a) ? '<span class="nai-tag">🏢 NAI</span> ' : '') + esc(a.name) + (isHttp(a.im_url) ? ' <span class="im-mini" title="IM 링크 있음">📄</span>' : '') + (hasDiscFact(a) ? ' <span class="disc-mini" title="공시자료 연동됨">📋</span>' : '') + (teamCount(a.id) ? ' <span class="team-mini" title="팀장회의 안건 있음(관리자)">🔒</span>' : '') + '</span>' +
         '<span class="row-sub">' + esc(rowSub) + '</span>' +
         '</span>' +
         '<span class="row-right">' +
@@ -789,6 +814,8 @@
     if (a.sub_type && a.sub_type !== a.status_group) badges.push('<span class="badge type">' + esc(a.sub_type) + '</span>');
     var disc = discGroups(a);
     if (disc.length) badges.push('<span class="badge disc">📋 공시 ' + disc.length + '</span>');
+    if (isNaiDeal(a)) badges.push('<span class="badge nai">🏢 NAI 매각·LM</span>');
+    if (teamCount(a.id)) badges.push('<span class="badge team">🔒 팀장회의 ' + teamCount(a.id) + '</span>');
     if (a._added) badges.push('<span class="badge added">신규 추가됨</span>');
     else if (a._edited) badges.push('<span class="badge edited">수정됨</span>');
     if (!(a.lat && a.lng)) badges.push('<span class="badge warn">좌표 미확정</span>');
@@ -923,6 +950,20 @@
 
     if (a.notes) {
       html += '<section class="detail-section"><h4>비고 · 메모</h4><div class="detail-note">' + esc(a.notes) + '</div></section>';
+    }
+    /* ── 🔒 팀장회의 (관리자 응답에만 존재) ── */
+    var teams = teamItemsFor(a.id);
+    if (teams.length) {
+      html += '<section class="detail-section detail-team"><h4>🔒 팀장회의 <span class="dt-lock">관리자 전용</span></h4>';
+      teams.forEach(function (t) {
+        html += '<div class="dt-item"><div class="dt-tags">' +
+          (t.section ? '<span class="dt-tag">' + esc(t.section) + '</span>' : '') +
+          (t.due ? '<span class="dt-tag due">기한 ' + esc(t.due) + '</span>' : '') +
+          '<span class="dt-date">' + esc(t.date) + '</span></div>' +
+          '<strong>' + esc(String(t.title || '').replace(/^\[팀장회의\]\s*/, '')) + '</strong>' +
+          '<p>' + esc(t.text || '') + '</p></div>';
+      });
+      html += '</section>';
     }
     if (isHttp(a.im_url)) {
       html += '<section class="detail-section"><h4>IM (투자설명서)</h4><div class="detail-source" style="word-break:break-all">' +
@@ -2538,6 +2579,8 @@
     select: function (id) { selectAsset(id, { pan: true }); },
     role: function () { return state.role; },
     me: function () { return state.me; },
+    isNai: isNaiDeal,
+    teamCount: teamCount,
     log: logEvent,
     /* 지도 탭이 보일 때 호출 — 숨김 상태에서 생성되면 중심이 (0,0)으로 잡혀
        타일이 엉뚱한 곳을 그리는 문제를 고칩니다(홈 첫 화면 도입 2026-11-23). */

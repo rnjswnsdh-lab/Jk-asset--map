@@ -685,14 +685,14 @@
       paint();
       body.innerHTML += '<p class="hub-foot">' + (note === 'server' ? '비공개 시트 <b>lois</b> 기준.' : '이 브라우저에서 제출한 내역입니다.') + '</p>';
     }
-    /* 서버 접수 목록 — 관리자=원문, 그 외 권한=업체명 문라인드(서버가 마스킹해 내려줍니다) */
+    /* 서버 접수 목록 — 관리자=원문, 그 외 권한=업체명 블라인드(서버가 마스킹해 내려줍니다) */
     apiGet('requests').then(function (j) {
       if (j && j.ok && j.items && j.items.length) {
         LIST.items = j.items;
         LIST.source = 'server';
         paint();
         body.innerHTML += '<p class="hub-foot">비공개 시트 <b>lois</b> 기준 · 유형은 <b>request_type</b> 컬럼으로 구분합니다.' +
-          (isAdmin() ? '' : ' 업체명은 관리자만 볼 수 있어 <b>문라인드</b>로 표시됩니다.') + '</p>';
+          (isAdmin() ? '' : ' 업체명은 관리자만 볼 수 있어 <b>블라인드</b>로 표시됩니다.') + '</p>';
         return;
       }
       if (!isAdmin()) { localRender('local'); return; }

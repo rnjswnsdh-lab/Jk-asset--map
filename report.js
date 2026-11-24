@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  var SRC = 'data/market_review_2026q3.json';
+  var SRC = 'market_review_2026q3.js';   /* 정적 데이터(리포트 JSON 을 JS 로 감싼 파일) */
   var CACHE_KEY = 'nai-map:market-review:2026q3';
   var BOOT = { data: null, loading: null, el: null };
 
@@ -53,23 +53,24 @@
   /* ───────────── 데이터 로드 (정적 JSON → localStorage 캐시) ───────────── */
   function load() {
     if (BOOT.data) return Promise.resolve(BOOT.data);
-    if (BOOT.loading) return BOOT.loading;
+    /* market_review_2026q3.js 가 window.NAI_MARKET_REVIEW_2026Q3 로 데이터를 싣습니다 */
+    var inline = window.NAI_MARKET_REVIEW_2026Q3 || null;
+    if (inline && inline.office) {
+      BOOT.data = inline;
+      return Promise.resolve(inline);
+    }
     var cached = null;
     try { cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) { cached = null; }
     if (cached && cached.office) { BOOT.data = cached; return Promise.resolve(cached); }
-    BOOT.loading = fetch(SRC + '?v=20261124a', { cache: 'no-store' })
+    if (BOOT.loading) return BOOT.loading;
+    BOOT.loading = fetch(SRC, { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (j) {
         BOOT.data = j;
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify(j)); } catch (e2) { /* noop */ }
         BOOT.loading = null;
         return j;
       })
-      .catch(function (err) {
-        BOOT.loading = null;
-        if (cached) return cached;
-        throw err;
-      });
+      .catch(function (err) { BOOT.loading = null; throw err; });
     return BOOT.loading;
   }
 

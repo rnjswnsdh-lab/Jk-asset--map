@@ -192,6 +192,27 @@
   }
   function bidsOf(roomId) { return (S.bidsByRoom[roomId] || []).slice(); }
 
+  /* 낙관적 갱신 — 서버 목록 조회가 1~2초 늦게 반영되는 동안에도 방금 저장한 항목이 보이도록 */
+  function mergeDocLocal(doc) {
+    var list = (S.docsByRoom[doc.room_id] || []).slice();
+    var hit = false;
+    for (var i = 0; i < list.length; i++) if (list[i].id === doc.id) { list[i] = doc; hit = true; break; }
+    if (!hit) list.push(doc);
+    S.docsByRoom[doc.room_id] = list;
+  }
+  function mergeBidLocal(bid) {
+    var list = (S.bidsByRoom[bid.room_id] || []).slice();
+    var hit = false;
+    for (var i = 0; i < list.length; i++) if (list[i].id === bid.id) { list[i] = bid; hit = true; break; }
+    if (!hit) list.push(bid);
+    S.bidsByRoom[bid.room_id] = list;
+  }
+  function mergeRoomLocal(room) {
+    var hit = false;
+    for (var i = 0; i < S.rooms.length; i++) if (S.rooms[i].id === room.id) { S.rooms[i] = room; hit = true; break; }
+    if (!hit) S.rooms.push(room);
+  }
+
   /* ─────────────────────────── AI 쇼트리스트 ─────────────────────────── */
   function scoreBids(roomId) {
     var bids = bidsOf(roomId);
@@ -476,8 +497,12 @@
       persistRoom(obj).then(function (j) {
         if (!j || !j.ok) { toast('저장 실패: ' + ((j && j.error) || ''), true); return; }
         S.roomId = obj.id;
-        S.loaded = false;
-        loadRooms(true).then(function () { return loadRoomData(obj.id, true); }).then(function () { closeModal(); render(); toast('딜룸을 저장했습니다.'); });
+        S.loaded = true;
+        mergeRoomLocal(obj);
+        closeModal(); render(); toast('딜룸을 저장했습니다.');
+        setTimeout(function () {
+          loadRooms(true).then(function () { mergeRoomLocal(obj); return loadRoomData(obj.id, true); }).then(function () { render(); });
+        }, 1600);
       }).catch(function () { toast('저장 실패(네트워크)', true); });
     });
   }
@@ -507,7 +532,8 @@
       persistDoc(doc).then(function (j) {
         if (!j || !j.ok) { toast('저장 실패: ' + ((j && j.error) || ''), true); return; }
         closeModal();
-        loadRoomData(room.id, true).then(function () { render(); toast(kind.label + ' 을(를) 저장했습니다.'); });
+        mergeDocLocal(doc); render(); toast(kind.label + ' 을(를) 저장했습니다.');
+        setTimeout(function () { loadRoomData(room.id, true).then(function () { mergeDocLocal(doc); render(); }); }, 1600);
       }).catch(function () { toast('저장 실패(네트워크)', true); });
     });
   }
@@ -552,7 +578,8 @@
         if (!j || !j.ok) { toast('제출 실패: ' + ((j && j.error) || ''), true); return; }
         closeModal();
         S.tab = 'ai';
-        loadRoomData(room.id, true).then(function () { render(); toast('LOI/입찰을 제출했습니다. AI 쇼트리스트에 반영되었습니다.'); });
+        mergeBidLocal(bid); render(); toast('LOI/입찰을 제출했습니다. AI 쇼트리스트에 반영되었습니다.');
+        setTimeout(function () { loadRoomData(room.id, true).then(function () { mergeBidLocal(bid); render(); }); }, 1600);
       }).catch(function () { toast('제출 실패(네트워크)', true); });
     });
   }

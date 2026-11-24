@@ -394,7 +394,7 @@
     };
   }
 
-  /* ═══════════════ 밸류에이드(Value-add) 레이어 — 2026-11-24 ═══════════════
+  /* ═══════════════ 밸류애드(Value-add) 레이어 — 2026-11-24 ═══════════════
      사용자가 직접 조절하는 5개 파라미터를 기본 입력(inp)에 적용한 사본을 만들어
      As-Is 와 같은 엔진(calc)으로 다시 계산합니다. 별도 근사식이 아니라 동일 엔진이므로
      NOI·매각가·IRR·CoC 가 같은 기준으로 비교됩니다. */
@@ -436,7 +436,7 @@
       ['연 임대수입 (억)', n1(r.d.eff), n1(vr.d.eff), vaDelta(r.d.eff, vr.d.eff, function (v) { return n1(v); })],
       ['공실률 (%)', pct1(num(S.inp.vacancy_pct)), pct1(num(base.vacancy_pct)), vaDelta(num(S.inp.vacancy_pct), num(base.vacancy_pct), function (v) { return pct1(v); }, true)],
       ['총투자비 (억)', n0(r.total), n0(vr.total), vaDelta(r.total, vr.total, function (v) { return n0(v) + '억'; }, true)],
-      ['에케티 (억)', n0(r.equity), n0(vr.equity), vaDelta(r.equity, vr.equity, function (v) { return n0(v) + '억'; }, true)],
+      ['에쿼티 (억)', n0(r.equity), n0(vr.equity), vaDelta(r.equity, vr.equity, function (v) { return n0(v) + '억'; }, true)],
       ['Exit Cap (%)', pct2(num(S.inp.exit_cap_pct)), pct2(num(base.exit_cap_pct)), vaDelta(num(S.inp.exit_cap_pct), num(base.exit_cap_pct), function (v) { return v.toFixed(2) + '%p'; }, true)],
       ['Exit 매각가 (억)', n0(r.exitValue), n0(vr.exitValue), vaDelta(r.exitValue, vr.exitValue, function (v) { return n0(v) + '억'; })],
       ['Levered IRR', irrPct(r.levIrr), irrPct(vr.levIrr), vaDelta(r.levIrr * 100, vr.levIrr * 100, function (v) { return pct2(v) + 'p'; })],
@@ -448,7 +448,7 @@
     var capGain = (isFinite(r.exitValue) && isFinite(vr.exitValue)) ? (vr.exitValue - r.exitValue) : NaN;
     var mult = (capex > 0 && isFinite(capGain)) ? (capGain / capex) : NaN;
 
-    return '<section class="val-block va-block" id="valVA"><div class="val-block-head"><h3>🏗️ 밸류에이드(Value-add) 시뮬레이터</h3>' +
+    return '<section class="val-block va-block" id="valVA"><div class="val-block-head"><h3>🏗️ 밸류애드(Value-add) 시뮬레이터</h3>' +
       '<span class="va-tag' + (vaActive() ? ' on' : '') + '">' + (vaActive() ? '적용 중' : 'As-Is 기준') + '</span>' +
       '<button type="button" class="mini-btn" id="vaReset">초기화</button></div>' +
       '<div class="va-presets">' +
@@ -461,7 +461,7 @@
       vaField('임대료 상향률', 'uplift', VA.uplift, 0, 30, 0.5, '%', '임대 롤오버·리뉴얼로 명목 임대료를 올리는 폭') +
       vaField('공실 해소', 'vacancy', VA.vacancy, 0, 15, 0.5, '%p', '공실률을 낮추어 임대수입을 회수하는 폭') +
       vaField('리모델링 CAPEX', 'capex', VA.capex, 0, 600, 5, '억원', '초기 투자비에 더해지는 공사·설비 투자') +
-      vaField('Exit Cap 변동', 'exitCap', VA.exitCap, -1.5, 1.5, 0.05, '%p', '매각 시점 캔레이트 (음수 = 자산가치 상승)') +
+      vaField('Exit Cap 변동', 'exitCap', VA.exitCap, -1.5, 1.5, 0.05, '%p', '매각 시점 캡레이트 (음수 = 자산가치 상승)') +
       vaField('임대료 상승률 가속', 'growth', VA.growth, 0, 3, 0.1, '%p', '연 임대료 상승률에 더하는 폭') +
       '</div>' +
       '<div class="va-summary">' +
@@ -475,8 +475,8 @@
       rows.map(function (x) {
         return '<tr><th>' + esc(x[0]) + '</th><td>' + x[1] + '</td><td class="b">' + x[2] + '</td><td>' + x[3] + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
-      '<p class="va-note">밸류에이드 값은 기본 입력 위에 얹혀 <b>같은 엔진</b>으로 다시 계산됩니다(별도 근사 없음). ' +
-      'CAPEX 는 초기 투자비·에케티에 더해지고, Exit Cap 하락은 매각가를 올립니다. 실제 집행 전 공사비·임대차 조건을 확인하세요.</p>' +
+      '<p class="va-note">밸류애드 값은 기본 입력 위에 얹혀 <b>같은 엔진</b>으로 다시 계산됩니다(별도 근사 없음). ' +
+      'CAPEX 는 초기 투자비·에쿼티에 더해지고, Exit Cap 하락은 매각가를 올립니다. 실제 집행 전 공사비·임대차 조건을 확인하세요.</p>' +
       '</section>';
   }
 
@@ -1383,7 +1383,7 @@
         if (!st) return;
         for (var k in st) if (Object.prototype.hasOwnProperty.call(st, k)) VA[k] = st[k];
         renderAll();
-        toast('밸류에이드 프리셋 「' + name + '」을 적용했습니다.');
+        toast('밸류애드 프리셋 「' + name + '」을 적용했습니다.');
       });
     });
     var rst = $('#vaReset', host);

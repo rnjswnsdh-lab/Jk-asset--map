@@ -652,6 +652,18 @@
     var m = String(s || '').match(/([\d,]+(?:\.\d+)?)/);
     return m ? Number(String(m[1]).replace(/,/g, '')) : 0;
   }
+  /* 가격 문구에서 금액만 뽑되, 공사비·개발비처럼 가격이 아닌 금액은 제외 */
+  function priceEokOf(a) {
+    var t = String((a && a.price_info) || '');
+    if (!t) return 0;
+    var m = t.match(/([0-9][0-9,.]*)\s*억/);
+    if (!m) return 0;
+    var i = t.indexOf(m[0]);
+    var pre = t.slice(Math.max(0, i - 10), i);
+    if (/공사비|개발비|도급|공사|가정/.test(pre)) return 0;
+    var n = Number(String(m[1]).replace(/,/g, ''));
+    return isFinite(n) ? n : 0;
+  }
   function factsOf(a) { return (a.facts || []).filter(function (f) { return String(f.label || '') !== '§DISC'; }); }
   function factBy(a, re) {
     var fs = factsOf(a);
@@ -729,7 +741,7 @@
   function imDeckHTML(a) {
     var fs = factsOf(a);
     var snap = valSnapshot(a);
-    var priceEok = pickNum(a.price_info);
+    var priceEok = priceEokOf(a);
     var valNum = snap ? (snap.r.noi !== undefined ? snap.r.noi : (snap.r.ebit || 0)) : 0;
 
     /* 핵심 포인트: 실제 fact 만 사용 (없으면 확인된 사실만) */
@@ -811,7 +823,7 @@
       var r = snap.r;
       var hasPrice = nval(snap.inp.price_eok) > 0;
       valInner = '<div class="im-kpi-grid">' +
-        kpiBox('총투자비', n1s(r.total) + '억', '매입가+부대비용') +
+        kpiBox(hasPrice ? '총투자비' : 'CAPEX(가정)', n1s(r.total) + '억', hasPrice ? '매입가+부대비용' : '매입가 미공개') +
         kpiBox('Y1 NOI', n1s(r.noi !== undefined ? r.noi : r.ebit) + '억', '연 순영업이익') +
         kpiBox('수익률', hasPrice ? (r.entryCap !== undefined ? p2s(r.entryCap) : p1s(r.yield)) : '-', 'Going-in Cap') +
         kpiBox('Levered IRR', (hasPrice && isFinite(r.levIrr)) ? p2s(r.levIrr * 100) : '-', '보유기간 기준') +

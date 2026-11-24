@@ -1071,33 +1071,38 @@
     return html;
   }
 
-  /** 📜 등기부 바로열람 — 주소를 클립보드에 복사하고 인터넷등기소를 새 창으로 엽니다. */
+  /** 📜 등기부 바로열람 — 주소를 클립보드에 복사하고 인터넷등기소를 새 창으로 엽니다.
+   *  창 열기는 클릭 제스처 안에서 먼저(동기) 처리해야 팝업 차단을 피할 수 있습니다. */
   function openRegistry(a) {
     if (!a) return;
     var addr = String(a.address || '').trim();
-    var txt = [a.name, addr].filter(Boolean).join(' ');
-    var done = function () {
-      toast(addr ? ('주소 복사 완료 — 인터넷등기소에서 열람주소에 붙여넣으세요: ' + addr.slice(0, 40)) : '주소가 없습니다. 물건 주소를 먼저 등록하세요.', !addr);
-      window.open('https://www.iros.go.kr', '_blank', 'noopener');
-      logAsset(a, '등기');
+    var txt = addr || [a.name, a.region].filter(Boolean).join(' ');
+    var win = null;
+    try { win = window.open('https://www.iros.go.kr', '_blank'); } catch (e) { win = null; }
+    try { if (win) win.opener = null; } catch (e2) { /* noop */ }
+
+    var copy = function () {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(txt).catch(function () { legacyCopy(txt); });
+      }
+      legacyCopy(txt);
+      return Promise.resolve();
     };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(txt).then(done).catch(function () {
-        try {
-          var ta = document.createElement('textarea');
-          ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
-          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
-        } catch (e) { /* noop */ }
-        done();
-      });
-    } else {
+    function legacyCopy(t) {
       try {
-        var ta2 = document.createElement('textarea');
-        ta2.value = txt; ta2.style.position = 'fixed'; ta2.style.opacity = '0';
-        document.body.appendChild(ta2); ta2.select(); document.execCommand('copy'); ta2.remove();
-      } catch (e2) { /* noop */ }
-      done();
+        var ta = document.createElement('textarea');
+        ta.value = t; ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+      } catch (e3) { /* noop */ }
     }
+
+    Promise.resolve(copy()).then(function () {
+      toast(addr
+        ? ('주소 복사됨 · 인터넷등기소 열람주소에 붙여넣기: ' + addr)
+        : '주소가 없습니다. 물건 주소를 먼저 등록하세요.', !addr);
+      if (!win) toast('새 창이 차단되었습니다 — 주소는 복사되었으니 iros.go.kr 을 직접 열어 주세요.', true);
+    });
+    logAsset(a, '등기');
   }
 
   function formField(label, name, value, opts) {

@@ -87,7 +87,7 @@
     var html = '';
     html += '<div class="tr-head">';
     html += '<div><h3>📋 TR 임차의뢰 등록</h3>';
-    html += '<p>희망 조건을 남겨 주시면 NAI Korea 가 보유 물건·NAI 매각·LM 물건·외부 매물 중에서<br>부합하는 후보를 찾아 회신드립니다. (Tenant Request)</p></div>';
+    html += '<p>희망 조건을 남겨 주시면 NAI Korea 가 보유 물건 · NAI 매각·LM 물건 · 외부 매물 중에서 부합하는 후보를 찾아 회신드립니다. (Tenant Request)</p></div>';
     html += '<button type="button" class="tr-x" data-tr="close" aria-label="닫기">×</button>';
     html += '</div>';
     html += '<div class="tr-scroll">';

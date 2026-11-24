@@ -169,6 +169,7 @@
       S.loaded = true;
       S.note = '';
       S.dirty = false;
+      setLoadNote('마지막 수집 ' + fmtTime(new Date().toISOString()));
       rebuild();
       render();
       maybeRefreshDetail();
@@ -627,6 +628,7 @@
         b.classList.toggle('is-active', b.getAttribute('data-ad-sub') === 'asset');
       });
     }
+    loadLois(false);
     load(false).then(function () { if (assetId && S.loaded) render(); });
     render();
   }

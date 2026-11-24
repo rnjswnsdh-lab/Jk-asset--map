@@ -579,7 +579,7 @@
         if (metric === 'noi') { val = n1(r.noi !== undefined ? r.noi : r.ebit); }
         else if (metric === 'cap') { val = pct2(r.entryCap); }
         else { val = isFinite(r.levIrr) ? pct2(r.levIrr * 100) : '-'; if (r.levIrr * 100 >= target) cls = 'good'; if (r.levIrr * 100 < target - 3) cls = 'bad'; }
-        var isBase = Math.abs(a1 - base1) < 1e-9 || Math.abs(a2 - base2) < 1e-9;
+        var isBase = Math.abs(a1 - base1) < 1e-9 && Math.abs(a2 - base2) < 1e-9;
         return '<td class="' + cls + (isBase ? ' base' : '') + '">' + val + '</td>';
       }).join('') + '</tr>';
     }).join('');

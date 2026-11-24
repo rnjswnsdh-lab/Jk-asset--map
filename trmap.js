@@ -5,7 +5,8 @@
    · 관리자 : 비공개 시트 lois 의 TR 접수(request_type=TR / asset_id TR-) 전체
    · 그 외  : 이 브라우저에서 제출한 TR 내역
    · 지도 탭 좌측 목록·검색·섹터 필터에서 'TR 임차수요' 로 함께 조회됩니다.
-   레이어는 기본 OFF 이며, 지도 우측 도구의 [📋 TR 수요] 버튼으로 켜고 끕니다.
+   레이어는 기본 OFF 이며, 지도 우측 도구의 [📋 수요 핀] 버튼으로 켜고 끕니다.
+   (2026-11-25: 매입·투자 의향도 같은 '수요 핀'으로 표시 — 업체명은 관리자만 원문)
    ========================================================================= */
 (function () {
   'use strict';
@@ -71,6 +72,25 @@
   function role() { return (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external'; }
   function isAdmin() { return role() === 'admin'; }
 
+  /** 업체명 — 관리자만 원문, 그 외에는 블라인드(서버가 blind_name 을 내려줍니다) */
+  function blindNameOf(company) {
+    var c = String(company || '');
+    if (!c) return '비공개 고객사';
+    if (/자산운용|운용|AMC/i.test(c)) return '비공개 자산운용사 (금융·투자)';
+    if (/리츠|REIT/i.test(c)) return '비공개 리츠 (금융·투자)';
+    if (/증권/.test(c)) return '비공개 증권사 (금융·투자)';
+    if (/은행|저축은행/.test(c)) return '비공개 금융기관 (금융·투자)';
+    if (/보험/.test(c)) return '비공개 보험사 (금융·투자)';
+    if (/물류|로지스|택배|운송/i.test(c)) return '비공개 물류기업';
+    if (/호텔|리조트/.test(c)) return '비공개 호텔·운영사';
+    return '비공개 고객사';
+  }
+  function companyOf(row) {
+    if (!row) return '';
+    if (isAdmin()) return String(row.company || '');
+    return String(row.blind_name || '').trim() || blindNameOf(row.company);
+  }
+
   function resolveCoord(text) {
     var t = String(text || '');
     var keys = Object.keys(COORDS).sort(function (a, b) { return b.length - a.length; });
@@ -93,31 +113,36 @@
 
   function isTr(row) {
     var t = String(row.request_type || '');
-    if (t) return /TR/.test(t);
+    if (t) return /^(TR|매입)$/.test(t);   /* TR 임차의뢰 + 매입·투자 의향 모두 '수요 핀' */
     var memo = String(row.memo || '');
-    if (/^\[(?:유형=)?TR/.test(memo) || memo.indexOf('[TR') === 0) return true;
+    if (/^\[(?:유형=)?(TR|매입)/.test(memo) || memo.indexOf('[TR') === 0) return true;
     return /^TR-/.test(String(row.asset_id || ''));
   }
+  function isBuy(row) { return String(row.request_type || '') === '매입'; }
 
   function toAsset(row, i) {
     var rgn = regionOf(row);
-    var c = resolveCoord(rgn) || resolveCoord(String(row.asset_name || '')) || null;
+    var stored = (String(row.lat == null ? '' : row.lat).trim() !== '' && isFinite(Number(row.lat)) &&
+      String(row.lng == null ? '' : row.lng).trim() !== '' && isFinite(Number(row.lng))) ? [Number(row.lat), Number(row.lng)] : null;
+    var c = stored || resolveCoord(rgn) || resolveCoord(String(row.asset_name || '')) || null;
     var area = String(row.area_py || '').replace(/[^0-9.,]/g, '');
     var memo = String(row.memo || '');
     var spec = (memo.match(/스펙=([^|]+)/) || [])[1] || (memo.match(/상세 스펙[^=]*=([^|]+)/) || [])[1] || '';
     var rent = String(row.rent || row.price || '');
     var timeline = String(row.timeline || '');
+    var co = companyOf(row);
+    var buy = isBuy(row);
     return {
       id: 'TRQ-' + (row.id || i),
       sector: 'tr',
-      sub_type: 'TR 임차의뢰',
+      sub_type: buy ? '매입·투자 의향' : 'TR 임차의뢰',
       name: String(row.asset_name || ('[TR] ' + (rgn || '권역 미정'))),
       address: rgn ? (rgn + ' (희망 권역 중심 표시)') : '권역 미지정',
       region: rgn || '',
       lat: c ? c[0] : null,
       lng: c ? c[1] : null,
       coord_precision: c ? '권역 중심(추정)' : '좌표 없음',
-      owner_amc: String(row.company || ''),
+      owner_amc: co,
       fund_vehicle: '',
       scale_info: area ? area + '평' : '',
       price_info: rent,
@@ -130,13 +155,13 @@
       updated_at: String(row.timestamp || row.at || '').slice(0, 10),
       im_url: '', im_label: '',
       facts: [
-        { label: 'TR 구분', value: '임차의뢰' },
+        { label: '수요 구분', value: buy ? '매입·투자 의향' : '임차의뢰(TR)' },
         { label: '희망 권역', value: rgn || '미지정' },
         { label: '희망 면적', value: area ? area + '평' : '미지정' },
         { label: '임대료·예산', value: rent || '미지정' },
         { label: '입주 시기', value: timeline || '미지정' },
         { label: '스펙', value: spec || '미기재' },
-        { label: '담당', value: [row.company, row.name, row.title].filter(Boolean).join(' ') || '-' },
+        { label: '담당', value: [co, row.name, row.title].filter(Boolean).join(' ') || '-' },
         { label: '접수일', value: String(row.timestamp || row.at || '').replace('T', ' ').slice(0, 16) }
       ],
       links: [],
@@ -166,7 +191,10 @@
       updateButton();
       return S.items;
     };
-    if (!isAdmin()) return Promise.resolve(done(localRows()));
+    if (!isAdmin()) return apiGet('requests').then(function (j) {
+      if (j && j.ok && j.items) return done(j.items);
+      return done(localRows());
+    }).catch(function () { return done(localRows()); });
     return apiGet('requests').then(function (j) {
       if (j && j.ok && j.items) return done(j.items);
       return apiGet('lois').then(function (j2) {
@@ -183,10 +211,10 @@
   function updateButton() {
     var b = $('#btnTrLayer');
     if (!b) return;
-    b.textContent = '📋 TR 수요' + (S.items.length ? ' ' + S.items.length : '');
+    b.textContent = '📋 수요 핀' + (S.items.length ? ' ' + S.items.length : '');
     b.classList.toggle('on', S.on);
     b.setAttribute('aria-pressed', String(S.on));
-    b.title = S.on ? 'TR 임차의뢰 수요 핀을 지도에 표시 중 — 눌러서 끄기' : 'TR 임차의뢰(임차수요)를 희망 권역에 지도 표시';
+    b.title = S.on ? 'TR·매입 수요 핀을 지도에 표시 중 — 눌러서 끄기' : 'TR 임차의뢰·매입/투자 의향을 희망 권역에 지도 표시';
   }
 
   function apply() {
@@ -221,7 +249,7 @@
     b.id = 'btnTrLayer';
     b.type = 'button';
     b.className = 'map-btn tr-layer';
-    b.textContent = '📋 TR 수요';
+    b.textContent = '📋 수요 핀';
     b.addEventListener('click', toggle);
     tools.appendChild(b);
     load(true).then(updateButton);

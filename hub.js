@@ -36,6 +36,58 @@
   function role() { return (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external'; }
   function isAdmin() { return role() === 'admin'; }
 
+  /* ───────────────── 비관리자 업체명 블라인드 (서버와 같은 규칙) ─────────────────
+     실제 업체명은 관리자에게만 보입니다. 그 외 권한(CM팀·물류TF·외부)에게는
+     blind_name(접수 시 저장) 또는 업종만 남긴 표기를 씁니다. */
+  var BLIND_PREFIX = '🔒 ';
+  function blindNameOf(company, sector) {
+    var c = String(company || '');
+    if (!c) return '비공개 고객사';
+    if (/자산운용|운용|AMC/i.test(c)) return '비공개 자산운용사 (금융·투자)';
+    if (/리츠|REIT/i.test(c)) return '비공개 리츠 (금융·투자)';
+    if (/증권/.test(c)) return '비공개 증권사 (금융·투자)';
+    if (/은행|저축은행/.test(c)) return '비공개 금융기관 (금융·투자)';
+    if (/보험/.test(c)) return '비공개 보험사 (금융·투자)';
+    if (/연기금|공제회|교직원/.test(c)) return '비공개 연기금·공제회';
+    if (/물류|로지스|택배|운송/i.test(c)) return '비공개 물류기업';
+    if (/호텔|리조트|운영/.test(c)) return '비공개 호텔·운영사';
+    if (/건설|건영|종합건설/.test(c)) return '비공개 건설사';
+    if (/부동산|디벨로퍼|개발/.test(c)) return '비공개 부동산 개발사';
+    if (String(sector || '') === 'shipper') return '비공개 화주기업';
+    return '비공개 고객사';
+  }
+  /** 목록·상세에 표시할 업체명 — 관리자만 원문 */
+  function companyOf(row) {
+    if (!row) return '';
+    if (isAdmin()) return String(row.company || '');
+    return String(row.blind_name || '').trim() || blindNameOf(row.company, row.sector);
+  }
+  function companyCell(row) {
+    var name = companyOf(row);
+    if (!name) return '';
+    return isAdmin() ? esc(name) : '<span class="hub-blind" title="업체명은 관리자만 볼 수 있습니다">' + esc(BLIND_PREFIX + name) + '</span>';
+  }
+  /* 담당자명 — 비관리자에게는 회사명·기관명형 표기(쿠팡 CLS·에스원 임차자문 등)를 숨깁니다 */
+  var CORP_NAME = /(㈜|\(주\)|주식회사|자산운용|CLS|임차자문|파트너스|캐피탈|증권|은행|리츠|AMC|물류|화주)/;
+  function personOf(row) {
+    var nm = String((row && row.name) || '');
+    if (isAdmin()) return nm;
+    return CORP_NAME.test(nm) ? '' : nm;
+  }
+
+  /** 📧 파트너 메일 공유 — 행을 블라인드 기준으로 넘깁니다 */
+  function openShare(id) {
+    var row = null;
+    for (var i = 0; i < LIST.items.length; i++) if (String(LIST.items[i].id) === String(id)) { row = LIST.items[i]; break; }
+    if (!row) return;
+    if (!window.NAI_SHARE) { toast('메일 공유 모듈을 불러오지 못했습니다. 새로고침해 주세요.', true); return; }
+    window.NAI_SHARE.openRequest({
+      request_type: normType(row), blind_name: companyOf(row), region: row.region || '',
+      area_py: row.area_py || '', price: row.price || '', rent: row.rent || '',
+      timeline: row.timeline || '', memo: row.memo || '', asset_name: row.asset_name || ''
+    });
+  }
+
   function toast(msg, err) {
     var el = $('#toast');
     if (!el) return;
@@ -360,6 +412,14 @@
     else toast(msg, true);
   }
 
+  /** 희망 권역·물건명 → 권역 대표 좌표 (지도 TR 레이어와 같은 표) */
+  function coordOf(v) {
+    var rc = (window.NAI_TR_LAYER && window.NAI_TR_LAYER.resolveCoord) ? window.NAI_TR_LAYER.resolveCoord : null;
+    if (!rc) return ['', ''];
+    var hit = rc(String(v.region || '')) || rc(String(v.asset || '')) || null;
+    return hit ? [hit[0], hit[1]] : ['', ''];
+  }
+
   function collect(host, t) {
     var v = {};
     t.fields.forEach(function (f) { v[f.k] = val(host, f.k); });
@@ -396,8 +456,8 @@
       var list = JSON.parse(localStorage.getItem(MINE_KEY) || '[]');
       list.unshift({
         at: new Date().toISOString(), request_type: t.label.split(' ')[0], asset_name: title,
-        company: v.company, name: v.name, phone: v.phone, price: v.price || v.amount || v.rent || '',
-        status: '접수'
+        company: v.company, blind_name: v._blind || blindNameOf(v.company), name: v.name, phone: v.phone,
+        price: v.price || v.amount || v.rent || '', status: '접수'
       });
       localStorage.setItem(MINE_KEY, JSON.stringify(list.slice(0, 30)));
     } catch (e) { /* noop */ }
@@ -436,8 +496,13 @@
       rent: v.rent || v.rate || '',
       timeline: v.timeline || '',
       company: v.company, name: v.name, title: v.title, phone: v.phone, email: v.email,
+      /* 비관리자 화면용 블라인드 업체명·권역 좌표 (서버가 관리자 외 권한에 이 값만 내려보냅니다) */
+      blind_name: blindNameOf(v.company, t.code === 'tr' ? 'shipper' : ''),
+      region: v.region || '',
+      lat: coordOf(v)[0], lng: coordOf(v)[1],
       memo: '[' + t.label.split(' ')[0] + '] ' + memoOf(t, v)
     };
+    v._blind = common.blind_name;
 
     function fallback() {
       var lo = {};
@@ -513,7 +578,7 @@
     return LIST.items.filter(function (r) {
       if (LIST.filter !== 'ALL' && normType(r) !== LIST.filter) return false;
       if (!q) return true;
-      var hay = [r.asset_name, r.company, r.name, r.phone, r.email, r.memo, r.price, r.area_py].join(' ').toLowerCase();
+      var hay = [r.asset_name, companyOf(r), r.name, r.phone, r.email, r.memo, r.price, r.area_py].join(' ').toLowerCase();
       return hay.indexOf(q) >= 0;
     });
   }
@@ -523,7 +588,7 @@
     if (!rows.length) return '<p class="hub-empty">조건에 맞는 접수 내역이 없습니다.</p>';
     var h = '<div class="hub-table-wrap"><table class="hub-table"><thead><tr>' +
       '<th>일시</th><th>유형</th><th>대상</th><th>회사</th><th>담당</th><th>연락처</th>' +
-      '<th>금액 · 조건</th><th>상태</th></tr></thead><tbody>';
+      '<th>금액 · 조건</th><th>상태</th><th>공유</th></tr></thead><tbody>';
     rows.forEach(function (r) {
       var when = String(r.timestamp || r.at || '').replace('T', ' ').slice(0, 16);
       h += '<tr>' +
@@ -531,11 +596,12 @@
         '<td><span class="hub-tag t-' + esc(normType(r)) + '">' + esc(normType(r)) + '</span></td>' +
         '<td class="wide-cell"><b>' + esc(r.asset_name || '') + '</b>' +
         (r.memo ? '<span class="hub-memo">' + esc(String(r.memo).slice(0, 160)) + '</span>' : '') + '</td>' +
-        '<td>' + esc(r.company || '') + '</td>' +
-        '<td>' + esc([r.name, r.title].filter(Boolean).join(' ')) + '</td>' +
+        '<td>' + companyCell(r) + '</td>' +
+        '<td>' + esc([personOf(r), r.title].filter(Boolean).join(' ')) + '</td>' +
         '<td class="nowrap">' + esc(r.phone || '') + '</td>' +
         '<td>' + esc([r.price, r.area_py, r.rent, r.timeline].filter(Boolean).join(' · ')) + '</td>' +
-        '<td><span class="hub-st">' + esc(r.status || '접수') + '</span></td></tr>';
+        '<td><span class="hub-st">' + esc(r.status || '접수') + '</span></td>' +
+        '<td class="nowrap"><button type="button" class="mini-btn hub-share" data-hub-share="' + esc(r.id || '') + '" title="블라인드 기준으로 파트너에게 메일 공유">📧</button></td></tr>';
     });
     h += '</tbody></table></div>';
     return h;
@@ -569,7 +635,7 @@
   function listShellHTML() {
     return '<div class="tr-head"><div><h3>📥 접수 목록</h3>' +
       '<p>딜·참여 등록 허브로 접수된 내역입니다. 유형별로 걸러 보고 검색할 수 있습니다.' +
-      (isAdmin() ? '' : ' <b>내 브라우저에서 제출한 내역만</b> 표시됩니다.') + '</p></div>' +
+      (isAdmin() ? ' <b>관리자</b> 권한에서는 업체명 원문이 보입니다.' : ' 업체명은 <b>🔒 블라인드</b>로 표시됩니다.') + '</p></div>' +
       '<button type="button" class="tr-x" data-hub="close" aria-label="닫기">×</button></div>' +
       '<div class="hub-list-tools"><div id="hubListChips" class="hub-fchips"></div>' +
       '<input id="hubListQ" type="search" placeholder="물건 · 회사 · 담당 · 연락처 검색" autocomplete="off">' +
@@ -583,6 +649,8 @@
     if (!host) return;
     host.onclick = function (e) {
       if (e.target === host) { close(); return; }
+      var sh = e.target.closest('[data-hub-share]');
+      if (sh) { openShare(sh.getAttribute('data-hub-share')); return; }
       var f = e.target.closest('[data-hub-filter]');
       if (f) { LIST.filter = f.getAttribute('data-hub-filter'); renderListBody(); return; }
       var b = e.target.closest('[data-hub]');
@@ -599,39 +667,38 @@
 
   function loadList() {
     var body = $('#hubListBody');
-    function localRender(note) {
-      LIST.items = (JSON.parse(localStorage.getItem(MINE_KEY) || '[]'));
-      LIST.source = note || 'local';
+    function paint() {
       var chips = $('#hubListChips');
       if (chips) chips.innerHTML = typeChipsHTML();
       var cnt = $('#hubListCount');
       if (cnt) cnt.textContent = rowsForList().length + '건 / 전체 ' + LIST.items.length + '건';
-      body.innerHTML = (LIST.items.length ? tableHTML() :
-        '<p class="hub-empty">아직 접수한 내역이 없습니다. <b>' + '＋ 새 등록' + '</b>으로 첫 건을 등록해 보세요.</p>') +
-        '<p class="hub-foot">' + (note === 'server' ? '비공개 시트 <b>lois</b> 기준.' : '이 브라우저에서 제출한 내역입니다(관리자 로그인 시 전체 접수 조회).') + '</p>';
+      body.innerHTML = LIST.items.length ? tableHTML() :
+        '<p class="hub-empty">아직 접수한 내역이 없습니다. <b>＋ 새 등록</b>으로 첫 건을 등록해 보세요.</p>';
     }
-    if (!isAdmin()) { localRender('local'); return; }
+    function localRender(note) {
+      LIST.items = (JSON.parse(localStorage.getItem(MINE_KEY) || '[]'));
+      LIST.source = note || 'local';
+      paint();
+      body.innerHTML += '<p class="hub-foot">' + (note === 'server' ? '비공개 시트 <b>lois</b> 기준.' : '이 브라우저에서 제출한 내역입니다.') + '</p>';
+    }
+    /* 서버 접수 목록 — 관리자=원문, 그 외 권한=업체명 문라인드(서버가 마스킹해 내려줍니다) */
     apiGet('requests').then(function (j) {
-      if (j && j.ok && j.items) {
+      if (j && j.ok && j.items && j.items.length) {
         LIST.items = j.items;
         LIST.source = 'server';
-        var chips = $('#hubListChips');
-        if (chips) chips.innerHTML = typeChipsHTML();
-        var cnt = $('#hubListCount');
-        if (cnt) cnt.textContent = rowsForList().length + '건 / 전체 ' + LIST.items.length + '건';
-        body.innerHTML = tableHTML() + '<p class="hub-foot">비공개 시트 <b>lois</b> 기준 · 유형은 <b>request_type</b> 컬럼(없으면 메모 머리표기)으로 구분합니다.</p>';
+        paint();
+        body.innerHTML += '<p class="hub-foot">비공개 시트 <b>lois</b> 기준 · 유형은 <b>request_type</b> 컴럼으로 구분합니다.' +
+          (isAdmin() ? '' : ' 업체명은 관리자만 볼 수 있어 <b>문라인드</b>로 표시됩니다.') + '</p>';
         return;
       }
+      if (!isAdmin()) { localRender('local'); return; }
       /* 새 조회 API 가 없으면 기존 lois 조회로 대체 */
       return apiGet('lois').then(function (j2) {
         if (j2 && j2.ok && j2.items) {
           LIST.items = j2.items;
           LIST.source = 'server-lois';
-          var c2 = $('#hubListChips');
-          if (c2) c2.innerHTML = typeChipsHTML();
-          var n2 = $('#hubListCount');
-          if (n2) n2.textContent = rowsForList().length + '건 / 전체 ' + LIST.items.length + '건';
-          body.innerHTML = tableHTML() + '<p class="hub-foot">비공개 시트 <b>lois</b> 기준(기존 조회 API).</p>';
+          paint();
+          body.innerHTML += '<p class="hub-foot">비공개 시트 <b>lois</b> 기준(기존 조회 API).</p>';
           return;
         }
         localRender('local');

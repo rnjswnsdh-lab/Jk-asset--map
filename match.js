@@ -425,8 +425,14 @@
         });
         return;
       }
-      var more = e.target.closest('#mtMore');
-      if (more) { S.shown = Math.min(S.results.length, S.shown + S.page); renderResults(); return; }
+      var sh2 = e.target.closest('[data-mt-share]');
+      if (sh2) {
+        var as3 = assets().filter(function (x) { return x.id === sh2.getAttribute('data-mt-share'); })[0];
+        if (as3 && window.NAI_SHARE) window.NAI_SHARE.openAsset(as3);
+        else if (!window.NAI_SHARE) toast('메일 공유 모듈을 불러오지 못했습니다. 새로고침해 주세요.', true);
+        return;
+      }
+      var more = e.target.closest('#mtMore');      if (more) { S.shown = Math.min(S.results.length, S.shown + S.page); renderResults(); return; }
       var loose = e.target.closest('#mtLoose');
       if (loose) { run(S.q, !S.loose); return; }
     });
@@ -498,6 +504,7 @@
         '<button type="button" class="mini-btn" data-mt-open="' + esc(a.id) + '">지도·상세</button>' +
         '<button type="button" class="mini-btn" data-mt-val="' + esc(a.id) + '">📊 밸류에이션</button>' +
         '<button type="button" class="mini-btn" data-mt-tr="' + esc(a.id) + '">📋 TR</button>' +
+        '<button type="button" class="mini-btn" data-mt-share="' + esc(a.id) + '" title="파트너에게 블라인드 기준으로 메일 공유">📧 공유</button>' +
         '</div>';
       html += '</article>';
     }

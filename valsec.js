@@ -38,6 +38,14 @@
     return (lo + hi) / 2;
   }
 
+  /** 개발형(골프·DC)은 조성비를 CAPEX 로 옮긴 사본으로 현금흐름을 계산한다 */
+  function finOf(inp, capexEok) {
+    var o = {};
+    for (var k in inp) if (Object.prototype.hasOwnProperty.call(inp, k)) o[k] = inp[k];
+    o.capex_eok = capexEok;
+    return o;
+  }
+
   /** NOI 시계열 → 자본구조·매각을 반영한 현금흐름 (금액 단위: 억원) */
   function cf(inp, noi1, growthPct) {
     var price = num(inp.price_eok) + num(inp.capex_eok);
@@ -248,7 +256,7 @@
     defaults: function (a) {
       return {
         engine: 'golf', mode: 'golf', asset_id: a ? a.id : '', name: a ? a.name : '골프장',
-        holes: num(regexNum(a && a.scale_info, /(\d+)\s*홀/), 27), days: 300, visitors: 545, weekend_share: 30,
+        holes: (regexNum(a && a.scale_info, /(\d+)\s*홀/) || 27), days: 300, visitors: 545, weekend_share: 30,
         fee_week: 200000, fee_weekend: 250000, cart_fee: 25000, fb_price: 18000, fb_util: 35,
         shelter_price: 8000, shelter_util: 80, other_price: 12000, other_util: 50,
         maint_pct: 25, cart_mgmt_pct: 10, fb_cogs_pct: 30, other_cogs_pct: 70, sga_pct: 35,
@@ -274,7 +282,8 @@
       var sga = rev * num(inp.sga_pct) / 100;
       var ebit = rev - maint - cartMgmt - fbCogs - otherCogs - sga;
       var totalInv = num(inp.dev_eok) + num(inp.land_eok) + num(inp.price_eok);
-      var out = cf(inp, ebit, inp.noi_growth_pct);
+      var fin = finOf(inp, num(inp.dev_eok) + num(inp.land_eok));
+      var out = cf(fin, ebit, inp.noi_growth_pct);
       out.rev = rev; out.visitors = v; out.green = green; out.cart = cart; out.fb = fb; out.shelter = shelter; out.other = other;
       out.maint = maint; out.cartMgmt = cartMgmt; out.fbCogs = fbCogs; out.otherCogs = otherCogs; out.sga = sga;
       out.ebit = ebit; out.ebitMargin = rev > 0 ? ebit / rev * 100 : NaN;
@@ -355,7 +364,13 @@
       var saleCost = saleRev * num(inp.sale_cost_pct) / 100;
       var cost = land + build + saleCost + num(inp.finance_eok) + num(inp.reserve_eok);
       var profit = saleRev - cost + opNoi * num(inp.op_years);
-      var out = cf(inp, opNoi || saleRev * 0.05, inp.noi_growth_pct);
+      /* 분양형 수지는 IRR 대신 세전이익률로 본다 (분양 시점·스케줄 가정이 필요해 IRR을 만들지 않음) */
+      var out = {
+        price: num(inp.price_eok), capex: cost, total: cost, acq: 0,
+        senior: 0, mezz: 0, equity: 0, ltv: 0, noi1: opNoi,
+        N: Math.round(num(inp.hold_years, 5)), rows: [], exitNoi: opNoi, exitValue: NaN, netSale: 0,
+        unlevIrr: NaN, levIrr: NaN, em: NaN, avgCoc: NaN, dscrMin: NaN, entryCap: NaN, noCf: true
+      };
       out.saleRev = saleRev; out.sellRooms = sellRooms; out.opRev = opRev; out.opNoi = opNoi;
       out.land = land; out.build = build; out.saleCost = saleCost; out.cost = cost; out.profit = profit;
       out.margin = (saleRev + opNoi * num(inp.op_years)) > 0 ? profit / (saleRev + opNoi * num(inp.op_years)) * 100 : NaN;
@@ -434,7 +449,7 @@
       var noi = rev - opex;
       var dev = mw * num(inp.dev_per_mw);
       var total = dev + num(inp.land_eok) + num(inp.capex_eok) + num(inp.price_eok);
-      var out = cf(inp, noi, inp.noi_growth_pct);
+      var out = cf(finOf(inp, dev + num(inp.land_eok)), noi, inp.noi_growth_pct);
       if (num(inp.price_eok) > 0 && dev <= 0) out.total = num(inp.price_eok) * (1 + num(inp.acq_cost_pct) / 100);
       out.rev = rev; out.power = power; out.opex = opex; out.noi = noi; out.dev = dev;
       out.devTotal = total; out.yield = total > 0 ? noi / total * 100 : NaN;
@@ -522,12 +537,14 @@
       out.push(card('총사업비', n1(r.cost) + '억', '토지 ' + n1(r.land) + ' · 건축 ' + n1(r.build) + ' · 판매 ' + n1(r.saleCost)));
       out.push(card('세전이익', n1(r.profit) + '억', '수익률 ' + pct1(r.margin)));
       out.push(card('실당 사업비', isFinite(r.perUnitCost) ? n1(r.perUnitCost) + '억' : '-', '운영 NOI(연) ' + n1(r.opNoi) + '억'));
+      out.push(card('세전이익률', pct1(r.margin), '분양+운영 ' + n0(num(inp.op_years)) + '년 기준'));
     } else {
       out.push(card('연 임대매출', n1(r.rev) + '억', n1(num(inp.mw)) + 'MW · ' + n0(num(inp.kw_rate)) + '원/kW'));
       out.push(card('NOI', n1(r.noi) + '억', 'NOI 수익률 ' + pct1(r.yield)));
       out.push(card('개발비', n1(r.devTotal) + '억', n1(num(inp.dev_per_mw)) + '억/MW × ' + n1(num(inp.mw)) + 'MW'));
       out.push(card('감당 지가', isFinite(r.landResidual) ? n0(r.landResidual) + '억' : '-', 'Exit Cap ' + n2(num(inp.exit_cap_pct)) + '% 기준'));
     }
+    if (e.noCf) return out.join('');
     out.push(card('매입가', num(inp.price_eok) > 0 ? n1(num(inp.price_eok)) + '억' : '미입력', num(inp.price_eok) > 0 ? ('부대비용 ' + n1(r.acq) + '억') : '매수자 제안가 입력 필요'));
     out.push(card('총투자비', n1(r.total) + '억', '매입가 + 부대비용 + CAPEX ' + n1(num(inp.capex_eok)) + '억'));
     out.push(card('에쿼티', n1(r.equity) + '억', '부채 ' + n1(r.senior + r.mezz) + '억 · LTV ' + pct1(r.ltv)));
@@ -550,7 +567,9 @@
     }).join('');
     return '<section class="val-block"><h3>' + e.label + ' 연간 손익 (Y1, 억원)</h3>' +
       '<table class="val-pl">' + rows + '</table>' +
-      '<p class="val-note">Y1 기준. 이후 연도는 NOI 상승률 ' + n1(num(r._inp ? r._inp.noi_growth_pct : 2)) + '%/년으로 가정합니다.</p></section>';
+      '<p class="val-note">' + (e.noCf
+        ? 'Y1 기준. 분양수입과 운영 NOI 를 함께 반영한 세전이익입니다(IRR 대신 세전이익률로 평가).'
+        : 'Y1 기준. 이후 연도는 NOI 상승률 ' + n1(num(r._inp ? r._inp.noi_growth_pct : 2)) + '%/년으로 가정합니다.') + '</p></section>';
   }
 
   function cashflowHTML(r) {
@@ -564,6 +583,7 @@
 
   function sensHTML(inp, e, metric) {
     if (!e.drivers) return '';
+    if (e.noCf) metric = 'margin';
     var d1 = e.drivers[0], d2 = e.drivers[1];
     var base1 = num(inp[d1.k]), base2 = num(inp[d2.k]);
     var v1 = d1.deltas.map(function (d) { return d1.scale ? base1 + d * d1.scale : base1 + d; });
@@ -578,12 +598,13 @@
         var val, cls = '';
         if (metric === 'noi') { val = n1(r.noi !== undefined ? r.noi : r.ebit); }
         else if (metric === 'cap') { val = pct2(r.entryCap); }
+        else if (metric === 'margin') { val = pct1(r.margin); }
         else { val = isFinite(r.levIrr) ? pct2(r.levIrr * 100) : '-'; if (r.levIrr * 100 >= target) cls = 'good'; if (r.levIrr * 100 < target - 3) cls = 'bad'; }
         var isBase = Math.abs(a1 - base1) < 1e-9 && Math.abs(a2 - base2) < 1e-9;
         return '<td class="' + cls + (isBase ? ' base' : '') + '">' + val + '</td>';
       }).join('') + '</tr>';
     }).join('');
-    return '<section class="val-block"><h3>민감도 — ' + d1.l + ' × ' + d2.l + ' (' + (metric === 'noi' ? 'NOI/영업이익(억)' : metric === 'cap' ? '수익률(%)' : 'Levered IRR') + ')</h3>' +
+    return '<section class="val-block"><h3>민감도 — ' + d1.l + ' × ' + d2.l + ' (' + (metric === 'noi' ? 'NOI/영업이익(억)' : metric === 'cap' ? '수익률(%)' : metric === 'margin' ? '세전이익률(%)' : 'Levered IRR') + ')</h3>' +
       '<div class="val-table-wrap"><table class="val-sens">' + head + body + '</table></div></section>';
   }
 
@@ -608,7 +629,7 @@
       '<div id="valPL">' + plHTML(r, e) + '</div>' +
       '<section class="val-block"><h3>민감도</h3><div class="val-sens-wrap" id="valSens">' +
       sensHTML(inp, e, 'irr') + '</div></section>' +
-      '<section class="val-block"><h3>연도별 현금흐름</h3><div id="valCF2">' + cashflowHTML(r) + '</div></section>' +
+      (e.noCf ? '' : '<section class="val-block"><h3>연도별 현금흐름</h3><div id="valCF2">' + cashflowHTML(r) + '</div></section>') +
       '<section class="val-block"><h3>가정·출처 (모델 28종 레퍼런스)</h3><ul class="val-notes">' +
       e.notes.map(function (n) { return '<li>' + n + '</li>'; }).join('') + '</ul></section>' +
       '</main></div>';
@@ -624,7 +645,7 @@
     var kp = root.querySelector('#valKpis'); if (kp) kp.innerHTML = kpi(r, e, inp);
     var pl = root.querySelector('#valPL'); if (pl) pl.innerHTML = plHTML(r, e);
     var sn = root.querySelector('#valSens'); if (sn) sn.innerHTML = sensHTML(inp, e, 'irr');
-    var cfh = root.querySelector('#valCF2'); if (cfh) cfh.innerHTML = cashflowHTML(r);
+    var cfh = root.querySelector('#valCF2'); if (cfh && !e.noCf) cfh.innerHTML = cashflowHTML(r);
   }
 
   /** 섹터 엔진 입력 바인딩 — 숫자 입력만 다룬다 */

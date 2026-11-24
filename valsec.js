@@ -261,7 +261,7 @@
         fee_week: 200000, fee_weekend: 250000, cart_fee: 25000, fb_price: 18000, fb_util: 35,
         shelter_price: 8000, shelter_util: 80, other_price: 12000, other_util: 50,
         maint_pct: 25, cart_mgmt_pct: 10, fb_cogs_pct: 30, other_cogs_pct: 70, sga_pct: 35,
-        dev_eok: 700, land_eok: 0, price_eok: 0, acq_cost_pct: 4.6, exit_cap_pct: 7.5, exit_cost_pct: 1.0,
+        dev_eok: 700, land_eok: 0, price_eok: 0, acq_cost_pct: 4.6, exit_cap_pct: 12.0, exit_cost_pct: 1.0,
         noi_growth_pct: 2.0, hold_years: 5, ltv_senior: 55, ltv_mezz: 0,
         s_rate1: 5.2, s_rate2: 4.9, s_rate3: 4.6, m_rate1: 7.0, m_rate2: 6.5, m_rate3: 6.2, target_irr: 10
       };

@@ -612,7 +612,7 @@
     }).join('');
 
     // 상태 칩 (데이터에 있는 그룹만, 의미 있는 순서)
-    var order = ['운영중', '개발중', '거래진행중', '거래완료', '만기·매각예정', '검토중', '매각철회', '경·공매'];
+    var order = ['운영중', '개발중', '🏗️ 개발 인허가', '거래진행중', '거래완료', '만기·매각예정', '검토중', '매각철회', '경·공매'];
     Object.keys(gc).forEach(function (g) { if (order.indexOf(g) === -1) order.push(g); });
     var statuses = order.filter(function (g) { return gc[g]; });
     var shost = $('#statusFilters');
@@ -1023,7 +1023,7 @@
     return SECTOR_KEYS.map(function (k) { return { value: k, label: SECTORS[k].label }; });
   }
   function statusGroupOptions(selected) {
-    var order = ['운영중', '개발중', '거래진행중', '거래완료', '만기·매각예정', '검토중', '매각철회'];
+    var order = ['운영중', '개발중', '🏗️ 개발 인허가', '거래진행중', '거래완료', '만기·매각예정', '검토중', '매각철회'];
     return order.map(function (g) { return { value: g, label: g }; });
   }
 
@@ -1493,6 +1493,7 @@
       return '<span class="legend-item"><span class="dot" style="background:' + sectorColor(k) + '"></span>' + esc(sectorIcon(k) + SECTORS[k].label) + '</span>';
     }).join('');
     $('#legend').innerHTML = html +
+      '<span class="legend-sep"></span><span class="legend-item"><span class="dot" style="background:#0ea5e9"></span><b>🏗️ 개발 인허가</b> = 건축HUB 신축 허가</span>' +
       '<span class="legend-sep"></span><span class="legend-item"><span class="dot" style="background:#b45309"></span><b>금색 테두리</b> = 경·공매</span>' +
       '<span class="legend-sep"></span><span class="legend-item"><b>숫자</b> = 같은 위치 중첩</span>';
   }

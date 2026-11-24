@@ -72,7 +72,7 @@
     var debtEnd = senior + mezz;
     unlev[N] += netSale; lev[N] += netSale - debtEnd;
     var sumLev = 0; for (var i = 1; i < lev.length; i++) sumLev += lev[i];
-    return {
+    var res = {
       price: num(inp.price_eok), capex: num(inp.capex_eok), total: total, acq: acq,
       senior: senior, mezz: mezz, equity: equity, ltv: total > 0 ? (senior + mezz) / total * 100 : 0,
       noi1: noi1, N: N, rows: rows, exitNoi: exitNoi, exitValue: exitValue, netSale: netSale,
@@ -80,6 +80,12 @@
       avgCoc: equity > 0 ? sumLev / N / equity : NaN,
       dscrMin: dscrMin, entryCap: total > 0 ? noi1 / total * 100 : NaN
     };
+    /* 매입가 미입력(0) 이면 IRR·수익률은 의미가 없으므로 '-' 처리 (공사비만 투자한 것으로 읽히는 것을 막는다) */
+    if (!(num(inp.price_eok) > 0)) {
+      res.levIrr = NaN; res.unlevIrr = NaN; res.em = NaN; res.avgCoc = NaN; res.entryCap = NaN;
+      res.needPrice = true;
+    }
+    return res;
   }
 
   /* ══════════════════════════════════ 호텔 ══════════════════════════════════ */
@@ -522,7 +528,8 @@
       out.push(card('개발비', n1(r.devTotal) + '억', n1(num(inp.dev_per_mw)) + '억/MW × ' + n1(num(inp.mw)) + 'MW'));
       out.push(card('감당 지가', isFinite(r.landResidual) ? n0(r.landResidual) + '억' : '-', 'Exit Cap ' + n2(num(inp.exit_cap_pct)) + '% 기준'));
     }
-    out.push(card('총투자비', n1(r.total) + '억', '부대비용 ' + n1(r.acq) + '억'));
+    out.push(card('매입가', num(inp.price_eok) > 0 ? n1(num(inp.price_eok)) + '억' : '미입력', num(inp.price_eok) > 0 ? ('부대비용 ' + n1(r.acq) + '억') : '매수자 제안가 입력 필요'));
+    out.push(card('총투자비', n1(r.total) + '억', '매입가 + 부대비용 + CAPEX ' + n1(num(inp.capex_eok)) + '억'));
     out.push(card('에쿼티', n1(r.equity) + '억', '부채 ' + n1(r.senior + r.mezz) + '억 · LTV ' + pct1(r.ltv)));
     out.push(card('Levered IRR', isFinite(r.levIrr) ? pct2(r.levIrr * 100) : '-', '목표 ' + n1(target) + '% ' + (ok ? '▲ 초과' : '▽ 미달'), ok ? 'good' : 'bad'));
     out.push(card('Unlevered IRR', isFinite(r.unlevIrr) ? pct2(r.unlevIrr * 100) : '-', '자산 단독'));

@@ -1541,8 +1541,10 @@
     return m ? num(String(m[1]).replace(/,/g, '')) : 0;
   }
   function assetPriceEok(a) {
+    /* '매각가 900억' 처럼 가격 라벨에 직접 붙은 숫자만 매입가로 쓴다.
+       ("공사비 약 147억" 같은 다른 항목을 매입가로 오인하지 않도록) */
     var s = String((a && a.price_info) || '');
-    var m = s.match(/([\d,]{2,})\s*억/);
+    var m = s.match(/(?:매각가|희망매각가|희망 매각가|매입가|분양가|제안가|가격)\s*[:：]?\s*([\d,]+(?:\.\d+)?)\s*억/);
     return m ? num(String(m[1]).replace(/,/g, '')) : 0;
   }
 

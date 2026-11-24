@@ -87,12 +87,17 @@
       items.forEach(function (it) {
         var tags = String(it.tags || '');
         if (tags.indexOf('팀장회의') >= 0) {
-          var b = {};
-          try { b = JSON.parse(it.body || '{}'); } catch (e) { b = { text: String(it.body || '') }; }
+          var b = {}, raw = false;
+          try { b = JSON.parse(it.body || '{}'); } catch (e) { b = { text: String(it.body || '') }; raw = true; }
+          if (!b || typeof b !== 'object' || (!b.text && !b.section)) { b = { text: String(it.body || '') }; raw = true; }
+          /* 본문이 JSON 이 아닌 요약 원문(오래된 회의록)은 카드에 전문을 붙이지 않고 모달로 */
+          var long = raw && String(b.text || '').length > 400;
           S.teams.push({
             id: it.id, date: it.date || '', title: it.title || '', summary: it.summary || '',
             section: b.section || '', speaker: b.speaker || '', due: b.due || '',
-            state: b.state || '', asset: b.asset || '', text: b.text || ''
+            state: b.state || '', asset: b.asset || '', raw: long,
+            text: long ? String(b.text || '').slice(0, 200) + '…' : (b.text || ''),
+            full: long ? String(b.text || '') : ''
           });
         } else if (tags.indexOf('월요회의') >= 0) {
           S.weekly.push({ id: it.id, date: it.date || '', title: it.title || '', body: it.body || '' });
@@ -142,8 +147,8 @@
 
   /* ───────────── 렌더 ───────────── */
   function headerHTML(all) {
-    var sale = all.filter(function (a) { return naiKind(a) !== 'LM'; }).length;
-    var lm = all.filter(function (a) { return naiKind(a) === 'LM' || naiKind(a) === '매각·LM'; }).length;
+    var sale = all.filter(function (a) { var k = naiKind(a); return k === '매각' || k === '매각·LM' || k === '개발'; }).length;
+    var lm = all.filter(function (a) { var k = naiKind(a); return k === 'LM' || k === '매각·LM'; }).length;
     var team = S.teams.length;
     return '<div class="nai-head"><div class="nai-title"><h2>🏢 NAI 매각·LM</h2>' +
       '<p>NAI Korea 가 실제로 매각·임대 주관하는 물건입니다. 매각안내문(IM)·Flyer 로 확보한 스펙과 ' +
@@ -230,6 +235,7 @@
           '<h4>' + esc(String(t.title).replace(/^\[팀장회의\]\s*/, '')) + '</h4>' +
           '<p>' + esc(t.text) + '</p>' +
           (t.speaker ? '<span class="nt-spk">' + esc(t.speaker) + '</span>' : '') +
+          (t.raw ? '<button type="button" class="mini-btn" data-nt-raw="' + esc(t.id) + '">📄 원문 보기</button>' : '') +
           (a ? '<button type="button" class="mini-btn" data-nt-asset="' + esc(a.id) + '">🗂 ' + esc(a.name) + '</button>' : '') +
           '</article>';
       });
@@ -266,6 +272,20 @@
     html += teamSectionHTML() + weeklySectionHTML() + '</div>';
     host.innerHTML = html;
     bind();
+  }
+
+  function openRaw(id) {
+    var t = S.teams.filter(function (x) { return x.id === id; })[0];
+    if (!t || !t.full) return;
+    var modal = $('#poolModal');
+    if (!modal) return;
+    modal.innerHTML = '<div class="modal-card wide"><div class="modal-head"><h3>🔒 ' + esc(t.title) + '</h3>' +
+      '<button type="button" class="icon-btn" data-close-modal="1">×</button></div><div class="modal-body">' +
+      '<div class="read-meta">' + esc(t.date) + ' · 관리자 전용</div>' +
+      '<div class="read-body nw-body">' + String(t.full).split(/\n{2,}/).map(function (p) {
+        return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>';
+      }).join('') + '</div></div></div>';
+    modal.classList.remove('hidden');
   }
 
   function openWeekly(id) {
@@ -328,6 +348,8 @@
       if (nt) { gotoDetail(nt.getAttribute('data-nt-asset')); return; }
       var nw = e.target.closest('[data-nw-open]');
       if (nw) { openWeekly(nw.getAttribute('data-nw-open')); return; }
+      var raw = e.target.closest('[data-nt-raw]');
+      if (raw) { openRaw(raw.getAttribute('data-nt-raw')); return; }
       var card = e.target.closest('[data-nai-card]');
       if (card) { gotoDetail(card.getAttribute('data-nai-card')); }
     });

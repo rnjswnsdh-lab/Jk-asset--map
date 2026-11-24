@@ -759,13 +759,15 @@
       valBody = '<div class="ims-kpis">' +
         '<div class="imsk"><span>총투자비</span><b>' + n1s(r.total) + '억</b></div>' +
         '<div class="imsk"><span>Y1 NOI</span><b>' + n1s(r.noi !== undefined ? r.noi : r.ebit) + '억</b></div>' +
-        '<div class="imsk"><span>수익률</span><b>' + (r.entryCap !== undefined ? p2s(r.entryCap) : p1s(r.yield)) + '</b></div>' +
-        '<div class="imsk"><span>Levered IRR</span><b>' + (isFinite(r.levIrr) ? p2s(r.levIrr * 100) : '-') + '</b></div>' +
+        '<div class="imsk"><span>수익률</span><b>' + (num(snap.inp.price_eok) > 0 ? (r.entryCap !== undefined ? p2s(r.entryCap) : p1s(r.yield)) : '-') + '</b></div>' +
+        '<div class="imsk"><span>Levered IRR</span><b>' + (num(snap.inp.price_eok) > 0 && isFinite(r.levIrr) ? p2s(r.levIrr * 100) : '-') + '</b></div>' +
         '</div>' +
         '<table class="ims-table"><tbody>' + (r.lines || []).slice(0, 8).map(function (l) {
           return '<tr><th>' + esc(l[0]) + '</th><td class="' + (l[1] < 0 ? 'neg' : '') + '">' + (l[1] < 0 ? '(' + n1s(Math.abs(l[1])) + ')' : n1s(l[1])) + '</td></tr>';
         }).join('') + '</tbody></table>' +
-        '<p class="ims-note">' + esc(snap.label) + ' 엔진 기본가정 기준 — 웹 <b>📊 밸류에이션</b> 탭에서 OCC·ADR·공사비·금리를 바꿔 실시간 재계산됩니다.</p>';
+        '<p class="ims-note">' + esc(snap.label) + ' 엔진 기본가정 기준' +
+        (num(snap.inp.price_eok) > 0 ? '' : ' — 매입가가 공개되지 않아 IRR·수익률은 비워 두었습니다(매수자 제안가를 넣으면 계산)') +
+        '. 웹 <b>📊 밸류에이션</b> 탭에서 OCC·ADR·공사비·금리를 바꿔 실시간 재계산됩니다.</p>';
     } else {
       valBody = '<div class="ims-empty">' +
         (a.price_info ? '<p>가격: ' + esc(a.price_info) + '</p>' : '') +

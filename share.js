@@ -186,6 +186,7 @@
     host.innerHTML = modalHTML();
     var legend = $('#shBlindHint');
     if (legend) legend.textContent = S.to ? ('수신 ' + S.to) : '수신처를 선택하거나 직접 입력하세요.';
+    bind();
   }
 
   function open(payload) {

@@ -454,6 +454,13 @@
     var role = state.role;
     var admin = role === 'admin';
     var ext = role === 'external';
+    /* 권한이 바뀌면 NAI 탭의 🔒 팀장회의 데이터를 즉시 버린다 (관리자 외에는 받지 않음) */
+    if (window.NAI_NAI && window.NAI_NAI.reset) {
+      try { window.NAI_NAI.reset(); } catch (e) { /* noop */ }
+      if (state.selectedId) { try { renderDetail(); renderList(); } catch (e2) { /* noop */ } }
+    } else {
+      window.NAI_TEAM = null;
+    }
     document.body.classList.toggle('readonly', !admin);
     document.body.classList.toggle('role-external', ext);
     document.body.classList.toggle('role-internal', role === 'internal');

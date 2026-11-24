@@ -22,6 +22,8 @@
     q: '', kind: 'ALL', sector: 'ALL', sort: 'kind',
     teams: [], weekly: [], loaded: false, loading: false, err: '', open: {}
   };
+  /** 어느 토큰으로 팀장회의 데이터를 받았는지 기록 — 권한이 바뀌면 반드시 버린다 */
+  var loadedToken = null;
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -72,15 +74,29 @@
   };
   function sectorLabel(k) { return SECTOR_LABEL[k] || k || '기타'; }
 
-  /* ───────────── 데이터 ───────────── */
+  /* ───────────────── 데이터 ─────────────────
+     🔒 팀장회의·월요회의는 '비공개' 아티클(관리자 응답에만 포함)로만 받습니다.
+     관리자가 아닌 권한에서는 아예 요청하지 않고, 권한이 바꾸면 받아 둔 것을 즉시 버립니다. */
+  function clearTeam() {
+    S.teams = [];
+    S.weekly = [];
+    S.loaded = false;
+    S.loading = false;
+    loadedToken = null;
+    buildTeamIndex();
+  }
+
   function loadTeam(force) {
-    if (!token()) { S.loaded = false; return Promise.resolve(false); }
+    var tk = token();
+    if (!tk || role() !== 'admin') { clearTeam(); return Promise.resolve(false); }
+    if (loadedToken !== tk) { S.teams = []; S.weekly = []; S.loaded = false; }
     if (S.loading) return Promise.resolve();
-    if (S.loaded && !force) return Promise.resolve();
+    if (S.loaded && loadedToken === tk && !force) return Promise.resolve();
     S.loading = true;
     return apiGet('type=articles').then(function (j) {
       S.loading = false;
       S.loaded = true;
+      loadedToken = tk;
       var items = (j && j.items) || [];
       S.teams = [];
       S.weekly = [];
@@ -386,7 +402,19 @@
     render();
   }
 
-  window.NAI_NAI = { show: show, state: S, isNai: isNai, team: function () { return S.teams; } };
+  /** 권한 변경·로그아웃 시 호출 — 받아 둔 팀장회의 데이터를 즉시 파기하고 다시 그린다 */
+  function reset() {
+    clearTeam();
+    var host = $('#naiView');
+    var visible = host && !host.classList.contains('hidden');
+    if (visible) render();
+    /* 관리자로 (다시) 들어온 경우에만 비공개 자료를 새로 받는다 */
+    if (role() === 'admin' && token()) {
+      loadTeam(false).then(function () { if (visible) render(); });
+    }
+  }
+
+  window.NAI_NAI = { show: show, reset: reset, state: S, isNai: isNai, team: function () { return S.teams; } };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { loadTeam(false); });
   else loadTeam(false);

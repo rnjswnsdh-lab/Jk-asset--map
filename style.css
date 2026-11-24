@@ -2430,3 +2430,7 @@ body.role-external .pf-toggle { display: none; }
 .crm-target { margin: 0 0 10px; font-size: 12.4px; font-weight: 800; color: var(--navy); }
 .crm-target span { font-size: 10px; color: var(--muted); font-weight: 700; margin-left: 5px; }
 .crm-detail h4 { display: flex; align-items: center; gap: 7px; }
+
+/* 물류TF — 홈 타일에서도 VDR·대출요청은 노출하지 않음 (탭과 동일 규칙) */
+body.role-logi [data-home="vdr"],
+body.role-logi [data-home="loan"] { display: none !important; }

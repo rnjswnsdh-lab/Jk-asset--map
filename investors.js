@@ -178,6 +178,17 @@
     if (ct) ct.textContent = def.composeTitle;
     var sub = $('#poolSubtitle');
     if (sub) sub.textContent = def.desc;
+    syncAddLabel();
+  }
+
+  /** 탭별 '＋ 컨택포인트 추가' 버튼 문구 */
+  function syncAddLabel() {
+    var add = $('#poolAddBtn');
+    if (!add) return;
+    add.textContent = state.mode === 'ship' ? '＋ 화주 컨택포인트 추가'
+      : state.mode === 'fi' ? '＋ FI 대상 추가'
+        : '＋ SI 컨택포인트 추가';
+    add.title = '담당자(컨택포인트)를 새로 등록합니다';
   }
 
   /* ─────────────── 환경설정 저장 ─────────────── */
@@ -241,6 +252,22 @@
   }
   function canDelete() { return state.role === 'admin'; }
   function isExternal() { return state.role === 'external'; }
+  function roleName_() {
+    return state.role === 'admin' ? '관리자'
+      : state.role === 'logi' ? '물류TF'
+        : state.role === 'internal' ? 'CM팀 내부' : '외부 방문자';
+  }
+  /** 서버가 '권한 없음'류로 거부한 응답인지 — 이 경우 요청 모양을 바꿔도 결과가 같습니다. */
+  function isDenied_(e) { return /unauth|forbid|denied|permission|not\s*allowed|권한|거부/i.test(String(e || '')); }
+
+  /** 컨택포인트 저장 — 앱이 기대하는 규격(POST action:'investor_save', type:'investors')으로 보냅니다.
+   *  서버가 이 액션을 모르는 경우 다른 모양으로 추측해 보내지 않습니다 — 알 수 없는 upsert 가
+   *  다른 시트에 잘못 쓸 수 있기 때문입니다. 실패는 그대로 화면에 알리고 관리자에게 전달하게 합니다. */
+  function saveInvestor_(out) {
+    return api(null, { action: 'investor_save', investor: out }).catch(function (e) {
+      return { ok: false, error: (e && e.message) || 'network' };
+    });
+  }
   function isLogi_() { return state.role === 'logi' || ((window.naiMap && window.naiMap.role) ? window.naiMap.role() === 'logi' : false); }
   function normRole_(r) {
     var s = String(r || '');
@@ -386,11 +413,15 @@
     var ext = isExternal();
     if (badge) {
       badge.classList.remove('hidden');
-      badge.className = 'role-chip' + (state.role === 'internal' ? ' is-internal' : (ext ? ' is-external' : ''));
-      badge.textContent = state.role === 'admin' ? '관리자' : (state.role === 'internal' ? '내부용 · 전화번호 비공개' : '외부 방문자 · 연락처 비공개');
+      badge.className = 'role-chip' + ((state.role === 'internal' || state.role === 'logi') ? ' is-internal' : (ext ? ' is-external' : ''));
+      badge.textContent = state.role === 'admin' ? '관리자'
+        : (state.role === 'internal' ? '내부용 · 전화번호 비공개'
+          : (state.role === 'logi' ? '물류TF · 화주만 저장'
+            : '외부 방문자 · 연락처 비공개'));
     }
     var add = $('#poolAddBtn');
     if (add) add.classList.toggle('hidden', !canEdit());
+    syncAddLabel();
     var compose = $('#poolCompose');
     if (compose) compose.classList.toggle('hidden', ext);
     var oe = $('#poolOnlyEmail');
@@ -926,14 +957,16 @@
       (r.amount ? '<span class="pr-amount">' + (fi ? 'D/P ' : '') + esc(r.amount) + '억</span>' : '') +
       '</div>';
 
-    body += '<div class="dc-sec"><h4>담당자</h4>' +
+    var canEdRow = canEditRow(r);
+    body += '<div class="dc-sec"><h4>담당자(컨택포인트)' +
+      (canEdRow ? ' <button type="button" class="mini-btn dc-edit" data-edit="' + esc(r.id) + '">✏️ 컨택포인트 변경</button>' : '') + '</h4>' +
       (r.contact || r.email || r.phone
         ? '<div class="dc-contact">' +
           (r.contact ? '<span class="pc-name">👤 ' + esc(r.contact) + (r.title ? ' <span class="pc-title">' + esc(r.title) + '</span>' : '') + '</span>' : '') +
           (r.email ? '<a class="pc-mail" href="mailto:' + esc(r.email.split(',')[0].trim()) + '">✉️ ' + esc(r.email) + '</a>' : '<span class="pc-none">이메일 없음</span>') +
           (r.phone ? '<a class="pc-tel" href="tel:' + esc(r.phone.replace(/[^0-9+]/g, '')) + '">☎ ' + esc(r.phone) + '</a>' : '') +
           '</div>'
-        : '<div class="dc-none">등록된 담당자 없음</div>') +
+        : '<div class="dc-none">등록된 담당자 없음' + (canEdRow ? ' — <b>✏️ 컨택포인트 변경</b>을 눌러 추가하세요.' : '') + '</div>') +
       '</div>';
 
     if (fi) {
@@ -1023,6 +1056,12 @@
           '?subject=' + encodeURIComponent(composeSubject()) +
           '&body=' + encodeURIComponent(composeBody());
         window.location.href = url;
+        return;
+      }
+      var edId = t.getAttribute('data-edit');
+      if (edId) {
+        var er = state.rows.filter(function (x) { return x.id === edId; })[0];
+        if (er) openEditor(er);
       }
     };
   }
@@ -1071,29 +1110,42 @@
       .filter(function (x, i, a) { return a.indexOf(x) === i; });
     var html =
       '<div class="modal-card mf-card">' +
-      '<div class="modal-head"><h3>' + (isNew ? '대상 추가' : '대상 수정') + '</h3><button type="button" class="icon-btn" data-close="1" aria-label="닫기">×</button></div>' +
-      '<p class="mf-hint">펀드 정보는 <code>사례·펀드·전략 상세</code>에 <code>[펀드명] LP:… | 전략:… | 규모:… | 드라이파우더:… | 목표IRR:… | 지역:… | 만기:…</code> 형식으로 넣으면 🏦 FI 풀 카드·상세에 자동으로 표시됩니다.</p>' +
+      '<div class="modal-head"><h3>' + (isNew ? '컨택포인트 추가' : '컨택포인트 변경') + '</h3><button type="button" class="icon-btn" data-close="1" aria-label="닫기">×</button></div>' +
+      '<p class="mf-hint">' + (isNew ? 'SI·화주사 담당자(컨택포인트)를 새로 등록합니다. ' : '기존 담당자 정보를 수정합니다. ') +
+        '저장하면 비공개 시트 <code>investors</code>에 반영되고 목록·상세에 바로 표시됩니다.<br>펀드 상세는 <code>[펀드명] LP:… | 전략:… | 규모:… | 목표IRR:… | 지역:… | 만기:…</code> 형식으로 넣으면 🏦 FI 카드에 자동 표시됩니다.</p>' +
+      '<div id="mfError" class="mf-err hidden"></div>' +
+      '<div class="mf-sec">① 회사·구분</div>' +
       '<div class="mf-grid">' +
-        fieldRow('분류', 'kind', row.kind, { pairs: kindPairs }) +
+        fieldRow('구분', 'kind', row.kind, { pairs: kindPairs }) +
         fieldRow('권역', 'region', row.region, { pairs: regionOpts.map(function (x) { return [x, x]; }) }) +
-        fieldRow('회사·운용사·기관명', 'company', row.company) +
-        fieldRow('업종·섹터·전략', 'industry', row.industry) +
+        '<label class="mf mf-wide"><span>회사·기관명 <b class="mf-req">필수</b></span>' +
+          '<input data-k="company" type="text" value="' + esc(row.company || '') + '" placeholder="예) ○○자산운용 · ○○물류"></label>' +
+        fieldRow('업종·섹터', 'industry', row.industry) +
         fieldRow('성격·역할', 'role', row.role) +
-        fieldRow('사례·펀드·전략 상세', 'case_info', row.case_info, { textarea: true, rows: 4 }) +
-        fieldRow('금액·규모(억)', 'amount', row.amount) +
-        fieldRow('연도', 'year', row.year) +
-        fieldRow('담당자', 'contact', row.contact) +
-        fieldRow('부서·직함', 'title', row.title) +
+      '</div>' +
+      '<div class="mf-sec">② 컨택포인트(담당자)</div>' +
+      '<div class="mf-grid">' +
+        fieldRow('담당자명', 'contact', row.contact) +
+        fieldRow('부서·직책', 'title', row.title) +
+        fieldRow('연락처(전화)', 'phone', row.phone) +
         fieldRow('이메일', 'email', row.email) +
-        fieldRow('전화', 'phone', row.phone) +
-        fieldRow('온도대(물류)', 'temp', row.temp) +
+      '</div>' +
+      '<div class="mf-sec">③ 관심도·관리 정보</div>' +
+      '<div class="mf-grid">' +
+        fieldRow('관심도·온도', 'temp', row.temp) +
         fieldRow('확인 센터수', 'centers', row.centers) +
         fieldRow('확장·수요 권역', 'expansion', row.expansion) +
-        fieldRow('비고·근거', 'notes', row.notes, { textarea: true, rows: 3 }) +
-        fieldRow('출처', 'source', row.source) +
-        '<label class="mf"><span>NAI 담당자 <b class="mf-req">지정</b></span>' +
+        '<label class="mf"><span>NAI 담당자</span>' +
           '<input data-k="owner" list="mfOwnerList" type="text" value="' + esc(row.owner || '') + '" placeholder="예) 권준오 상무 — 비우면 담당 미지정">' +
           '<datalist id="mfOwnerList">' + ownerOptions() + '</datalist></label>' +
+      '</div>' +
+      '<div class="mf-sec">④ 상세·근거</div>' +
+      '<div class="mf-grid">' +
+        fieldRow('사례·펀드·전략 상세', 'case_info', row.case_info, { textarea: true, rows: 3 }) +
+        fieldRow('금액·규모(억)', 'amount', row.amount) +
+        fieldRow('연도', 'year', row.year) +
+        fieldRow('출처', 'source', row.source) +
+        '<label class="mf mf-wide"><span>메모·근거</span><textarea data-k="notes" rows="3" placeholder="미팅·통화 내용, 변경 사유 등">' + esc(row.notes || '') + '</textarea></label>' +
       '</div>' +
       '<div class="modal-foot">' +
         '<button type="button" class="btn btn-outline" data-close="1">취소</button>' +
@@ -1105,28 +1157,64 @@
     root.onclick = function (e) {
       if (e.target.getAttribute && e.target.getAttribute('data-close')) { closeEditor(); }
     };
+    function changeText(o) {
+      return '[' + (isNew ? '컨택포인트 추가' : '컨택포인트 변경') + '] ' + (o.company || '') +
+        ' / ' + kindLabel(o.kind) + ' / ' + (o.region || '') +
+        '\n담당자: ' + (o.contact || '-') + ' ' + (o.title || '') +
+        '\n연락처: ' + (o.phone || '-') + ' / 이메일: ' + (o.email || '-') +
+        '\n관심도: ' + (o.temp || '-') + ' / NAI 담당: ' + (o.owner || '-') +
+        (o.notes ? '\n메모: ' + o.notes : '') +
+        '\n(id: ' + o.id + ') — 변경자: ' + roleName_();
+    }
+    function showErr(msg, detail) {
+      var box = $('#mfError');
+      if (!box) { toast(msg, true); return; }
+      box.className = 'mf-err';
+      var out0 = { id: row.id || '' };
+      $$('#poolModal [data-k]').forEach(function (el) { out0[el.getAttribute('data-k')] = el.value.trim(); });
+      box.innerHTML = '<b>' + esc(msg) + '</b>' + (detail ? '<br><span>' + esc(detail) + '</span>' : '') +
+        (/권한/.test(msg) ? '<br><button type="button" class="mini-btn" id="mfCopy">📋 변경 내용 복사</button>' : '');
+      var cp = $('#mfCopy');
+      if (cp) cp.onclick = function () { copyText(changeText(out0), '변경 내용을 복사했습니다.'); };
+      try { box.scrollIntoView({ block: 'nearest' }); } catch (e0) { /* noop */ }
+    }
     $('#mfSave').onclick = function () {
       var out = { id: row.id || '' };
       $$('#poolModal [data-k]').forEach(function (el) { out[el.getAttribute('data-k')] = el.value.trim(); });
+      var bad = '';
+      if (!out.company) bad = '회사·기관명을 입력하세요.';
+      else if (out.email && out.email.indexOf('@') < 1) bad = '이메일 형식(@)을 확인하세요.';
+      else if (out.phone && out.phone !== '비공개' && String(out.phone).replace(/[^0-9]/g, '').length < 7) bad = '연락처(전화)를 확인하세요.';
+      if (bad) { showErr(bad); return; }
       if (!out.id) {
         var pre = out.kind === 'blind_fund' ? 'bf' : out.kind === 'reit_foreign' ? 'rf'
           : out.kind === 'pension_lp' ? 'lp' : out.kind === 'shipper' ? 'shp' : 'off';
         out.id = 'inv-' + pre + '-' + Date.now().toString(36);
       }
-      if (!out.company) { toast('회사·기관명을 입력하세요.', true); return; }
-      out.updated_at = new Date().toISOString().slice(0, 10);
-      api(null, { action: 'investor_save', investor: out }).then(function (j) {
+      out.kind = normKind(out.kind);
+      out.updated_at = ymd();
+      if (!out.source) out.source = '앱 직접 입력 · ' + roleName_() + ' · ' + ymd();
+      var btn = $('#mfSave');
+      if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
+      saveInvestor_(out).then(function (j) {
+        if (btn) { btn.disabled = false; btn.textContent = '저장'; }
         if (j && j.ok) {
-          out.kind = normKind(out.kind);
           var i = state.rows.findIndex(function (r) { return r.id === out.id; });
           if (i >= 0) state.rows[i] = out; else state.rows.unshift(out);
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), rows: state.rows })); } catch (e1) { /* noop */ }
           closeEditor();
           renderChips(); render();
-          toast('저장했습니다.');
+          toast(isNew ? '컨택포인트를 추가했습니다.' : '컨택포인트를 변경했습니다.');
         } else {
-          toast('저장 실패: ' + (j && j.error ? j.error : '알 수 없는 오류'), true);
+          var e = (j && j.error) ? String(j.error) : '알 수 없는 오류';
+          if (isDenied_(e)) {
+            showErr('이 접속 권한으로는 서버 저장이 거부되었습니다.',
+              '접속 권한이 SI·화주 컨택포인트 저장을 허용하지 않았습니다(서버 응답: ' + e + '). 아래 변경 내용을 복사해 관리자에게 전달하거나, 관리자 코드로 다시 접속해 저장하세요.');
+          } else {
+            showErr('저장하지 못했습니다.', '서버 응답: ' + e);
+          }
         }
-      }).catch(function () { toast('저장 실패(네트워크)', true); });
+      });
     };
   }
 

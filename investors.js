@@ -1193,7 +1193,7 @@
       }
       out.kind = normKind(out.kind);
       out.updated_at = ymd();
-      if (!out.source) out.source = '앱 직접 입력 · ' + roleName_() + ' · ' + ymd();
+      if (!out.source) out.source = '앱 직접 입력 · ' + roleName_();
       var btn = $('#mfSave');
       if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
       saveInvestor_(out).then(function (j) {

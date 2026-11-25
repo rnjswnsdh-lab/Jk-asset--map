@@ -73,6 +73,7 @@
 window.__errs = [];
 window.addEventListener('error', function (e) { window.__errs.push(String((e && e.message) || e)); });
 window.addEventListener('unhandledrejection', function (e) { window.__errs.push('rejection: ' + String(e && e.reason)); });
+window.NAI_MAP_CONFIG = { SYNC_URL: 'https://example.invalid/exec', STORAGE_PREFIX: 'nai-map' };
 window.__FIX = {"ok": true, "role": "admin", "investors": [{"id": "inv-off-001", "kind": "office_si", "region": "CBD", "company": "테스트기업 A (API 경로)", "role": "사옥 매입", "contact": "", "email": "", "phone": "", "fin_src": "COP", "fin_asof": "2025-12", "fin_unit": "천원", "fin_json": "{\"years\": [2021, 2022, 2023, 2024, 2025], \"매출액\": [900000000, 1050000000, null, 1400000000, 1520000000], \"영업이익\": [50000000, -30000000, 120000000, 41000000, 88000000], \"당기순이익\": [30000000, -80000000, 90000000, 15000000, 60000000], \"자산\": [2100000000, 2200000000, 2400000000, 2600000000, 2700000000], \"부채\": [1100000000, 1200000000, 1300000000, 1400000000, 1450000000], \"자본\": [1000000000, 1000000000, 1100000000, 1200000000, 1250000000]}"}, {"id": "inv-off-002", "kind": "office_si", "region": "GBD", "company": "테스트기업 B (정적 폴백)", "role": "전략투자", "contact": "", "email": "", "phone": ""}, {"id": "inv-off-999", "kind": "office_si", "region": "CBD", "company": "테스트기업 C (재무 없음)", "role": "검토", "contact": "", "email": "", "phone": ""}]};
 try {
   localStorage.setItem('nai-map:token:v1', 'TESTTOKEN');

@@ -505,7 +505,7 @@
   function renderTr() {
     if (!S.lois) { loadLois(); return '<p class="ad-empty">TR 접수를 불러오는 중…</p>'; }
     var rows = trRows();
-    if (!rows.length) return '<p class="ad-empty">접수된 TR(임차의뢰)이 없습니다. AI 매칭·홈의 <b>📋 TR 임차의뢰 등록</b>으로 들어옵니다.</p>';
+    if (!rows.length) return '<p class="ad-empty">접수된 TR(임차의뢰)이 없습니다. <b>홈 › 🧾 업무 신청 › TR 신청</b> 또는 AI 매칭 결과의 <b>📋 TR</b> 버튼으로 들어옵니다.</p>';
     var html = '<div class="ad-hint">TR 접수 — 외부 화주·임차인의 임차 의뢰. 상태를 바꾸면 비공개 시트(lois)에 반영됩니다.</div>';
     html += '<div class="ad-tablewrap"><table class="ad-table"><thead><tr>' +
       '<th>접수</th><th>요청</th><th>거래</th><th>면적</th><th>임대료·예산</th><th>시기</th><th>회사·담당</th><th>연락처</th><th>상태</th></tr></thead><tbody>';

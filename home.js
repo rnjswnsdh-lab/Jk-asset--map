@@ -161,6 +161,19 @@
     html += kpi('아티클', (BOOT.articles.length ? BOOT.articles.length + '건' : '—'), '매일 08:00 업데이트', 'art');
     html += '</div></div>';
 
+    /* ✦ 업무 신청 — TR · LM · 매입 · 매각을 홈에서 바로 접수 (2026-11-25) */
+    html += '<section class="home-card hc-apply" id="hcApply">';
+    html += '<div class="hc-head"><h2>🧾 업무 신청 <span class="hc-tag">바로 접수</span></h2>' +
+      '<span class="hc-hint">버튼을 누르면 해당 신청서가 바로 열립니다 · 접수 내역은 담당자만 확인</span></div>';
+    html += '<div class="apply-grid">';
+    html += applyBtn('tr', '📋', 'TR 신청', '임차의뢰 · 희망 조건 접수', '화주·임차인');
+    html += applyBtn('lease', '🔑', 'LM 신청', '임대 물건·공실 등록', '임대 자문');
+    if (!isLogi()) html += applyBtn('buy', '🎯', '매입 신청', '사옥·투자 매입 의향', '예산·권역 조건');
+    html += applyBtn('sale', '🏷️', '매각 신청', '매물 등록 · 매각 자문', '검토 → 입찰');
+    html += '</div>';
+    if (isAdmin()) html += '<div class="hc-foot"><button type="button" class="mini-btn" data-home="hub-list">📥 접수 내역 전체 보기</button></div>';
+    html += '</section>';
+
     html += '<div class="home-grid">';
 
     /* ① 매각중인 물건 · D-Day */
@@ -268,6 +281,14 @@
   function tile(icon, title, sub, act) {
     return '<button type="button" class="qtile" data-home="' + act + '"><span class="qti">' + icon + '</span>' +
       '<span class="qtt">' + esc(title) + '</span><span class="qts">' + esc(sub) + '</span></button>';
+  }
+  /** 업무 신청 카드 — 업무 유형(hub.js TYPES code)을 그대로 엽니다 */
+  function applyBtn(code, icon, title, sub, tag) {
+    return '<button type="button" class="apply-btn v-' + code + '" data-home="apply" data-type="' + code + '">' +
+      '<span class="ab-i" aria-hidden="true">' + icon + '</span>' +
+      '<span class="ab-t"><b>' + esc(title) + '</b><span>' + esc(sub) + '</span>' +
+      (tag ? '<em>' + esc(tag) + '</em>' : '') + '</span>' +
+      '<span class="ab-go" aria-hidden="true">신청 →</span></button>';
   }
   function subBox(label, kind, icon) {
     var n = BOOT.subs[kind] == null ? '—' : BOOT.subs[kind];
@@ -1253,6 +1274,7 @@
       }
       if (act === 'search') { var s = $('#hcSearch'); if (s) { s.scrollIntoView({ behavior: 'smooth', block: 'center' }); var q = $('#hsQ'); if (q) q.focus(); } return; }
       if (act === 'register') { openRegister('직접'); return; }
+      if (act === 'apply') { openHub(btn.getAttribute('data-type') || 'tr'); return; }
       if (act === 'match') { if (window.naiShowView) window.naiShowView('match'); return; }
       if (act === 'tr') { openHub('tr'); return; }
       if (act === 'loi') { openLOI(''); return; }

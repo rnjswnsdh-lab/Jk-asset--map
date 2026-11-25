@@ -394,6 +394,9 @@
       e.preventDefault();
       run($('#mtQ').value);
     });
+    /* 화면을 다시 그릴 때마다 위임 리스너를 또 달면 한 번 클릭에 신청 모달이 두 번 열립니다 — 최초 1회만 */
+    if (host.dataset.bound === '1') return;
+    host.dataset.bound = '1';
     host.addEventListener('click', function (e) {
       var ex = e.target.closest('[data-mt-ex]');
       if (ex) { $('#mtQ').value = ex.getAttribute('data-mt-ex'); run($('#mtQ').value); return; }

@@ -231,7 +231,7 @@
         apply();
         if (!list.length) {
           var el = $('#toast');
-          if (el) { el.textContent = '표시할 TR 임차의뢰가 없습니다. 홈 › 딜·참여 등록 허브에서 TR을 등록해 보세요.'; el.className = 'toast'; setTimeout(function () { el.classList.add('hidden'); }, 3400); }
+          if (el) { el.textContent = '표시할 TR 임차의뢰가 없습니다. 홈 › 🧾 업무 신청 › TR 신청으로 접수할 수 있습니다.'; el.className = 'toast'; setTimeout(function () { el.classList.add('hidden'); }, 3400); }
         }
       });
     } else {

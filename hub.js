@@ -245,6 +245,19 @@
     }
   ];
 
+  /* 접수 유형 라벨 — 목록 필터 칩(['매각','매입','임대','TR','호텔운영','금융'])과
+     정확히 같은 문자열이어야 유형별 필터에 잡힙니다. (호텔은 label 첫 단어가 '호텔'이라 어긋났음) */
+  var TYPE_TAGS = { sale: '매각', buy: '매입', lease: '임대', tr: 'TR', hotel: '호텔운영', finance: '금융' };
+  function tagOf(t) { return TYPE_TAGS[t.code] || String(t.label || '').split(' ')[0]; }
+  /** 폼에 '물건명' 입력칸이 있는 유형인지 — 없는 유형(TR·매입·호텔·금융)에
+      물건명을 요구하면 입력할 칸조차 없어 접수가 영구히 막힙니다. */
+  function hasAssetField(t) {
+    return (t.fields || []).some(function (f) { return f.k === 'asset'; });
+  }
+  function needAsset(t) {
+    return (t.fields || []).some(function (f) { return f.k === 'asset' && f.req; });
+  }
+
   function typeByCode(c) {
     for (var i = 0; i < TYPES.length; i++) if (TYPES[i].code === c) return TYPES[i];
     return null;
@@ -271,7 +284,8 @@
       input = '<textarea name="' + name + '" rows="' + (f.rows || 3) + '" placeholder="' + esc(f.ph || '') + '">' + esc(v) + '</textarea>';
     } else {
       input = '<input name="' + name + '" type="text" value="' + esc(v) + '" placeholder="' + esc(f.ph || '') + '"' +
-        (name === 'area' || name === 'rooms' ? ' inputmode="numeric"' : '') + '>';
+        (name === 'area' || name === 'rooms' ? ' inputmode="numeric"' : '') +
+        (name === 'asset' ? ' list="hubAssetList"' : '') + '>';
     }
     return '<label class="tr-f' + (f.wide ? ' wide' : '') + '"><span>' + esc(f.l) + (f.req ? ' <b>*</b>' : '') + '</span>' + input + '</label>';
   }
@@ -330,7 +344,7 @@
     h += '<div class="tr-sec"><h4>① ' + esc(t.label.split(' ')[0]) + ' 조건</h4><div class="tr-grid">';
     h += fieldsHTML(t, { sector: p.sector, region: p.region, deal: p.deal, area: p.area, rent: p.rent, timeline: p.timeline, spec: p.spec, memo: p.memo, asset: p.asset });
     h += '</div>';
-    var dl = (t.code === 'buy' || t.code === 'tr') ? '' : '<datalist id="hubAssetList">' + assetOptionsHTML() + '</datalist>';
+    var dl = hasAssetField(t) ? '<datalist id="hubAssetList">' + assetOptionsHTML() + '</datalist>' : '';
     h += dl + '</div>';
     h += '<div class="tr-sec"><h4>② 연락처</h4><div class="tr-grid">';
     h += '<label class="tr-f"><span>회사 <b>*</b></span><input name="company" type="text" value="' + esc((me() && me().company) || '') + '" placeholder="예) ㈜OO자산운용"></label>';
@@ -353,7 +367,7 @@
   }
 
   function open(type, prefill) {
-    if (!getToken()) { toast('접속(인증) 후 등록할 수 있습니다.', true); return; }
+    if (!getToken()) { toast('접속(인증) 후 신청할 수 있습니다 — 우측 상단 🔑 버튼으로 접속하세요.', true); return; }
     HUB.type = typeByCode(type) ? type : 'tr';
     HUB.prefill = prefill || null;
     var host = ensureHost();
@@ -459,7 +473,7 @@
     try {
       var list = JSON.parse(localStorage.getItem(MINE_KEY) || '[]');
       list.unshift({
-        at: new Date().toISOString(), request_type: t.label.split(' ')[0], asset_name: title,
+        at: new Date().toISOString(), request_type: tagOf(t), asset_name: title,
         company: v.company, blind_name: v._blind || blindNameOf(v.company), name: v.name, phone: v.phone,
         price: v.price || v.amount || v.rent || '', status: '접수'
       });
@@ -470,7 +484,7 @@
   function submit(host) {
     var t = typeByCode(HUB.type) || TYPES[3];
     var v = collect(host, t);
-    if (t.code !== 'finance' && t.code !== 'buy' && t.code !== 'hotel' && !v.asset) { err(host, '대상 물건·사업장을 입력하세요.'); return; }
+    if (needAsset(t) && !v.asset) { err(host, '물건명을 입력하세요.'); return; }
     if (!v.company) { err(host, '회사명을 입력하세요.'); return; }
     if (!v.name) { err(host, '성명을 입력하세요.'); return; }
     if (String(v.phone).replace(/[^0-9]/g, '').length < 7) { err(host, '연락처를 정확히 입력하세요.'); return; }
@@ -492,7 +506,7 @@
     var common = {
       asset_id: hitAsset ? hitAsset.id : (String(t.code).toUpperCase() + '-' + Date.now().toString(36)),
       asset_name: title,
-      request_type: t.label.split(' ')[0],
+      request_type: tagOf(t),
       request_code: t.code,
       deal_type: (v.deal || t.deal || '임차'),
       price: v.price || v.amount || '',
@@ -504,7 +518,7 @@
       blind_name: blindNameOf(v.company, t.code === 'tr' ? 'shipper' : ''),
       region: v.region || '',
       lat: coordOf(v)[0], lng: coordOf(v)[1],
-      memo: '[' + t.label.split(' ')[0] + '] ' + memoOf(t, v)
+      memo: '[' + tagOf(t) + '] ' + memoOf(t, v)
     };
     v._blind = common.blind_name;
 
@@ -538,6 +552,12 @@
       remember(v, t, title);
       close();
       toast(t.short + ' 접수를 완료했습니다. 담당자가 검토 후 회신드립니다.');
+      /* TR·매입은 지도 '수요 핀' 레이어와 같은 데이터입니다 — 켜져 있으면 새로 받아 반영 */
+      if ((t.code === 'tr' || t.code === 'buy') && window.NAI_TR_LAYER) {
+        try {
+          if (!window.NAI_TR_LAYER.isOn || window.NAI_TR_LAYER.isOn()) window.NAI_TR_LAYER.refresh();
+        } catch (e3) { /* noop */ }
+      }
       if (window.naiMap && window.naiMap.log) {
         try { window.naiMap.log('hub_submit', t.short + ' · ' + title + ' · ' + v.company); } catch (e2) { /* noop */ }
       }

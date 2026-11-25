@@ -395,9 +395,7 @@
     var d = finDiv(unit);
     if (!d) return Math.round(v).toLocaleString('ko-KR');
     var n = v / d, a = Math.abs(n);
-    var s = a >= 100
-      ? a.toLocaleString('ko-KR', { maximumFractionDigits: 1 })
-      : a.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    var s = a.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
     return (n < 0 ? '-' : '') + s;
   }
   /** 행의 5개년 재무 — Apps Script 응답 우선, 없으면 정적 사본. 한 번만 계산해 붙여 둡니다. */

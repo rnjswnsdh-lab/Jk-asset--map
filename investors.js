@@ -104,6 +104,7 @@
     q: '',
     onlyEmail: false,
     fundOnly: false,
+    finOnly: false,
     owner: 'ALL',
     sel: {},
     busy: false
@@ -135,7 +136,7 @@
   function snapshotMode() {
     modeStore[state.mode] = {
       kind: state.kind, region: state.region, strat: state.strat,
-      onlyEmail: state.onlyEmail, fundOnly: state.fundOnly, sel: state.sel
+      onlyEmail: state.onlyEmail, fundOnly: state.fundOnly, finOnly: state.finOnly, sel: state.sel
     };
   }
   function setMode(mode) {
@@ -148,6 +149,7 @@
     state.strat = m.strat || 'ALL';
     state.onlyEmail = !!m.onlyEmail;
     state.fundOnly = !!m.fundOnly;
+    state.finOnly = !!m.finOnly;
     state.sel = m.sel || {};
     if (modeKinds().indexOf(state.kind) < 0) state.kind = 'all';
     syncModeDom();
@@ -170,6 +172,8 @@
     if (oe) oe.checked = state.onlyEmail;
     var fo = $('#poolFundOnly');
     if (fo) fo.checked = state.fundOnly;
+    var fno = $('#poolFinOnly');
+    if (fno) fno.checked = state.finOnly;
     var fow = $('#poolFundOnlyWrap');
     if (fow) fow.classList.toggle('hidden', !fi);
     var sc = $('#poolStratChips');
@@ -199,7 +203,7 @@
       Object.keys(modeStore).forEach(function (k) {
         var m = modeStore[k];
         if (!m) return;
-        o.states[k] = { kind: m.kind, region: m.region, strat: m.strat, onlyEmail: m.onlyEmail, fundOnly: m.fundOnly };
+        o.states[k] = { kind: m.kind, region: m.region, strat: m.strat, onlyEmail: m.onlyEmail, fundOnly: m.fundOnly, finOnly: m.finOnly };
       });
       localStorage.setItem(PREF_KEY, JSON.stringify(o));
     } catch (e) { /* noop */ }
@@ -212,7 +216,7 @@
         var s = p.states[k] || {};
         modeStore[k] = {
           kind: s.kind || 'all', region: s.region || 'ALL', strat: s.strat || 'ALL',
-          onlyEmail: !!s.onlyEmail, fundOnly: !!s.fundOnly, sel: {}
+          onlyEmail: !!s.onlyEmail, fundOnly: !!s.fundOnly, finOnly: !!s.finOnly, sel: {}
         };
       });
     } catch (e) { /* noop */ }
@@ -366,6 +370,112 @@
     return out.join(' · ');
   }
   function briefIrr(s) { return String(s || '').replace(/\s*\([^)]*\)/g, '').trim(); }
+
+  /* ─────────────── 📊 5개년 재무현황 (fin_json + 정적 폴백) ───────────────
+     1순위: Apps Script(type=investors) 응답의 r.fin_json / r.fin_asof / r.fin_src / r.fin_unit
+     2순위: investors_fin.js 의 window.NAI_INV_FIN[inv_id] — 시트 반영분(96개사)의 정적 사본
+     두 경로 모두 inv_id 와 재무 수치만 읽고, 연도·지표 배열이 없으면 섹션을 그리지 않습니다. */
+  var FIN_METRICS = ['매출액', '영업이익', '당기순이익', '자산', '부채', '자본'];
+  /* 원자료 단위 → 억원 환산 제수: 1억 = 1십억×0.1 = 1억×1 = 100백만 = 100,000천원 = 100,000,000원 */
+  var FIN_DIVS = [[/십억/, 0.1], [/억/, 1], [/백만/, 100], [/천\s*원/, 100000], [/원/, 100000000]];
+  function finDiv(unit) {
+    var u = String(unit || '').replace(/\s+/g, '');
+    if (!u) return 0;
+    for (var i = 0; i < FIN_DIVS.length; i++) if (FIN_DIVS[i][0].test(u)) return FIN_DIVS[i][1];
+    return 0;
+  }
+  function finNum(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return isNaN(n) ? null : n;
+  }
+  /** 억원 환산 표기 — 1,234.5 / -593.8 / (단위 미확인 시) 원자료 값 그대로 */
+  function finTxt(v, unit) {
+    if (v === null || v === undefined) return null;
+    var d = finDiv(unit);
+    if (!d) return Math.round(v).toLocaleString('ko-KR');
+    var n = v / d, a = Math.abs(n);
+    var s = a >= 100
+      ? a.toLocaleString('ko-KR', { maximumFractionDigits: 1 })
+      : a.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    return (n < 0 ? '-' : '') + s;
+  }
+  /** 행의 5개년 재무 — Apps Script 응답 우선, 없으면 정적 사본. 한 번만 계산해 붙여 둡니다. */
+  function finInfo(r) {
+    if (!r) return null;
+    if (r._fin !== undefined) return r._fin;
+    var src = r.fin_src || r.finSrc || '', asof = r.fin_asof || r.finAsof || '';
+    var unit = r.fin_unit || r.finUnit || '', raw = r.fin_json || r.finJson || r.fin || '';
+    var from = raw ? 'api' : '';
+    if (!raw && r.id && window.NAI_INV_FIN) {
+      var fb = window.NAI_INV_FIN[r.id];
+      if (fb) {
+        raw = fb.json || fb.fin_json || '';
+        src = src || fb.src || '';
+        asof = asof || fb.asof || '';
+        unit = unit || fb.unit || '';
+        from = 'static';
+      }
+    }
+    var obj = raw;
+    if (typeof obj === 'string') { try { obj = JSON.parse(obj); } catch (e0) { obj = null; } }
+    var out = null;
+    if (obj && typeof obj === 'object' && obj.years && obj.years.length) {
+      var years = obj.years.map(function (y) { return String(y); });
+      var series = {}, any = false;
+      FIN_METRICS.forEach(function (m) {
+        var arr = (obj[m] && obj[m].length) ? obj[m] : [];
+        series[m] = years.map(function (_, i) { return finNum(arr[i]); });
+        if (!any && series[m].some(function (v) { return v !== null; })) any = true;
+      });
+      if (any) out = { years: years, series: series, src: src, asof: asof, unit: unit, from: from };
+    }
+    try { r._fin = out; } catch (e1) { /* noop */ }
+    return out;
+  }
+  /** 카드용 📊 재무 배지 — 재무 데이터가 있는 기업에만 */
+  function finBadge(r) {
+    if (!finInfo(r)) return '';
+    return '<span class="pr-fin" title="5개년 재무현황 있음 — 🔎 상세에서 확인">📊 재무</span>';
+  }
+  /** 상세 패널용 재무 표 (연도별 매출액·영업이익·당기순이익·자산·부채·자본) */
+  function finSectionHtml(r) {
+    var f = finInfo(r);
+    if (!f) return '';
+    var unitTxt = f.unit || '';
+    var div = finDiv(unitTxt);
+    var note = [];
+    if (f.asof) note.push(esc(f.asof) + ' 기준');
+    note.push(div ? '단위 억원' : (unitTxt ? '단위 ' + esc(unitTxt) : '단위 미확인'));
+    if (f.src) note.push('출처 ' + esc(f.src));
+
+    var last = f.years.length - 1;
+    var head = '<tr><th scope="col">구분</th>' + f.years.map(function (y, i) {
+      return '<th scope="col"' + (i === last ? ' class="is-latest"' : '') + '>' + esc(y) + '</th>';
+    }).join('') + '</tr>';
+    var body = '';
+    FIN_METRICS.forEach(function (m) {
+      var arr = f.series[m] || [];
+      if (!arr.some(function (v) { return v !== null; })) return;
+      body += '<tr><th scope="row">' + esc(m) + '</th>' + arr.map(function (v, i) {
+        var cls = [];
+        if (i === last) cls.push('is-latest');
+        if (v !== null && v < 0) cls.push('neg');
+        var t = finTxt(v, f.unit);
+        return '<td class="num' + (cls.length ? ' ' + cls.join(' ') : '') + '">' +
+          (t === null ? '<span class="fin-na">—</span>' : t) + '</td>';
+      }).join('') + '</tr>';
+    });
+    if (!body) return '';
+    return '<div class="dc-sec dc-fin"><h4>📊 재무현황 (5개년)' +
+      '<span class="dc-fin-note">' + note.join(' · ') + '</span></h4>' +
+      '<div class="fin-wrap"><table class="fin-table" aria-label="' + esc(r.company || '') + ' 5개년 재무현황">' +
+      '<thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+      (div ? '<div class="dc-fin-src">원자료 단위 ' + esc(unitTxt) + ' → 억원 환산' +
+        (f.from === 'static' ? ' · investors 시트 반영분' : '') + '</div>'
+        : '<div class="dc-fin-src">원자료 단위를 알 수 없어 값을 그대로 표시했습니다.</div>') +
+      '</div>';
+  }
 
   /* ─────────────── 불러오기 ─────────────── */
   function load(force) {
@@ -651,6 +761,7 @@
       if (state.kind !== 'all' && r.kind !== state.kind) return false;
       if (state.region !== 'ALL' && r.region !== state.region) return false;
       if (state.onlyEmail && !r.email) return false;
+      if (state.finOnly && !finInfo(r)) return false;
       if (state.owner && state.owner !== 'ALL') {
         var ow = String(r.owner || '').trim();
         if (state.owner === '__NONE__') { if (ow) return false; }
@@ -726,6 +837,7 @@
       '<div class="pr-main">' +
         '<div class="pr-top">' + kindBadge(r) +
           '<span class="pr-region">' + esc(r.region || '-') + '</span>' +
+          finBadge(r) +
           (r.role ? '<span class="pr-role">' + esc(r.role) + '</span>' : '') +
           (r.year ? '<span class="pr-year">' + esc(r.year) + '</span>' : '') +
           (r.amount ? '<span class="pr-amount">' + esc(r.amount) + '억</span>' : '') +
@@ -789,6 +901,7 @@
       '<div class="pr-main">' +
         '<div class="pr-top">' + kindBadge(r) +
           '<span class="pr-region">' + esc(r.region || '-') + '</span>' +
+          finBadge(r) +
           (r.industry ? '<span class="pr-role">' + esc(r.industry) + '</span>' : '') +
           tags +
           (r.amount ? '<span class="pr-amount">D/P ' + esc(r.amount) + '억</span>' : '') +
@@ -809,7 +922,9 @@
     var selCount = selectedRows().length;
     var withEmail = rows.filter(function (r) { return r.email; }).length;
     var fundRows = state.mode === 'fi' ? rows.filter(function (r) { return fiData(r).funds.length; }).length : 0;
+    var finRows = rows.filter(function (r) { return !!finInfo(r); }).length;
     $('#poolResultCount').textContent = rows.length + '건 · 이메일 ' + withEmail + '건' +
+      (finRows ? ' · 📊 재무 ' + finRows + '건' : '') +
       (state.mode === 'fi' ? ' · 펀드정보 ' + fundRows + '건' : '');
 
     if (state.mode === 'fi') {
@@ -956,6 +1071,8 @@
       (r.year ? '<span class="pr-year">' + esc(r.year) + '</span>' : '') +
       (r.amount ? '<span class="pr-amount">' + (fi ? 'D/P ' : '') + esc(r.amount) + '억</span>' : '') +
       '</div>';
+
+    body += finSectionHtml(r);
 
     var canEdRow = canEditRow(r);
     body += '<div class="dc-sec"><h4>담당자(컨택포인트)' +
@@ -1349,6 +1466,12 @@
     $('#poolOnlyEmail').addEventListener('change', function (e) {
       state.onlyEmail = e.target.checked; savePref(); render();
     });
+    var fno = $('#poolFinOnly');
+    if (fno) {
+      fno.addEventListener('change', function (e) {
+        state.finOnly = e.target.checked; savePref(); render();
+      });
+    }
     var fo = $('#poolFundOnly');
     if (fo) {
       fo.addEventListener('change', function (e) {

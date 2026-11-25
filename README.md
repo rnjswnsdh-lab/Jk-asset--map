@@ -179,6 +179,15 @@ API 응답은 기존 규격을 그대로 두고 `type=investors` 파라미터(�
 - 현재 반영: `investors` 시트 **96개사**(오피스 SI 61 · 화주 35), 기준 2025-12(일부 2022-12·2024-12·2026-12), 원자료 단위 `천원`, 출처 `COP`.
   재무 수치는 공시 기반이라 외부 방문자에게도 표시되며, 담당자 연락처 비공개 규칙과는 별개입니다.
 
+## 🏢 주요 SI 사옥 이벤트 — `si_watch` (2026-11-26 추가)
+
+- 시트: 비공개 시트 **`si_watch`** (기업당 1행·23필드) — `company` 키로 `investors`(SI)와 조인합니다.
+  필드: `id · company · group · region · asset · location · gfa_sqm · gfa_pyeong · structure · manager · stake_amount · acq_disposal · fund_maturity · lease_maturity · hq · trend · probability · event_year · grade · nai_point · confidence · source · updated_at`
+- 반영: 주요 SI **15개사 + 참고 3개사**(삼양사·코오롱·KCC) — 대상(관훈빌딩 엠플러스사모부동산투자신탁1호·존속 2027-03-30·지분 80%·차입 536억 보증), 한화갤러리아, 신세계인터내셔널, 동양생명, 영풍, 태광산업, SK, 하이트진로, 두산, 이수화학, 유진그룹, 한화그룹, KT에스테이트, 교보생명, 에스원.
+- 화면(`🤝 SI·화주 풀`, 관리자 로그인 시): 카드 **`🏢 사옥 이벤트`** 배지(등급·연도), 상단 **`🏢 사옥 이벤트 전체 / 사옥 이벤트 있는 기업만 / 2026~2032년 만기·이벤트`** 필터, `🔎` 상세의 **사옥 이벤트** 섹션(보유 구조·운용사·펀드/임차 만기·본사·동향·NAI 포인트·출처).
+- **권한: 관리자 전용.** 임차·펀드 만기와 보유 구조는 협상 지위를 드러내는 정보라서 서버가 `GET ?type=si_watch` 를 관리자 외 권한에 `readonly` 로 거부하고, 프런트도 관리자 로그인일 때만 호출합니다(서버+프런트 이중 차단).
+- API: `GET …/exec?type=si_watch&token=…`(관리자) · `POST {action:'si_watch_setup'}` · `POST {action:'si_watch_save', items:[…]}`(관리자, id 기준 upsert). 서버 코드는 Apps Script `SiWatch.gs` 이고 `Hub.gs` 의 `hubGet_`/`hubPost_` 에서 연결됩니다.
+
 ## 📊 밸류에이션·민감도 탭 (2026-11-22 추가)
 
 상단 **`📊 밸류에이션`** 탭. 물건의 렌트롤·OPEX·CAPEX를 입력으로 매입~매각 현금흐름을 계산합니다.

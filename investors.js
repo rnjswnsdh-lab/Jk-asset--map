@@ -106,6 +106,9 @@
     fundOnly: false,
     finOnly: false,
     owner: 'ALL',
+    siWatch: null,      /* 관리자 전용 — 주요 SI 사옥·펀드 만기 (company 키) */
+    siEvent: 'ALL',     /* ALL | EVENT | 2026~2032 */
+
     sel: {},
     busy: false
   };
@@ -475,6 +478,98 @@
       '</div>';
   }
 
+  /* ─────────────── 🏢 사옥 이벤트 (si_watch · 관리자 전용) ─────────────── */
+  /** 회사명 비교 키 — (주)·그룹·홀딩스 표기와 공백·기호를 제거 */
+  function normCo_(s) {
+    return String(s || '').replace(/\(주\)|㈜|주식회사|그룹|홀딩스/g, '').replace(/[^0-9A-Za-z가-힣]/g, '').toLowerCase();
+  }
+
+  /** si_watch 는 관리자 로그인일 때만 서버에서 받습니다(비관리자는 요청 자체를 하지 않음). */
+  function loadSiWatch_() {
+    state.siWatch = {};
+    if (state.role !== 'admin') { renderSiEventSel_(); return Promise.resolve(); }
+    var base = CFG.SYNC_URL;
+    if (!base) return Promise.resolve();
+    var url = base + (base.indexOf('?') < 0 ? '?' : '&') + 'type=si_watch&token=' + encodeURIComponent(getToken());
+    return fetch(url, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+      var map = {};
+      if (j && j.ok === true && (j.items || []).length) {
+        j.items.forEach(function (x) { var k = normCo_(x.company); if (k) map[k] = x; });
+      }
+      state.siWatch = map;
+      renderSiEventSel_();
+    }).catch(function () { state.siWatch = {}; renderSiEventSel_(); });
+  }
+
+  function siInfo(r) {
+    if (!state.siWatch || !r) return null;
+    var k = normCo_(r.company);
+    return k ? (state.siWatch[k] || null) : null;
+  }
+
+  /** 이벤트 연도 집합 — event_year('2027·2031') + 펀드/임차 만기 연도 */
+  function siYears(si) {
+    var set = {};
+    String((si && si.event_year) || '').split(/[^0-9]/).forEach(function (y) { if (y && y.length === 4) set[y] = 1; });
+    [si && si.fund_maturity, si && si.lease_maturity].forEach(function (v) {
+      var m = String(v || '').match(/(19|20)\d{2}/);
+      if (m) set[m[0]] = 1;
+    });
+    return Object.keys(set).sort();
+  }
+
+  function renderSiEventSel_() {
+    var sel = $('#poolSiEvent');
+    if (!sel) return;
+    var show = state.role === 'admin' && state.mode === 'si';
+    sel.classList.toggle('hidden', !show);
+    if (!show) return;
+    var years = {}, n = 0;
+    Object.keys(state.siWatch || {}).forEach(function (k) {
+      var si = state.siWatch[k];
+      n++;
+      siYears(si).forEach(function (y) { years[y] = 1; });
+    });
+    var h = '<option value="ALL">🏢 사옥 이벤트 전체 (' + n + ')</option>' +
+      '<option value="EVENT">사옥 이벤트 있는 기업만</option>';
+    Object.keys(years).sort().forEach(function (y) { h += '<option value="' + y + '">' + y + '년 만기·이벤트</option>'; });
+    sel.innerHTML = h;
+    if (state.siEvent !== 'ALL' && state.siEvent !== 'EVENT' && !years[state.siEvent]) state.siEvent = 'ALL';
+    sel.value = state.siEvent;
+  }
+
+  /** 카드 배지 — 관리자에게만 표시 */
+  function siBadge(r) {
+    if (state.role !== 'admin') return '';
+    var si = siInfo(r);
+    if (!si) return '';
+    var yrs = siYears(si);
+    var g = String(si.grade || '').trim();
+    return '<span class="pr-siox" title="사옥 이벤트 · ' + esc(si.asset || '') + '">' +
+      '🏢 사옥 이벤트' + (g ? ' ' + esc(g) : '') + (yrs.length ? ' · ' + esc(yrs.join('/')) : '') + '</span>';
+  }
+
+  /** 상세 패널 — 만기·구조·트리거 */
+  function siSectionHtml(r) {
+    if (state.role !== 'admin') return '';
+    var si = siInfo(r);
+    if (!si) return '';
+    var kv = [
+      ['등급', si.grade], ['자산', si.asset], ['소재지', si.location],
+      ['연면적', (si.gfa_pyeong ? si.gfa_pyeong + '평' : '') + (si.gfa_sqm ? (si.gfa_pyeong ? ' · ' : '') + si.gfa_sqm + '㎡' : '')],
+      ['보유 구조', si.structure], ['운용사', si.manager], ['지분·투자', si.stake_amount],
+      ['취득·매각', si.acq_disposal], ['펀드 만기', si.fund_maturity], ['임차 만기', si.lease_maturity],
+      ['본사', si.hq], ['동향', si.trend], ['가능성', si.probability], ['이벤트 연도', si.event_year],
+      ['NAI 포인트', si.nai_point], ['확신도', si.confidence]
+    ].filter(function (x) { return String(x[1] || '').trim(); });
+    return '<div class="dc-sec dc-si"><h4>🏢 사옥 이벤트 <span class="dc-si-lock">관리자 전용</span></h4>' +
+      '<div class="dc-kv">' + kv.map(function (x) {
+        return '<span><b>' + esc(x[0]) + '</b>' + esc(x[1]) + '</span>';
+      }).join('') + '</div>' +
+      (si.source ? '<div class="dc-fin-src">출처 ' + esc(si.source) + (si.updated_at ? ' · ' + esc(si.updated_at) : '') + '</div>' : '') +
+      '</div>';
+  }
+
   /* ─────────────── 불러오기 ─────────────── */
   function load(force) {
     if (state.busy) return Promise.resolve();
@@ -503,6 +598,7 @@
       applyRole();
       renderChips();
       render();
+      loadSiWatch_().then(render);
     }).catch(function (e) {
       state.busy = false;
       renderNotReady('오프라인/연결 오류 — ' + (e && e.message ? e.message : '네트워크 오류'));
@@ -551,6 +647,8 @@
         state.loaded = false;
         state.rows = [];
         state.sel = {};
+        state.siWatch = {};
+        state.siEvent = 'ALL';
         try { localStorage.removeItem(CACHE_KEY); } catch (e0) { /* noop */ }
         applyRole();
         renderChips();
@@ -565,6 +663,8 @@
     state.loaded = false;
     state.rows = [];
     state.sel = {};
+    state.siWatch = {};
+    state.siEvent = 'ALL';
     try { localStorage.removeItem(CACHE_KEY); } catch (e0) { /* noop */ }
     state.role = normRole_((window.naiMap && window.naiMap.state && window.naiMap.state.role) || state.role);
     applyRole();
@@ -662,6 +762,7 @@
     });
     rc.innerHTML = rhtml.join('');
     renderOwnerSel();
+    renderSiEventSel_();
   }
 
   /** NAI 담당자 필터 — 현재 탭의 담당자 목록 */
@@ -760,6 +861,12 @@
       if (state.region !== 'ALL' && r.region !== state.region) return false;
       if (state.onlyEmail && !r.email) return false;
       if (state.finOnly && !finInfo(r)) return false;
+      if (state.mode === 'si' && state.role === 'admin' && state.siEvent !== 'ALL') {
+        var si = siInfo(r);
+        if (!si) return false;
+        if (state.siEvent === 'EVENT') { if (!siYears(si).length) return false; }
+        else if (siYears(si).indexOf(state.siEvent) < 0) return false;
+      }
       if (state.owner && state.owner !== 'ALL') {
         var ow = String(r.owner || '').trim();
         if (state.owner === '__NONE__') { if (ow) return false; }
@@ -836,6 +943,7 @@
         '<div class="pr-top">' + kindBadge(r) +
           '<span class="pr-region">' + esc(r.region || '-') + '</span>' +
           finBadge(r) +
+          siBadge(r) +
           (r.role ? '<span class="pr-role">' + esc(r.role) + '</span>' : '') +
           (r.year ? '<span class="pr-year">' + esc(r.year) + '</span>' : '') +
           (r.amount ? '<span class="pr-amount">' + esc(r.amount) + '억</span>' : '') +
@@ -1070,6 +1178,7 @@
       (r.amount ? '<span class="pr-amount">' + (fi ? 'D/P ' : '') + esc(r.amount) + '억</span>' : '') +
       '</div>';
 
+    body += siSectionHtml(r);
     body += finSectionHtml(r);
 
     var canEdRow = canEditRow(r);
@@ -1486,6 +1595,8 @@
     if (xb) xb.addEventListener('click', downloadXlsx);
     var os = $('#poolOwnerSel');
     if (os) os.addEventListener('change', function () { state.owner = os.value || 'ALL'; render(); });
+    var sie = $('#poolSiEvent');
+    if (sie) sie.addEventListener('change', function () { state.siEvent = sie.value || 'ALL'; render(); });
     $('#poolAddBtn').addEventListener('click', function () {
       if (!canEdit()) { toast('읽기 전용 모드입니다.', true); return; }
       openEditor(null);

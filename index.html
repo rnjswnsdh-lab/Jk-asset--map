@@ -16,7 +16,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <meta name="description" content="Open AI Asset Bridge — NAI Korea 상업용 부동산 물건·투자자(SI·FI)·VDR·밸류에이션 통합 플랫폼">
-<link rel="stylesheet" href="style.css?v=20261126c">
+<link rel="stylesheet" href="style.css?v=20261126e">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2a4a'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='system-ui,sans-serif' font-size='13' font-weight='800' fill='%23ffffff'%3ENAI%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -208,6 +208,9 @@
         <option value="ALL">담당자 전체</option>
         <option value="__NONE__">담당 미지정</option>
       </select>
+      <select id="poolSiEvent" class="pf-owner hidden" aria-label="사옥 이벤트 만기 필터" title="주요 SI 사옥·펀드 만기 이벤트(관리자 전용)">
+        <option value="ALL">🏢 사옥 이벤트 전체</option>
+      </select>
       <span id="poolResultCount" class="pf-count">0건</span>
       <span class="pf-right">
         <button id="poolSelectAll" class="mini-btn" type="button">결과 전체 선택</button>
@@ -349,7 +352,7 @@ window.addEventListener('unhandledrejection', function (e) { window.__errs.push(
 <script src="config.js?v=20261125b"></script>
 <script src="app.js?v=20261125c"></script>
 <script src="investors_fin.js?v=20261126a"></script>
-<script src="investors.js?v=20261126d"></script>
+<script src="investors.js?v=20261126e"></script>
 <script src="valsec.js?v=20261124y"></script>
 <script src="valuation.js?v=20261124y"></script>
 <script src="home.js?v=20261126b"></script>

@@ -13,7 +13,8 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
-  var BOOT = { homeOpened: false, articles: [], notices: [], loaded: false, subs: {} };
+  var BOOT = { homeOpened: false, articles: [], notices: [], loaded: false, subs: {}, artShown: 0, artQ: '' };
+  var ART_INIT = 20, ART_STEP = 30;   /* 아티클: 첫 표시 20건 · 더 보기 +30건 */
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -218,6 +219,7 @@
     html += '<section class="home-card hc-articles" id="hcArticles">';
     html += '<div class="hc-head"><h2>📰 아티클</h2><span class="hc-hint">매일 오전 8시 · 전일 딜/후속 진척</span></div>';
     html += '<div id="artList" class="art-list"><p class="hs-empty">불러오는 중…</p></div>';
+    html += '<div class="art-foot" id="artFoot"></div>';
     if (isAdmin()) html += '<div class="hc-foot"><button type="button" class="mini-btn" data-home="art-new">＋ 아티클 등록</button></div>';
     html += '</section>';
 
@@ -345,22 +347,106 @@
     host.innerHTML = html;
   }
 
-  /* ── 아티클 ── */
-  function renderArticles() {
+  /* ── 아티클 ── (2026-11-26: 최신순 정렬 · 내부 스크롤 · 더 보기 · 전체 검색) */
+  function dayNum(a) {
+    var s = String((a && a.date) || '');
+    var m = s.match(/(\d{4})\D{0,2}(\d{1,2})\D{0,2}(\d{1,2})/);
+    if (m) return Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
+    var t = Date.parse(s);
+    if (!isNaN(t)) { var d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+    return 0;
+  }
+  function epNum(a) {   /* 회차·ID 끝자리 숫자 (trend-2026-11-23-656 → 656) */
+    var m = String((a && a.id) || '').match(/-(\d{1,4})\s*$/);
+    return m ? Number(m[1]) : -1;
+  }
+  function isDaily(a) {
+    if (/-daily$/i.test(String((a && a.id) || ''))) return true;
+    return /데일리\s*딜\s*브리핑/.test(String((a && a.title) || ''));
+  }
+  /* 날짜 내림차순 → 같은 날짜는 데일리 브리핑 먼저 → 회차/ID 내림차순 */
+  function sortArticles(list) {
+    return (list || []).slice().sort(function (x, y) {
+      var d = dayNum(y) - dayNum(x);
+      if (d) return d;
+      var xd = isDaily(x) ? 1 : 0, yd = isDaily(y) ? 1 : 0;
+      if (xd !== yd) return yd - xd;
+      var e = epNum(y) - epNum(x);
+      if (e) return e;
+      return String(y.id || '').localeCompare(String(x.id || ''));
+    });
+  }
+  function artItemHTML(a, idx, sumLen) {
+    return '<button type="button" class="art-item" data-home="open-article" data-idx="' + idx + '">' +
+      '<span class="ai-date">' + esc(a.date || '') + (isDaily(a) ? '<em class="ai-badge">데일리</em>' : '') + '</span>' +
+      '<span class="ai-title">' + esc(a.title || '(제목 없음)') + '</span>' +
+      '<span class="ai-sum">' + esc(a.summary || '').slice(0, sumLen || 140) + '</span></button>';
+  }
+  function artShownCount() {
+    return Math.min(Math.max(BOOT.artShown || ART_INIT, ART_INIT), BOOT.articles.length);
+  }
+  function renderArticles(keepScroll) {
     var host = $('#artList');
     if (!host) return;
-    if (!BOOT.loaded) { host.innerHTML = '<p class="hs-empty">불러오는 중…</p>'; return; }
-    var list = BOOT.articles.slice(0, 8);
-    if (!list.length) {
+    if (!BOOT.loaded) { host.innerHTML = '<p class="hs-empty">불러오는 중…</p>'; renderArtFoot(); return; }
+    var all = BOOT.articles;
+    if (!all.length) {
       host.innerHTML = '<p class="hs-empty">아직 등록된 아티클이 없습니다.<br>매일 오전 8시에 전일 부동산 딜 아티클이 올라옵니다.</p>';
+      renderArtFoot();
       return;
     }
-    host.innerHTML = list.map(function (a, i) {
-      return '<button type="button" class="art-item" data-home="open-article" data-idx="' + i + '">' +
-        '<span class="ai-date">' + esc(a.date || '') + '</span>' +
-        '<span class="ai-title">' + esc(a.title || '(제목 없음)') + '</span>' +
-        '<span class="ai-sum">' + esc(a.summary || '').slice(0, 140) + '</span></button>';
-    }).join('');
+    var prevH = keepScroll ? host.scrollHeight : 0;
+    host.innerHTML = all.slice(0, artShownCount()).map(function (a, i) { return artItemHTML(a, i, 140); }).join('');
+    host.scrollTop = prevH;   /* 더 보기: 새로 붙은 첫 건이 스크롤 위쪽에 오도록 */
+    renderArtFoot();
+  }
+  function renderArtFoot() {
+    var foot = $('#artFoot');
+    if (!foot) return;
+    if (!BOOT.loaded || !BOOT.articles.length) { foot.innerHTML = ''; return; }
+    var total = BOOT.articles.length, shown = artShownCount(), rest = total - shown;
+    var h = '<span class="art-count">' + total.toLocaleString('ko-KR') + '건 · 최신순' + (rest > 0 ? ' · ' + shown + '건 표시' : '') + '</span>' +
+      '<span class="art-btns">';
+    if (rest > 0) h += '<button type="button" class="mini-btn" data-home="art-more">더 보기 (+' + Math.min(ART_STEP, rest) + '건)</button>';
+    h += '<button type="button" class="mini-btn art-all-btn" data-home="art-all">🔎 전체 아티클 보기 (검색)</button>';
+    foot.innerHTML = h + '</span>';
+  }
+
+  /* 전체 아티클 — 검색 + 스크롤 (열기는 정렬된 BOOT.articles 인덱스 그대로) */
+  function openArticleList() {
+    if (!BOOT.loaded) { toast('아티클을 불러오는 중입니다. 잠시 후 다시 눌러주세요.'); return; }
+    var body = '<div class="art-search"><input id="artQ" type="search" autocomplete="off" ' +
+      'placeholder="제목 · 요약 · 날짜 · 태그 검색 (예: 물류, 11/26)" value="' + esc(BOOT.artQ || '') + '">' +
+      '<span class="art-qcount" id="artQCount"></span></div>' +
+      '<div class="art-all-list" id="artAllList"><p class="hs-empty">불러오는 중…</p></div>';
+    openModal('📰 전체 아티클 — 최신순', body, { wide: true, onMount: function (m) {
+      m.classList.add('art-modal');
+      renderArtAll();
+      var q = m.querySelector('#artQ');
+      if (q) {
+        q.addEventListener('input', function () { BOOT.artQ = q.value; renderArtAll(); });
+        q.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+        setTimeout(function () { try { q.focus(); } catch (err) { /* noop */ } }, 80);
+      }
+    } });
+  }
+  function renderArtAll() {
+    var host = $('#artAllList');
+    if (!host) return;
+    var q = String(BOOT.artQ || '').trim().toLowerCase();
+    var rows = [];
+    BOOT.articles.forEach(function (a, i) {
+      if (q) {
+        var hay = [a.date, a.title, a.summary, a.tags, a.source].join(' ').toLowerCase();
+        if (hay.indexOf(q) < 0) return;
+      }
+      rows.push({ a: a, i: i });
+    });
+    var cnt = $('#artQCount');
+    if (cnt) cnt.textContent = rows.length.toLocaleString('ko-KR') + '건';
+    if (!rows.length) { host.innerHTML = '<p class="hs-empty">검색 결과가 없습니다. 다른 키워드로 찾아보세요.</p>'; return; }
+    host.innerHTML = rows.map(function (r) { return artItemHTML(r.a, r.i, 160); }).join('');
+    host.scrollTop = 0;
   }
 
   /* ── 공지 ── */
@@ -404,6 +490,8 @@
         if (String(a.status || '') === '비공개') return false;
         return true;
       });
+      BOOT.articles = sortArticles(BOOT.articles);   /* 시트 행 순서와 무관하게 최신순 */
+      if (!BOOT.artShown) BOOT.artShown = ART_INIT;
       BOOT.notices = (res[1] && res[1].items) || [];
       BOOT.loaded = true;
       renderArticles();
@@ -1049,10 +1137,11 @@
   }
 
   /* ─────────────────── 아티클/공지 읽기 ─────────────────── */
-  function openArticle(idx) {
+  function openArticle(idx, fromList) {
     var a = BOOT.articles[idx];
     if (!a) return;
-    var body = '<div class="read-meta">' + esc(a.date || '') + (a.source ? ' · ' + esc(a.source) : '') + '</div>' +
+    var body = (fromList ? '<div class="read-top"><button type="button" class="mini-btn" data-home="art-list">← 아티클 목록</button></div>' : '') +
+      '<div class="read-meta">' + esc(a.date || '') + (a.source ? ' · ' + esc(a.source) : '') + '</div>' +
       '<h2 class="read-title">' + esc(a.title || '') + '</h2>' +
       (a.summary ? '<p class="read-sum">' + esc(a.summary) + '</p>' : '') +
       '<div class="read-body">' + articleBody(a.body || '') + '</div>' +
@@ -1297,6 +1386,14 @@
       if (act === 'hub-tr') { openHub('tr'); return; }
       if (act === 'hub-list') { if (window.NAI_HUB) { closeModal(); window.NAI_HUB.openList(); } return; }
       if (act === 'open-article') { openArticle(Number(btn.getAttribute('data-idx'))); return; }
+      if (act === 'art-open-list') { openArticle(Number(btn.getAttribute('data-idx')), true); return; }
+      if (act === 'art-list') { openArticleList(); return; }
+      if (act === 'art-all') { openArticleList(); return; }
+      if (act === 'art-more') {
+        BOOT.artShown = artShownCount() + ART_STEP;
+        renderArticles(true);
+        return;
+      }
       if (act === 'open-notice') { openNotice(Number(btn.getAttribute('data-idx'))); return; }
       if (act === 'art-new') { openArticleEditor(null); return; }
       if (act === 'art-edit') { openArticleEditor(BOOT.articles.filter(function (x) { return x.id === btn.getAttribute('data-id'); })[0]); return; }

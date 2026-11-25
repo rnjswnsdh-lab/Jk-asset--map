@@ -376,8 +376,8 @@
       return String(y.id || '').localeCompare(String(x.id || ''));
     });
   }
-  function artItemHTML(a, idx, sumLen) {
-    return '<button type="button" class="art-item" data-home="open-article" data-idx="' + idx + '">' +
+  function artItemHTML(a, idx, sumLen, act) {
+    return '<button type="button" class="art-item" data-home="' + (act || 'open-article') + '" data-idx="' + idx + '">' +
       '<span class="ai-date">' + esc(a.date || '') + (isDaily(a) ? '<em class="ai-badge">데일리</em>' : '') + '</span>' +
       '<span class="ai-title">' + esc(a.title || '(제목 없음)') + '</span>' +
       '<span class="ai-sum">' + esc(a.summary || '').slice(0, sumLen || 140) + '</span></button>';
@@ -445,7 +445,7 @@
     var cnt = $('#artQCount');
     if (cnt) cnt.textContent = rows.length.toLocaleString('ko-KR') + '건';
     if (!rows.length) { host.innerHTML = '<p class="hs-empty">검색 결과가 없습니다. 다른 키워드로 찾아보세요.</p>'; return; }
-    host.innerHTML = rows.map(function (r) { return artItemHTML(r.a, r.i, 160); }).join('');
+    host.innerHTML = rows.map(function (r) { return artItemHTML(r.a, r.i, 160, 'art-open-list'); }).join('');
     host.scrollTop = 0;
   }
 

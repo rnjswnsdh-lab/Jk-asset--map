@@ -47,6 +47,8 @@ window.NAI_MAP_CONFIG = {
     land:       { label: "토지·개발부지", icon: "🏞️", color: "#65a30d", dark: "#4d7c0f", short: "T" },
     /* 9번째 섹터 — 시니어 하우징(실버타운·노인복지주택·요양·케어리조트). 브라운으로 구분 (2026-11-24) */
     senior:     { label: "시니어 하우징", icon: "👴", color: "#92400e", dark: "#78350f", short: "S" },
+    /* 10번째 섹터 — 골프장(회원제·대중제·비회원제). 진녹색으로 구분 (2026-11-26) */
+    golf:       { label: "골프장", icon: "⛳", color: "#166534", dark: "#14532d", short: "G" },
     /* 지도 레이어 — TR 임차의뢰(수요). 자산이 아니라 '수요 핀'이므로 스카이색 */
     tr:         { label: "TR 임차수요", icon: "📋", color: "#0ea5e9", dark: "#0284c7", short: "TR" }
   },

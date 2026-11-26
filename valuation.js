@@ -503,6 +503,7 @@
   /** 물건 → 엔진 코드 (섹터·구분 키워드 기반) */
   function engineForAsset(a) {
     if (!a) return 'income';
+    if (a.sector === 'golf') return 'golf';
     var txt = String(a.sub_type || '') + ' ' + String(a.name || '') + ' ' + String(a.scale_info || '');
     if (/골프/.test(txt)) return 'golf';
     if (/리조트|콘도/.test(txt)) return 'resort';

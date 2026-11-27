@@ -192,12 +192,13 @@
         S.loading = false; loadedToken = tk;
         var items = (k && k.ok && Array.isArray(k.items)) ? k.items.filter(isMeeting) : [];
         useItems(items, 'articles');
+        if (!items.length) S.err = '회의록을 불러오지 못했습니다(권한 또는 네트워크).';
         if (built()) render();
         return items.length > 0;
       });
     }).catch(function () {
       S.loading = false; loadedToken = tk; S.loaded = true;
-      S.err = '회의록을 불러오지 못했습니다(네트워크).';
+      S.err = '회의록을 불러오지 못했습니다(권한 또는 네트워크).';
       if (built()) render();
       return false;
     });
@@ -334,7 +335,7 @@
     if (!S.items.length) {
       host.innerHTML = '<div class="hq-empty">' +
         '<b>표시할 회의록이 없습니다.</b>' +
-        '<p>' + esc(S.err || '시트 admin 탭에 회의록 48건이 들어 있습니다. 앱에서 표시·수정하려면 Apps Script에 Admin.gs(앱 배포용 패치)를 한 번 붙여 주세요.') + '</p>' +
+        '<p>' + esc(S.err || '관리자 로그인 상태와 네트워크를 확인한 뒤 ↻ 새로고침을 눌러 주세요.') + '</p>' +
         '</div>';
       return;
     }
@@ -461,7 +462,7 @@
       '<label class="fm-row wide"><span>요약</span><input id="hqSummary" type="text" value="' + esc(item.summary) + '"></label>' +
       '<label class="fm-row wide"><span>본문 *</span><textarea id="hqText" rows="12">' + esc(item.text) + '</textarea></label>' +
       '</div>' +
-      '<p class="hq-meta">저장하면 ‘admin’ 탭의 updated_by·updated_at과 edit_log, 그리고 접속 로그(access_logs)에 수정 이력이 함께 남습니다.</p>' +
+      '<p class="hq-meta">저장하면 이 회의록의 시트 행이 갱신되고, 누가·언제·무엇을 고쳤는지가 접속 로그(access_logs)에 수정 이력으로 남습니다. 다른 글은 건드리지 않습니다.</p>' +
       '<div class="fm-actions"><button type="button" class="btn btn-solid" id="hqSave">저장</button></div>' +
       '<div class="fm-err hidden" id="hqErr"></div>';
     modalOpen(isNew ? '＋ 회의록 등록' : '✏️ 회의록 수정', body);

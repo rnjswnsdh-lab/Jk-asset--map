@@ -43,8 +43,7 @@
       trade: '',            // '' | sale | lease — 매각중·임대중만 보기
       region: 'ALL',
       subType: 'ALL',
-      query: '',
-      onlyIm: false
+      query: ''
     },
     selectedId: null,
     role: 'external',      // admin | internal | external — 토큰 권한으로 서버가 정합니다
@@ -330,6 +329,32 @@
   function statusColor(g) { return STATUS_COLORS[g] || '#64748b'; }
   function isHttp(u) { return /^https?:\/\//i.test(String(u || '').trim()); }
   function coordKey(a) { return (Number(a.lat).toFixed(5) + ',' + Number(a.lng).toFixed(5)); }
+
+  /* ─────────────── 주소 정규화 (2026-11-27) ───────────────
+     카카오맵 검색은 같은 행정구역 토큰이 붙어 반복되면 결과를 못 찾습니다.
+     예) "서울특별시 서울특별시 종로구 종로구 청진동 70" → "서울특별시 종로구 청진동 70" */
+  var ADDR_REPEAT_RE = /([가-힣]+(?:특별시|특별자치시|특별자치도|광역시|자치구|시|군|구))(?:\s+\1)+/g;
+  function cleanAddress(addr) {
+    var s = String(addr == null ? '' : addr).replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    for (var i = 0; i < 3; i++) s = s.replace(ADDR_REPEAT_RE, '$1');
+    /* 주소 전체가 두 번 붙은 경우("A동 1-1 A동 1-1")도 한 번만 남깁니다. */
+    var half = Math.floor(s.length / 2);
+    if (half > 4) {
+      var left = s.slice(0, half).trim(), right = s.slice(half).trim();
+      if (left === right) s = left;
+    }
+    return s.replace(/\s+/g, ' ').trim();
+  }
+  /** 카카오맵 검색어 — 주소만 사용합니다(물건명+주소 조합은 검색이 깨집니다). */
+  function kakaomapUrl(a) {
+    var addr = cleanAddress(a && a.address);
+    if (addr) return 'https://map.kakao.com/?q=' + encodeURIComponent(addr);
+    if (a && a.lat && a.lng) {
+      return 'https://map.kakao.com/link/map/' + encodeURIComponent(cleanAddress(a.name) || '물건') + ',' + a.lat + ',' + a.lng;
+    }
+    return '';
+  }
 
   var toastTimer = null;
   function toast(msg, isErr) {
@@ -921,7 +946,6 @@
       if (f.statuses[a.status_group] === false) return false;
       if (f.region !== 'ALL' && a.region !== f.region) return false;
       if (f.subType !== 'ALL' && a.sub_type !== f.subType) return false;
-      if (f.onlyIm && !isHttp(a.im_url)) return false;
       if (tokens.length) {
         var hay = hayOf(a);
         for (var i = 0; i < tokens.length; i++) {
@@ -981,7 +1005,7 @@
         '<button type="button" class="asset-row' + (a.id === state.selectedId ? ' is-selected' : '') + (auc ? ' is-auction' : '') + '" data-id="' + esc(a.id) + '" role="listitem">' +
         '<span class="bar" style="background:' + color + '"></span>' +
         '<span class="row-main">' +
-        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + (isNaiDeal(a) ? '<span class="nai-tag">' + (isNaiLm(a) ? '🔑 LM' : '🏷️ NAI') + '</span> ' : '') + tradeBadgeHTML(a, true) + esc(a.name) + (isHttp(a.im_url) ? ' <span class="im-mini" title="IM 링크 있음">📄</span>' : '') + (hasDiscFact(a) ? ' <span class="disc-mini" title="공시자료 연동됨">📋</span>' : '') + (teamCount(a.id) ? ' <span class="team-mini" title="팀장회의 안건 있음(관리자)">🔒</span>' : '') + '</span>' +
+        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + (isNaiDeal(a) ? '<span class="nai-tag">' + (isNaiLm(a) ? '🔑 LM' : '🏷️ NAI') + '</span> ' : '') + tradeBadgeHTML(a, true) + esc(a.name) + (hasDiscFact(a) ? ' <span class="disc-mini" title="공시자료 연동됨">📋</span>' : '') + (teamCount(a.id) ? ' <span class="team-mini" title="팀장회의 안건 있음(관리자)">🔒</span>' : '') + '</span>' +
         '<span class="row-sub">' + esc(rowSub) + '</span>' +
         '</span>' +
         '<span class="row-right">' +
@@ -1073,11 +1097,11 @@
       ['가격', a.price_info],
       ['임차인/운영', a.tenants],
       [aucInfo ? '입찰일·방식' : '만기/일정', aucInfo ? aucInfo.bidDate : a.maturity_schedule],
-      ['주소', a.address],
+      ['주소', cleanAddress(a.address), 'addr'],
       ['좌표', (a.lat && a.lng) ? (a.lat + ', ' + a.lng) : '좌표 미확정'],
       ['좌표 정확도', a.coord_precision],
       ['최종 갱신', a.updated_at]
-    ].map(function (r) { return [detailLabel(a.sector, r[0]), r[1]]; })
+    ].map(function (r) { return [detailLabel(a.sector, r[0]), r[1], r[2]]; })
       .filter(function (r) { return r[0] && r[1] !== undefined && r[1] !== null && String(r[1]).trim() !== ''; });
 
     var badges = [];
@@ -1107,8 +1131,7 @@
     html += '<div class="badges">' + badges.join('') + '</div>';
     html += '<div class="detail-actions">';
     html += '<button type="button" class="action-btn sim" data-act="simulate" title="' + (aucInfo ? '최저입찰가를 매입가로 넣고 수익성·민감도 시뮬레이터로 이동' : '렌트롤·OPEX 기준 수익성·민감도 시뮬레이터로 이동') + '">📊 ' + (aucInfo ? '최저입찰가로 수익성 시뮬레이션' : '수익성 시뮬레이션') + '</button>';
-    html += '<button type="button" class="action-btn tm" data-act="tm" title="NAI 양식 TM(티저) 브리프 미리보기 + 제작 요청">📄 TM 제작</button>';
-    html += '<button type="button" class="action-btn im" data-act="im" title="NAI 양식 IM 브리프 미리보기 + 제작 요청">📘 IM 제작</button>';
+    /* 📄 TM 제작 · 📘 IM 제작 은 물건 지도 상세에서 제거 (2026-11-27) — 홈·NAI 화면에서 사용합니다. */
     /* 물건별 파트너 메일 공유 버튼은 2026-11-27 폐지 — PR(임차의뢰) 접수 건 단위로만 공유합니다. */
     if (canEdit()) {
       html += '<button type="button" class="action-btn primary" data-act="edit">✏️ 수정</button>';
@@ -1126,23 +1149,17 @@
       html += '<button type="button" class="action-btn logs" data-act="assetlogs" title="관리자 탭 · 이 물건의 열람 이력">👁️ 열람 이력 ' + viewN + '건</button>';
     }
     html += '</div>';
-    if (isHttp(a.im_url) && canOpenImDoc()) {
-      html += '<a class="im-btn" href="' + esc(a.im_url) + '" target="_blank" rel="noopener noreferrer">' +
-        '<span>📄 IM 열기</span>' +
-        (a.im_label ? '<span class="im-btn-label">' + esc(a.im_label) + '</span>' : '') +
-        '<span class="im-btn-arrow" aria-hidden="true">↗</span></a>';
-    } else if (isHttp(a.im_url) || String(a.im_label || '').trim()) {
-      /* 2026-11-27: IM·TM 원문은 외부 공개 제외 — 보유 여부만 보이고 원문은 담당자 확인(NDA·CA) 후 제공 */
-      html += '<div class="im-hold">📄 IM·TM 원문 보유 — 원문은 <b>NDA·CA 체결 후 담당자 확인</b>을 거쳐 제공됩니다. ' +
-        '<button type="button" class="mini-btn" data-home="im-source" data-id="' + esc(a.id) + '">📩 원문 열람 요청</button></div>';
-    }
-    html += '</div>';
+    /* 📄 IM 열기 · IM·TM 원문 보유 안내는 물건 지도 상세에서 제거 (2026-11-27) */
 
     html += '<div class="detail-scroll">';
     html += '<section class="detail-section"><h4>기본 정보</h4><div class="kv-grid">';
     rows.forEach(function (r) {
       var val = r[1];
-      html += '<div class="kv"><span class="kv-label">' + esc(r[0]) + '</span><span class="kv-value">' + esc(val) + '</span></div>';
+      /* 주소는 클릭하면 그 주소만으로 카카오맵을 엽니다 (2026-11-27) */
+      var vhtml = (r[2] === 'addr' && kakaomapUrl(a))
+        ? '<button type="button" class="kv-addr" data-act="kakaomap" title="이 주소로 카카오맵 열기">' + esc(val) + ' <span aria-hidden="true">↗</span></button>'
+        : esc(val);
+      html += '<div class="kv"><span class="kv-label">' + esc(r[0]) + '</span><span class="kv-value">' + vhtml + '</span></div>';
     });
     html += '</div></section>';
 
@@ -1253,15 +1270,6 @@
           '<p>' + esc(t.text || '') + '</p></div>';
       });
       html += '</section>';
-    }
-    if (isHttp(a.im_url) && canOpenImDoc()) {
-      html += '<section class="detail-section"><h4>IM (투자설명서)</h4><div class="detail-source" style="word-break:break-all">' +
-        '<a href="' + esc(a.im_url) + '" target="_blank" rel="noopener noreferrer">' + esc(a.im_url) + '</a>' +
-        (a.im_label ? '<br>' + esc(a.im_label) : '') + '</div></section>';
-    } else if (isHttp(a.im_url) || String(a.im_label || '').trim()) {
-      html += '<section class="detail-section"><h4>IM (투자설명서)</h4><div class="detail-source">' +
-        '📄 IM·TM 원문 보유 — 원문은 NDA·CA 체결 후 담당자 확인을 거쳐 제공됩니다. ' +
-        '<button type="button" class="mini-btn" data-home="im-source" data-id="' + esc(a.id) + '">📩 원문 열람 요청</button></div></section>';
     }
     if (a.links && a.links.length) {
       html += '<section class="detail-section"><h4>관련 링크</h4><div class="link-list">';
@@ -1664,6 +1672,9 @@
     state.geocoder = new kakao.maps.services.Geocoder();
     state.rvClient = new kakao.maps.RoadviewClient();
     state.rv = new kakao.maps.Roadview($('#roadview'));
+    /* SDK 가 컨테이너에 inline position:relative 를 넣어 .map-canvas 의 inset:0 배치가 풀리고
+       높이가 0 이 되는 문제를 막습니다 (style.css #roadview 규칙과 함께 동작, 2026-11-27). */
+    relayoutRoadview();
 
     kakao.maps.event.addListener(state.map, 'click', function (e) {
       onMapClick(e.latLng.getLat(), e.latLng.getLng());
@@ -1861,7 +1872,28 @@
       '<span class="legend-sep"></span><span class="legend-item"><b>숫자</b> = 같은 위치 중첩</span>';
   }
 
-  /* ────────────────────────────── 로드뷰 ────────────────────────────── */
+  /* ──────────────── 로드뷰 ────────────────
+     카카오 로드뷰 SDK 는 컨테이너에 position:relative 를 직접 넣어 CSS 의 absolute 배치를 무너뜨립니다.
+     그대로 두면 지도 영역은 보이지만 로드뷰 높이가 0 이 돼 화면이 비어 보입니다.
+     숨김을 푼 직후에는 크기가 아직 잡히지 않으므로 한 프레임·짧은 지연 뒤에 다시 배치합니다. */
+  function relayoutRoadview() {
+    if (!state.rv) return;
+    var run = function () { try { state.rv.relayout(); } catch (e) { /* noop */ } };
+    run();
+    if (window.requestAnimationFrame) window.requestAnimationFrame(run);
+    setTimeout(run, 150);
+  }
+
+  function applyPano(panoId, pos) {
+    try {
+      state.rv.setPanoId(panoId, pos);
+      state.rv.setViewpoint({ pan: 0, tilt: 0, zoom: 0 });
+      relayoutRoadview();
+    } catch (e) {
+      toast('로드뷰를 표시하지 못했습니다.', true);
+    }
+  }
+
   function setRoadview(on, skipPano) {
     if (!state.mapReady) { toast('카카오맵 앱키를 입력하면 로드뷰를 쓸 수 있습니다.', true); return; }
     state.roadview = !!on;
@@ -1870,7 +1902,7 @@
     if (on) {
       $('#map').classList.add('hidden');
       $('#roadview').classList.remove('hidden');
-      try { state.rv.relayout(); } catch (e) { /* noop */ }
+      relayoutRoadview();
       var a = state.index[state.selectedId];
       if (!skipPano) {
         if (a && a.lat && a.lng) showRoadview(a);
@@ -1887,13 +1919,16 @@
     if (!state.mapReady || !a || !a.lat || !a.lng) return;
     if (!state.roadview) setRoadview(true, true);
     var pos = new kakao.maps.LatLng(a.lat, a.lng);
+    /* 60m 안에 파노라마가 없으면 300m 까지 넓혀 재시도합니다 (2026-11-27). */
     state.rvClient.getNearestPanoId(pos, 60, function (panoId) {
-      if (panoId === null || panoId === undefined) {
-        toast('이 위치 주변에는 로드뷰가 없습니다.', true);
-        return;
-      }
-      state.rv.setPanoId(panoId, pos);
-      state.rv.setViewpoint({ pan: 0, tilt: 0, zoom: 0 });
+      if (panoId !== null && panoId !== undefined) { applyPano(panoId, pos); return; }
+      state.rvClient.getNearestPanoId(pos, 300, function (farPanoId) {
+        if (farPanoId === null || farPanoId === undefined) {
+          toast('이 위치 주변에는 로드뷰가 없습니다.', true);
+          return;
+        }
+        applyPano(farPanoId, pos);
+      });
     });
   }
 
@@ -2439,12 +2474,13 @@
     }
     if (act === 'roadview' && a) { showRoadview(a); return; }
     if (act === 'kakaomap' && a) {
-      var q = encodeURIComponent(a.name + ' ' + (a.address || ''));
-      window.open('https://map.kakao.com/?q=' + q, '_blank', 'noopener');
+      var url = kakaomapUrl(a);
+      if (!url) { toast('주소나 좌표가 없어 카카오맵으로 열 수 없습니다.', true); return; }
+      window.open(url, '_blank', 'noopener');
       return;
     }
     if (act === 'copy' && a) {
-      var text = [a.name, a.address].filter(Boolean).join(' ');
+      var text = [a.name, cleanAddress(a.address)].filter(Boolean).join(' ');
       if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () { toast('복사했습니다.'); });
       else toast('복사할 수 없습니다.', true);
       return;
@@ -2646,16 +2682,10 @@
       state.filters.subType = e.target.value;
       applyFilters();
     });
-    $('#btnOnlyIm').addEventListener('click', function (e) {
-      state.filters.onlyIm = !state.filters.onlyIm;
-      e.currentTarget.setAttribute('aria-pressed', String(state.filters.onlyIm));
-      applyFilters();
-    });
     $('#btnResetFilters').addEventListener('click', function () {
-      state.filters = { sectors: {}, statuses: {}, dealType: 'ALL', trade: '', region: 'ALL', subType: 'ALL', query: '', onlyIm: false };
+      state.filters = { sectors: {}, statuses: {}, dealType: 'ALL', trade: '', region: 'ALL', subType: 'ALL', query: '' };
       $('#searchInput').value = '';
       $('#btnClearSearch').classList.add('hidden');
-      $('#btnOnlyIm').setAttribute('aria-pressed', 'false');
       initFilters();
       applyFilters();
     });

@@ -653,6 +653,15 @@
     if (!admin && (document.body.classList.contains('view-admin') || document.body.classList.contains('view-adminhq')) && window.naiShowView) {
       try { window.naiShowView('home'); } catch (e4) { /* noop */ }
     }
+    /* 📑 RFP 발주 — 의뢰인(관리자·내부 CM)만 노출. 🤝 자문사 포털 — 물류TF 제외 (2026-11-27)
+       실제 데이터 차단은 rfpcore.js 의 가시 범위 함수가 하고, 여기는 탭 노출만 담당합니다. */
+    var canRfp = (role === 'admin' || role === 'internal');
+    var rfpTab = document.getElementById('btnRfpTab');
+    if (rfpTab) { rfpTab.classList.toggle('hidden', !canRfp); rfpTab.disabled = !canRfp; }
+    $$('.vt-btn[data-view="portal"]').forEach(function (b) { b.classList.toggle('hidden', role === 'logi'); });
+    if (!canRfp && document.body.classList.contains('view-rfp') && window.naiShowView) {
+      try { window.naiShowView('portal'); } catch (e7) { /* noop */ }
+    }
     /* 권한이 바뀌면 받아 둔 회의록을 즉시 버립니다 */
     if (window.NAI_HQ && window.NAI_HQ.reset) {
       try { window.NAI_HQ.reset(); } catch (e6) { /* noop */ }
@@ -1889,7 +1898,13 @@
     var html = '';
     if (groups && groups.length) {
       html = groups.map(function (g) {
-        var items = (g.sectors || []).filter(function (k) { return !!SECTORS[k]; }).map(function (k) {
+        var keys = (g.sectors || []).filter(function (k) { return !!SECTORS[k]; });
+        /* 섹터가 하나뿐인 그룹(예: 화주 입주 현황)은 그룹 이름만 — 같은 이름이 두 번 찍히지 않게 */
+        if (keys.length === 1) {
+          var k1 = keys[0];
+          return '<span class="legend-item"><span class="dot" style="background:' + sectorColor(k1) + '"></span><b>' + esc(g.label) + '</b></span>';
+        }
+        var items = keys.map(function (k) {
           return '<span class="legend-item"><span class="dot" style="background:' + sectorColor(k) + '"></span>' + esc(sectorIcon(k) + SECTORS[k].label) + '</span>';
         }).join('');
         return items ? '<span class="legend-group"><b>' + esc(g.label) + '</b>' + items + '</span>' : '';

@@ -52,8 +52,10 @@
 
   /* ─────────────────────────── 껍데기 ─────────────────────────── */
   function tabsFor() {
+    /* 코드 세션이 있으면 관리자라도 그 코드의 화면을 먼저 보여줍니다(자문사 뷰 미리보기). */
     if (ss() && isBuyer()) return [['rfp', '📑 내 RFP·CA'], ['docs', '📁 공개 자료'], ['bid', '📝 내 제출']];
     if (ss() && isLender()) return [['bid', '🏦 LOI/LOC 검증'], ['info', 'ℹ️ 기관 정보']];
+    if (ss()) return [['rfp', '📑 내 RFP·제안'], ['docs', '📁 자료실'], ['ca', '🤝 CA·마케팅'], ['bid', '🏷️ 입찰·금융기관']];
     if (admin()) return [['rfp', '📑 RFP·제안'], ['docs', '🔑 자료·승인코드'], ['ca', '🤝 CA·마케팅'], ['bid', '🏷️ 입찰·금융기관']];
     return [['rfp', '📑 내 RFP·제안'], ['docs', '📁 자료실'], ['ca', '🤝 CA·마케팅'], ['bid', '🏷️ 입찰·금융기관']];
   }
@@ -160,7 +162,7 @@
 
     var mySub = null, invite = null, codeRec = ss() ? ss().rec : null;
     if (isAdv() && ss()) {
-      mySub = C.submissionOf(rfp.id, ss().holder_id);
+      mySub = C.visibleSubmissions(rfp.id, ss())[0] || null;
       invite = (rfp.invites || []).filter(function (i) { return String(i.advisor_id) === String(ss().holder_id); })[0];
     }
     var dleft = C.daysLeft(rfp.due_date);
@@ -398,7 +400,7 @@
         return '<label><input type="checkbox" name="scope" value="' + k.k + '" checked> ' + k.icon + ' ' + esc(k.label) + '</label>';
       }).join('') + '</div>' +
       '<div class="rfp-pickone"><b>등록된 대상에서 선택</b><div class="rfp-rfpchips">' +
-        advisors.map(function (a) { return '<button type="button" class="rfp-chip" data-pick-holder="' + esc(a.company) + '" data-pick-type="자문사">' + esc(a.company) + '<em>자문사</em></button>'; }).join('') +
+        advisors.map(function (a) { return '<button type="button" class="rfp-chip" data-pick-holder="' + esc(a.company) + '" data-pick-type="자문사" data-pick-id="' + esc(a.id) + '">' + esc(a.company) + '<em>자문사</em></button>'; }).join('') +
         buyers.map(function (b) { return '<button type="button" class="rfp-chip" data-pick-holder="' + esc(b.name) + '" data-pick-type="매수자">' + esc(b.name) + '<em>매수자</em></button>'; }).join('') +
         lenders.map(function (l) { return '<button type="button" class="rfp-chip" data-pick-holder="' + esc(l.name) + '" data-pick-type="금융기관">' + esc(l.name) + '<em>금융기관</em></button>'; }).join('') +
       '</div></div>';
@@ -412,13 +414,20 @@
       if (!b) return;
       m.querySelector('[name="holder"]').value = b.getAttribute('data-pick-holder');
       m.querySelector('[name="holder_type"]').value = b.getAttribute('data-pick-type');
+      m.dataset.holderId = b.getAttribute('data-pick-id') || '';
     });
     m.querySelector('[data-pt="code-save"]').addEventListener('click', function () {
       var holder = C.fval(m, 'holder');
       if (!holder) { C.toast('대상 이름을 입력하세요.', true); return; }
       var scope = Array.prototype.slice.call(m.querySelectorAll('[name="scope"]:checked')).map(function (x) { return x.value; });
+      var holderType = C.fval(m, 'holder_type');
+      var holderId = m.dataset.holderId || '';
+      if (!holderId && holderType === '자문사') {
+        var hitAdv = C.list('advisors').filter(function (a) { return a.company === holder; })[0];
+        if (hitAdv) holderId = hitAdv.id;
+      }
       var rec = C.issueCode({
-        rfp_id: C.fval(m, 'rfp_id'), holder_type: C.fval(m, 'holder_type'), holder: holder,
+        rfp_id: C.fval(m, 'rfp_id'), holder_type: holderType, holder: holder, holder_id: holderId,
         expires_at: C.fval(m, 'expires_at'), scope: scope
       });
       C.closeModal(); paint();
@@ -685,7 +694,7 @@
       h += '<div class="rfp-table-wrap"><table class="rfp-table"><thead><tr><th>공고</th><th>개시</th><th>마감</th><th>참여 양식</th><th>상태</th><th></th></tr></thead><tbody>' +
         notices.map(function (n) {
           var left = C.daysLeft(n.close_at);
-          var st = left === null ? '-' : (left < 0 ? '마감' : (n.open_at && C.daysLeft(n.open_at) > 0 ? '개시 전' : '진행'));
+          var st = left === null ? '-' : (left < 0 ? '마감' : (n.open_at && String(n.open_at) > C.today() ? '개시 전' : '진행'));
           return '<tr><td><b>' + esc(n.title) + '</b></td><td>' + esc(n.open_at || '-') + '</td><td>' + esc(n.close_at || '-') + '</td>' +
             '<td>' + esc((n.docs || []).join(', ') || '-') + '</td><td>' + esc(st) + '</td>' +
             '<td class="nowrap"><button type="button" class="mini-btn" data-pt-bidsub="' + esc(n.id) + '">제출 접수</button></td></tr>';
@@ -704,7 +713,7 @@
           var has = function (k) { return mine.some(function (s) { return s.kind === k; }); };
           var loi = mine.filter(function (s) { return s.kind === 'LOI'; });
           var verified = loi.filter(function (s) { return (s.verify || '') === '검증'; }).length;
-          return '<tr><td><b>' + esc(b.name) + '</b><span class="rfp-muted">' + esc(b.ceo || '') + '</span></td>' +
+          return '<tr><td><b>' + esc(b.name) + '</b> <span class="rfp-muted">' + esc(b.ceo || '') + '</span></td>' +
             '<td class="mono">' + esc(b.corp_no || '-') + '</td><td>' + esc([b.contact, b.phone].filter(Boolean).join(' · ') || '-') + '</td>' +
             '<td>' + (b.status === '인증' ? '<span class="rfp-tag ok">인증</span>' : '<span class="rfp-tag wait">' + esc(b.status || '등록') + '</span>') + '</td>' +
             '<td class="ctr">' + (has('입찰서') ? '✓' : '·') + '</td><td class="ctr">' + (has('증빙') ? '✓' : '·') + '</td>' +
@@ -728,7 +737,7 @@
             '<td>' + ((s.files || []).length ? esc(s.files.map(function (f) { return f.name; }).join(', ')) : '-') + '</td>' +
             '<td>v' + (s.version || 1) + '</td>' +
             '<td><span class="rfp-tag ' + (s.status === '확인' ? 'ok' : (s.status === '보완요청' ? 'off' : 'wait')) + '">' + esc(s.status || '제출') + '</span></td>' +
-            '<td>' + esc(s.verify || '-') + (s.verify_by ? '<span class="rfp-muted">' + esc(s.verify_by) + '</span>' : '') + '</td>' +
+            '<td>' + esc(s.verify || '-') + (s.verify_by ? '<br><span class="rfp-muted">' + esc(s.verify_by) + '</span>' : '') + '</td>' +
             '<td class="nowrap">' + (s.kind === 'LOI' || s.kind === 'LOC' ? '<button type="button" class="mini-btn" data-pt-verify="' + esc(s.id) + '">검증</button>' : '') +
             '<button type="button" class="mini-btn" data-pt-sub-status="' + esc(s.id) + '">검토</button></td></tr>';
         }).join('') + '</tbody></table></div>';
@@ -1039,12 +1048,12 @@
       }
       if ((b = e.target.closest('[data-pt-buyer-ok]'))) {
         var by = C.byId('buyers', b.getAttribute('data-pt-buyer-ok'));
-        if (by) { by.status = '인증'; by.verified_at = C.today(); C.commit('buyers', by); paint(); C.toast(by.name + '을(를) 인증했습니다.'); }
+        if (by) { by.status = '인증'; by.verified_at = C.today(); C.commit('buyers', by); paint(); C.toast(by.name + ' 인증 완료'); }
         return;
       }
       if ((b = e.target.closest('[data-pt-lender-ok]'))) {
         var ln = C.byId('lenders', b.getAttribute('data-pt-lender-ok'));
-        if (ln) { ln.status = '인증'; ln.verified_at = C.today(); C.commit('lenders', ln); paint(); C.toast(ln.name + '을(를) 인증했습니다. LOI/LOC 검증이 가능합니다.'); }
+        if (ln) { ln.status = '인증'; ln.verified_at = C.today(); C.commit('lenders', ln); paint(); C.toast(ln.name + ' 인증 완료 — LOI/LOC 검증이 가능합니다.'); }
         return;
       }
       if ((b = e.target.closest('[data-pt-lender-code]'))) {

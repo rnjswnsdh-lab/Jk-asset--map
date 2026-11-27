@@ -573,14 +573,16 @@
     var minFee = fees.length ? Math.min.apply(null, fees) : 0;
     var maxPrice = prices.length ? Math.max.apply(null, prices) : 0;
     var minPeriod = periods.length ? Math.min.apply(null, periods) : 0;
+    /* 비교 대상이 1건뿐이면 상대평가가 의미 없어 기본 70점에서 시작합니다. */
+    var single = subs.length < 2;
     subs.forEach(function (s) {
       var v = {};
       var fee = num(s.fee_success);
-      v.fee = minFee > 0 && fee > 0 ? Math.max(0, Math.min(100, minFee / fee * 100)) : 60;
+      v.fee = !single && minFee > 0 && fee > 0 ? Math.max(0, Math.min(100, minFee / fee * 100)) : 70;
       var p = num(s.price_expect);
-      v.price = maxPrice > 0 && p > 0 ? Math.max(0, Math.min(100, p / maxPrice * 100)) : 60;
+      v.price = !single && maxPrice > 0 && p > 0 ? Math.max(0, Math.min(100, p / maxPrice * 100)) : 70;
       var m = num(s.period_months);
-      v.period = minPeriod > 0 && m > 0 ? Math.max(0, Math.min(100, minPeriod / m * 100)) : 60;
+      v.period = !single && minPeriod > 0 && m > 0 ? Math.max(0, Math.min(100, minPeriod / m * 100)) : 70;
       ['track', 'access', 'team', 'sched', 'extra'].forEach(function (k) { v[k] = 70; });
       out[s.advisor_id] = v;
     });
@@ -715,7 +717,13 @@
   function visibleSubmissions(rfpId, ss) {
     var all = submissionsOf(rfpId);
     if (!ss) return isAdmin() ? all : [];
-    if (isAdvisorSession(ss)) return all.filter(function (s) { return String(s.advisor_id || '') === String(ss.holder_id || ''); });
+    if (isAdvisorSession(ss)) {
+      /* 코드에 자문사 id 가 없으면(직접 발급) 회사명으로 본인 제출을 찾습니다. */
+      return all.filter(function (s) {
+        if (ss.holder_id) return String(s.advisor_id || '') === String(ss.holder_id);
+        return String(s.advisor_company || '') === String(ss.holder || '');
+      });
+    }
     return [];
   }
   function visibleDocs(assetId, ss) {

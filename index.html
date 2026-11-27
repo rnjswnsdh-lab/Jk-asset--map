@@ -16,8 +16,22 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <meta name="description" content="Open AI Asset Bridge — 상업용 부동산 물건·투자자(SI·FI)·VDR·밸류에이션 통합 플랫폼">
-<link rel="stylesheet" href="style.css?v=20261127g">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<link rel="canonical" href="https://rnjswnsdh-lab.github.io/Jk-asset--map/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Open AI Asset Bridge">
+<meta property="og:title" content="Open AI Asset Bridge — 상업용 부동산 통합 플랫폼">
+<meta property="og:description" content="상업용 부동산 물건 DB·투자자(SI·화주·FI) 풀·딜 아티클·공지·임차(TR)·임대(LM)·매각 의뢰 접수를 한 화면에서.">
+<meta property="og:url" content="https://rnjswnsdh-lab.github.io/Jk-asset--map/">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Open AI Asset Bridge — 상업용 부동산 통합 플랫폼">
+<meta name="twitter:description" content="오피스·물류센터·데이터센터·호텔·리테일·토지·골프장·시니어하우징 물건 지도와 딜 아티클, 업무 의뢰 접수.">
+<link rel="stylesheet" href="style.css?v=20261127h">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2a4a'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='system-ui,sans-serif' font-size='11' font-weight='800' fill='%23ffffff'%3EAB%3C/text%3E%3C/svg%3E">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"Open AI Asset Bridge","applicationCategory":"BusinessApplication","operatingSystem":"Web","inLanguage":"ko-KR","url":"https://rnjswnsdh-lab.github.io/Jk-asset--map/","description":"상업용 부동산 물건 DB·투자자 풀·딜 아티클·공지·임차(TR)·임대(LM)·매각 의뢰 접수 통합 플랫폼","offers":{"@type":"Offer","price":"0","priceCurrency":"KRW"},"about":["오피스","물류센터","데이터센터","호텔","리테일","토지·개발부지","골프장","시니어 하우징","멀티패밀리·임대주택"]}
+</script>
 </head>
 <body>
 
@@ -338,6 +352,27 @@
     <p id="gateError" class="gate-error hidden"></p>
     <p class="gate-note">접속코드·세션은 이 브라우저에만 저장되며, 앱 코드에는 포함되어 있지 않습니다.<br>외부 방문자에게는 담당자 연락처(이름·직책·이메일·전화)가 표시되지 않습니다.</p>
   </div>
+
+  <!-- 공개 소개(검색엔진·비회원 안내) — 회원 콘텐츠는 인증 후 제공 -->
+  <section class="gate-public" aria-label="서비스 소개">
+    <h2>상업용 부동산 딜 브릿지 — Open AI Asset Bridge</h2>
+    <p>
+      오피스·물류센터·데이터센터·호텔·리테일·토지·개발부지·골프장·시니어 하우징·멀티패밀리(임대주택)까지
+      전국 상업용 부동산 물건을 한 화면에서 보는 통합 플랫폼입니다. 물건 지도, 매각·임대 진행 현황,
+      일일 딜 아티클과 공지, 투자자(SI·화주·FI) 풀, 밸류에이션·수익성 시뮬레이션을 제공합니다.
+    </p>
+    <ul>
+      <li><b>물건 지도</b> — 섹터·권역·진행상태·가격으로 조회, 매각중·임대중 자산 별도 표시, 경·공매 구분</li>
+      <li><b>매각·임대(LM) 자문 물건</b> — 매각 안내문(IM)·임대 Flyer 기준 스펙과 진행 단계</li>
+      <li><b>딜 아티클·공지</b> — 매일 오전 8시 업데이트되는 시장·거래 동향</li>
+      <li><b>업무 의뢰</b> — 임차의뢰(TR)·임대(LM)·매각·매입·대출·금융주선·자문사 딜 참여 접수</li>
+      <li><b>밸류에이션</b> — 임대료·공실률·금리 등을 바꿔 보는 수익성 시뮬레이션(가정값 기반)</li>
+    </ul>
+    <p class="gp-note">
+      물건 DB·아티클·공지·접수 내역은 <b>리멤버 명함 인증</b>(또는 내부 접속코드)을 거친 멤버에게 제공됩니다.
+      TM·IM 원문은 NDA·CA 체결 후 담당자 확인을 거쳐 제공하며, 사이트에는 보유 여부만 표시됩니다.
+    </p>
+  </section>
 </div>
 
 <div id="modalRoot"></div>
@@ -354,23 +389,23 @@ window.addEventListener('error', function (e) { window.__errs.push(String((e && 
 window.addEventListener('unhandledrejection', function (e) { window.__errs.push('rejection: ' + String(e && e.reason)); });
 </script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<script src="config.js?v=20261127g"></script>
-<script src="app.js?v=20261127g"></script>
-<script src="investors_fin.js?v=20261127g"></script>
-<script src="investors.js?v=20261127g"></script>
-<script src="valsec.js?v=20261127g"></script>
-<script src="valuation.js?v=20261127g"></script>
-<script src="home.js?v=20261127g"></script>
-<script src="advisor.js?v=20261127g"></script>
-<script src="nai.js?v=20261127g"></script>
-<script src="market_review_2026q3.js?v=20261127g"></script>
-<script src="report.js?v=20261127g"></script>
-<script src="hub.js?v=20261127g"></script>
-<script src="share.js?v=20261127g"></script>
-<script src="vdr.js?v=20261127g"></script>
-<script src="trmap.js?v=20261127g"></script>
-<script src="crm.js?v=20261127g"></script>
-<script src="match.js?v=20261127g"></script>
-<script src="adminlogs.js?v=20261127g"></script>
+<script src="config.js?v=20261127h"></script>
+<script src="app.js?v=20261127h"></script>
+<script src="investors_fin.js?v=20261127h"></script>
+<script src="investors.js?v=20261127h"></script>
+<script src="valsec.js?v=20261127h"></script>
+<script src="valuation.js?v=20261127h"></script>
+<script src="home.js?v=20261127h"></script>
+<script src="advisor.js?v=20261127h"></script>
+<script src="nai.js?v=20261127h"></script>
+<script src="market_review_2026q3.js?v=20261127h"></script>
+<script src="report.js?v=20261127h"></script>
+<script src="hub.js?v=20261127h"></script>
+<script src="share.js?v=20261127h"></script>
+<script src="vdr.js?v=20261127h"></script>
+<script src="trmap.js?v=20261127h"></script>
+<script src="crm.js?v=20261127h"></script>
+<script src="match.js?v=20261127h"></script>
+<script src="adminlogs.js?v=20261127h"></script>
 </body>
 </html>

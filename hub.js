@@ -656,8 +656,53 @@
     return h;
   }
 
-  function renderListBody() {
-    var body = $('#hubListBody');
+  /** 접수 내역 엑셀 다운로드 (관리자) — 현재 유형·검색 조건 기준, 브라우저에서 생성 (2026-11-27) */
+  function exportListXlsx() {
+    if (!isAdmin()) { toast('접수 내역 다운로드는 관리자만 가능합니다.', true); return; }
+    var rows = rowsForList();
+    if (!rows.length) { toast('다운로드할 접수 내역이 없습니다.', true); return; }
+    var data = rows.map(function (r) {
+      var when = String(r.timestamp || r.at || '').replace('T', ' ').slice(0, 16);
+      return {
+        '접수일시': when,
+        '유형': normType(r),
+        '대상': r.asset_name || '',
+        '회사': r.company || r.blind_name || '',
+        '담당': [r.name, r.title].filter(Boolean).join(' '),
+        '연락처': r.phone || '',
+        '이메일': r.email || '',
+        '금액·조건': [r.price, r.area_py, r.rent, r.timeline].filter(Boolean).join(' · '),
+        '상태': r.status || '접수',
+        '메모': String(r.memo || '').slice(0, 400)
+      };
+    });
+    var d = new Date();
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    var stamp = d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+    var fname = 'AssetBridge_접수내역_' + (LIST.filter === 'ALL' ? '전체유형' : LIST.filter) + '_' + stamp;
+    try {
+      if (window.XLSX && XLSX.utils && XLSX.writeFile) {
+        var ws = XLSX.utils.json_to_sheet(data);
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '접수내역');
+        XLSX.writeFile(wb, fname + '.xlsx');
+        toast(data.length + '건을 엑셀(.xlsx)로 저장했습니다.');
+        return;
+      }
+    } catch (e) { /* CSV 대체 */ }
+    var heads = Object.keys(data[0]);
+    var esc2 = function (v) { var s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    var csv = '\ufeff' + heads.join(',') + '\n' + data.map(function (r) { return heads.map(function (h) { return esc2(r[h]); }).join(','); }).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = fname + '.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 500);
+    toast(data.length + '건을 CSV로 저장했습니다.');
+  }
+
+  function renderListBody() {    var body = $('#hubListBody');
     if (!body) return;
     $$('[data-hub-filter]', body.parentNode).length; /* noop */
     var chips = $('#hubListChips');
@@ -689,6 +734,7 @@
       '<div class="hub-list-tools"><div id="hubListChips" class="hub-fchips"></div>' +
       '<input id="hubListQ" type="search" data-enter="search" placeholder="물건 · 회사 · 담당 · 연락처 검색" autocomplete="off">' +
       '<span id="hubListCount" class="hub-count">불러오는 중…</span>' +
+      (isAdmin() ? '<button type="button" class="mini-btn" data-hub="xlsx" title="현재 유형·검색 조건의 접수 내역을 엑셀로 저장">📥 엑셀 다운로드</button>' : '') +
       '<button type="button" class="mini-btn" data-hub="form">＋ 새 등록</button></div>' +
       '<div class="tr-scroll" id="hubListBody"><p class="hub-empty">불러오는 중…</p></div>';
   }
@@ -707,6 +753,7 @@
       var act = b.getAttribute('data-hub');
       if (act === 'close') close();
       else if (act === 'form') open(HUB.type, HUB.prefill);
+      else if (act === 'xlsx') exportListXlsx();
     };
     var q = $('#hubListQ');
     if (q) {

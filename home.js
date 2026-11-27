@@ -988,16 +988,20 @@
   function hasImLabel(a) { return !!(a && String(a.im_label || '').trim()); }
 
   /** IM 상단 '실제 원문' 안내 — 링크가 있으면 열람, 없으면 원문 보유 표기 + 열람 요청 */
+  /** 실제 원문 IM/티저 링크 — 직원(관리자·내부)만 열람, 외부는 요청 흐름 (2026-11-27) */
+  function canImDoc() {
+    return !!(window.naiMap && window.naiMap.canIm && window.naiMap.canIm());
+  }
   function realImBanner(a) {
     var u = realImOf(a);
-    if (u) {
+    if (u && canImDoc()) {
       return '<div class="im-real"><div><b>📘 실제 IM·티저 원문이 있습니다</b>' +
         '<span>' + esc(a.im_label || 'NAI 양식 원문 자료') + '</span></div>' +
         '<a class="btn btn-primary" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">원문 열람 ↗</a></div>';
     }
-    if (hasImLabel(a)) {
+    if (hasImLabel(a) || u) {
       return '<div class="im-real ghost"><div><b>📘 이 물건은 원문 IM/티저를 보유하고 있습니다</b>' +
-        '<span>' + esc(a.im_label) + ' — 원문은 비공개 자료로, NDA·담당자 확인 후 링크를 보내드립니다.</span></div>' +
+        '<span>' + esc(a.im_label || 'IM 원문 자료') + ' — 원문은 비공개 자료로, NDA·CA 체결 후 담당자 확인을 거쳐 제공됩니다.</span></div>' +
         '<button type="button" class="btn btn-ghost" data-home="im-source" data-id="' + esc(a.id) + '">📩 원문 열람 요청</button></div>';
     }
     return '<div class="im-real none"><div><b>이 물건은 원문 IM 링크가 등록되어 있지 않습니다</b>' +

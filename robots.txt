@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# 콘텐츠(물건 DB·아티클·공지·접수)는 멤버 인증(리멤버 명함) 후 열람할 수 있습니다.
+# 아래 경로는 검색 결과에 노출할 필요가 없어 제외합니다.
+Disallow: /#nai
+Disallow: /#lm
+Disallow: /#pool
+Disallow: /#fi
+Disallow: /#admin
+Disallow: /#advise
+
+Sitemap: https://rnjswnsdh-lab.github.io/Jk-asset--map/sitemap.xml

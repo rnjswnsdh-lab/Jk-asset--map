@@ -1196,6 +1196,7 @@
     var curAsset = S.inp && S.inp.asset_id ? assetById(S.inp.asset_id) : null;
     var favOn = curAsset ? isFav({ kind: 'asset', id: curAsset.id }) : false;
     return '<div class="val-top"><div class="val-title"><h2>' + title + '</h2><p>' + sub + '</p>' +
+      '<p class="val-assume-note">※ 아래 숫자는 <b>가정값 기반 시뮬레이션</b>입니다. 입력값(임대료·공실률·금리·캡레이트 등)을 바꾸면 결과가 즉시 바뀌며, [가정] 표기 값은 시장 가정치입니다. 특정 물건의 실제 임대료·NOI 실값과 다를 수 있습니다.</p>' +
       (curAsset ? '<p class="val-cur">🗂 선택 물건: <b>' + esc(curAsset.name) + '</b>' +
         '<button type="button" class="mini-btn" data-fav-toggle="' + esc(curAsset.id) + '">' + (favOn ? '⭐ 즐겨찾기 해제' : '⭐ 즐겨찾기') + '</button>' +
         '<button type="button" class="mini-btn" data-goto-map="' + esc(curAsset.id) + '">지도에서 보기</button></p>' : '') +

@@ -215,8 +215,12 @@
     return t.items.filter(function (x) { return x.asset === id; });
   }
 
-  function isAuction(a) {
-    if (!a) return false;
+  /** IM·TM 원문 문서(링크)를 열 수 있는 권한 — 외부(리멤버 인증 포함)에게는 링크 대신 요청 흐름만 (2026-11-27) */
+  function canOpenImDoc() {
+    return state.role === 'admin' || state.role === 'internal';
+  }
+
+  function isAuction(a) {    if (!a) return false;
     if (a.deal_type === 'auction') return true;
     if (/^auc-/i.test(String(a.id || ''))) return true;
     if (a.status_group === '경·공매') return true;
@@ -1110,11 +1114,15 @@
       html += '<button type="button" class="action-btn logs" data-act="assetlogs" title="관리자 탭 · 이 물건의 열람 이력">👁️ 열람 이력 ' + viewN + '건</button>';
     }
     html += '</div>';
-    if (isHttp(a.im_url)) {
+    if (isHttp(a.im_url) && canOpenImDoc()) {
       html += '<a class="im-btn" href="' + esc(a.im_url) + '" target="_blank" rel="noopener noreferrer">' +
         '<span>📄 IM 열기</span>' +
         (a.im_label ? '<span class="im-btn-label">' + esc(a.im_label) + '</span>' : '') +
         '<span class="im-btn-arrow" aria-hidden="true">↗</span></a>';
+    } else if (isHttp(a.im_url) || String(a.im_label || '').trim()) {
+      /* 2026-11-27: IM·TM 원문은 외부 공개 제외 — 보유 여부만 보이고 원문은 담당자 확인(NDA·CA) 후 제공 */
+      html += '<div class="im-hold">📄 IM·TM 원문 보유 — 원문은 <b>NDA·CA 체결 후 담당자 확인</b>을 거쳐 제공됩니다. ' +
+        '<button type="button" class="mini-btn" data-home="im-source" data-id="' + esc(a.id) + '">📩 원문 열람 요청</button></div>';
     }
     html += '</div>';
 
@@ -1234,10 +1242,14 @@
       });
       html += '</section>';
     }
-    if (isHttp(a.im_url)) {
+    if (isHttp(a.im_url) && canOpenImDoc()) {
       html += '<section class="detail-section"><h4>IM (투자설명서)</h4><div class="detail-source" style="word-break:break-all">' +
         '<a href="' + esc(a.im_url) + '" target="_blank" rel="noopener noreferrer">' + esc(a.im_url) + '</a>' +
         (a.im_label ? '<br>' + esc(a.im_label) : '') + '</div></section>';
+    } else if (isHttp(a.im_url) || String(a.im_label || '').trim()) {
+      html += '<section class="detail-section"><h4>IM (투자설명서)</h4><div class="detail-source">' +
+        '📄 IM·TM 원문 보유 — 원문은 NDA·CA 체결 후 담당자 확인을 거쳐 제공됩니다. ' +
+        '<button type="button" class="mini-btn" data-home="im-source" data-id="' + esc(a.id) + '">📩 원문 열람 요청</button></div></section>';
     }
     if (a.links && a.links.length) {
       html += '<section class="detail-section"><h4>관련 링크</h4><div class="link-list">';
@@ -3088,6 +3100,7 @@
     isAuction: isAuction,
     tradeState: tradeStateOf,
     normStatus: normStatus,
+    canIm: canOpenImDoc,
     setDealType: function (k) {
       if (k === 'auc') { state.filters.dealType = 'auction'; state.filters.trade = ''; }
       else { state.filters.dealType = 'ALL'; state.filters.trade = (k === 'sale' || k === 'lease') ? k : ''; }

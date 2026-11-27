@@ -2819,3 +2819,7 @@ body.role-logi [data-home="loan"] { display: none !important; }
 .adv-foot { margin: 8px 2px 0; font-size: 10.6px; color: var(--muted); }
 .kpl-all { font-style: normal; font-size: 10.5px; color: var(--muted); }
 .deal-card .dc-badge.lease { background: #ecfdf5; color: #0f766e; border: 1px solid #99f6e4; }
+/* KPI 박스 — 히어로 높이에 맞춰 내용 세로 중앙 정렬 (2026-11-27) */
+.home-hero { align-items: center; }
+.hh-kpis { align-self: stretch; }
+.kpi { justify-content: center; }

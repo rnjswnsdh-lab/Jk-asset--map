@@ -406,8 +406,8 @@
   function artItemHTML(a, idx, sumLen, act) {
     return '<button type="button" class="art-item" data-home="' + (act || 'open-article') + '" data-idx="' + idx + '">' +
       '<span class="ai-date">' + esc(a.date || '') + (isDaily(a) ? '<em class="ai-badge">데일리</em>' : '') + '</span>' +
-      '<span class="ai-title">' + esc(a.title || '(제목 없음)') + '</span>' +
-      '<span class="ai-sum">' + esc(a.summary || '').slice(0, sumLen || 140) + '</span></button>';
+      '<span class="ai-title">' + esc(noNai(a.title || '(제목 없음)')) + '</span>' +
+      '<span class="ai-sum">' + esc(noNai(a.summary || '')).slice(0, sumLen || 140) + '</span></button>';
   }
   function artShownCount() {
     return Math.min(Math.max(BOOT.artShown || ART_INIT, ART_INIT), BOOT.articles.length);

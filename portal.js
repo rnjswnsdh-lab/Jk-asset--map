@@ -711,6 +711,16 @@
     if (!m) return s;
     return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
   }
+  /* 화면 표기용 — 서버 ISO(UTC)를 브라우저 현지 시각으로 보여 줍니다. */
+  function whenK(iso) {
+    if (!iso) return '';
+    var s = String(iso);
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s.replace('T', ' ');
+    var d = new Date(s);
+    if (isNaN(d.getTime())) return s;
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
   function addMonths(iso, n) {
     var d = iso ? new Date(iso + 'T00:00:00') : new Date();
     d.setMonth(d.getMonth() + n);
@@ -787,7 +797,7 @@
     if (n === 1) {
       var s1 = vf.step1 || {};
       if (!s1.result) return '미확인 — 파인에서 제도권 여부를 조회해 기록하세요.';
-      return [s1.result, s1.ref_date || '', s1.url ? '근거 링크 기록' : '근거 링크 없음', s1.by ? s1.by + ' ' + C.when(s1.at) : ''].filter(Boolean).join(' · ');
+      return [s1.result, s1.ref_date || '', s1.url ? '근거 링크 기록' : '근거 링크 없음', s1.by ? s1.by + ' ' + whenK(s1.at) : ''].filter(Boolean).join(' · ');
     }
     if (n === 2) {
       var s2 = vf.step2 || {};
@@ -797,8 +807,9 @@
     }
     var s3 = vf.step3 || {}, cb = s3.callback || {};
     if (!s3.p_name && !s3.p_email) return '미확인 — 담당자 정보와 기관 대표번호 콜백 기록';
+    var cbDone = !!(cb.at && cb.with_name && cb.memo);
     return [s3.p_name || '-', s3.p_title || '', s3.p_email || '',
-      cb.at ? '콜백 ' + String(cb.at).replace('T', ' ') + (cb.with_name ? ' · ' + cb.with_name : '') : '콜백 미기록'].filter(Boolean).join(' · ');
+      cbDone ? '콜백 ' + whenK(cb.at) + ' · ' + cb.with_name : '콜백 미기록'].filter(Boolean).join(' · ');
   }
   function actorName() {
     var m = C.me();
@@ -948,7 +959,7 @@
           var vf = vfOf(l), s2 = vf.step2 || {}, rv = reviewInfo(l);
           var dc = declaredOf(l);
           var reviewCell = isCertified(l)
-            ? esc(l.verified_at ? String(l.verified_at).slice(0, 10) : '-') +
+            ? esc(l.verified_at ? whenK(l.verified_at).slice(0, 10) : '-') +
               (l.next_review_at ? '<br><span class="rfp-muted">재확인 ' + esc(l.next_review_at) +
                 (rv && rv.overdue ? ' · 기한 경과' : (rv && rv.days !== null ? ' · D-' + rv.days : '')) + '</span>' : '')
             : '-'
@@ -1141,11 +1152,11 @@
         '<em>' + esc(stepLine(l, s.n)) + '</em></span></div>';
     }).join('') + '</div>';
     if (String(l.status || '') === '반려' && l.reject_reason) {
-      h += '<div class="lv-reject">🚫 반려 — ' + esc(l.reject_reason) + (l.rejected_by ? ' (' + esc(l.rejected_by) + ' ' + esc(C.when(l.rejected_at)) + ')' : '') + '</div>';
+      h += '<div class="lv-reject">🚫 반려 — ' + esc(l.reject_reason) + (l.rejected_by ? ' (' + esc(l.rejected_by) + ' ' + esc(whenK(l.rejected_at)) + ')' : '') + '</div>';
     }
     h += '<div class="lv-foot">';
     if (isCertified(l)) {
-      h += '<span>인증 ' + esc(l.verified_by || '-') + ' · ' + esc(C.when(l.verified_at).slice(0, 10)) + '</span>';
+      h += '<span>인증 ' + esc(l.verified_by || '-') + ' · ' + esc(whenK(l.verified_at).slice(0, 10)) + '</span>';
       if (l.next_review_at) h += '<span>재확인 ' + esc(l.next_review_at) + (rv && rv.overdue ? ' <b style="color:#b3262c">(기한 경과)</b>' : (rv && rv.days !== null ? ' (D-' + rv.days + ')' : '')) + '</span>';
       if (l.verify_evidence) h += '<span>증빙 ' + esc(l.verify_evidence) + '</span>';
     } else {
@@ -1162,7 +1173,7 @@
     var body = '<p class="rfp-note"><b>' + esc(l.name) + '</b> — 누가·언제·무엇을 했는지 기록입니다(반려·재확인·증빙 포함).</p>' +
       (rows.length ? '<div class="rfp-table-wrap"><table class="rfp-table"><thead><tr><th>일시</th><th>처리</th><th>내용</th><th>담당</th></tr></thead><tbody>' +
         rows.map(function (x) {
-          return '<tr><td class="nowrap">' + esc(C.when(x.at)) + '</td><td><b>' + esc(x.action) + '</b></td><td>' + esc(x.detail || '-') + '</td><td>' + esc(x.by || '-') + '</td></tr>';
+          return '<tr><td class="nowrap">' + esc(whenK(x.at)) + '</td><td><b>' + esc(x.action) + '</b></td><td>' + esc(x.detail || '-') + '</td><td>' + esc(x.by || '-') + '</td></tr>';
         }).join('') + '</tbody></table></div>' : '<p class="rfp-hint">아직 기록이 없습니다.</p>');
     C.modal('📜 인증 이력 — ' + l.name, body, { wide: true, footer: '<button type="button" class="btn btn-primary" data-rfp="close">닫기</button>' });
   }
@@ -1176,7 +1187,7 @@
     var body = '<p class="rfp-note">금융기관 실체 진위확인·LOI/LOC 검증 준비 과정의 전체 이력입니다.</p>' +
       (rows.length ? '<div class="rfp-table-wrap"><table class="rfp-table"><thead><tr><th>일시</th><th>금융기관</th><th>처리</th><th>내용</th><th>담당</th></tr></thead><tbody>' +
         rows.slice(0, 300).map(function (r) {
-          return '<tr><td class="nowrap">' + esc(C.when(r.x.at)) + '</td><td><b>' + esc(r.l) + '</b></td><td>' + esc(r.x.action) + '</td><td>' + esc(r.x.detail || '-') + '</td><td>' + esc(r.x.by || '-') + '</td></tr>';
+          return '<tr><td class="nowrap">' + esc(whenK(r.x.at)) + '</td><td><b>' + esc(r.l) + '</b></td><td>' + esc(r.x.action) + '</td><td>' + esc(r.x.detail || '-') + '</td><td>' + esc(r.x.by || '-') + '</td></tr>';
         }).join('') + '</tbody></table></div>' : '<p class="rfp-hint">아직 기록이 없습니다.</p>');
     C.modal('📜 금융기관 인증 전체 이력', body, { wide: true, footer: '<button type="button" class="btn btn-primary" data-rfp="close">닫기</button>' });
   }
@@ -1594,7 +1605,7 @@
         return '<div class="lv-step st-' + (stx === 'none' ? 'none' : stx) + '"><span class="lv-ico">' +
           (stx === 'pass' ? '✓' : (stx === 'fail' ? '✕' : st.n)) + '</span><span><b>' + st.n + '. ' + esc(st.label) + '</b><em>' + esc(txt) + '</em></span></div>';
       }).join('') + '</div>' +
-      '<p class="rfp-hint">인증일 ' + esc(l.verified_at ? String(l.verified_at).slice(0, 10) : '-') +
+      '<p class="rfp-hint">인증일 ' + esc(l.verified_at ? whenK(l.verified_at).slice(0, 10) : '-') +
       ' · 재확인 ' + esc(l.next_review_at || '-') + (rv && rv.overdue ? ' (기한 경과 — 담당자 재확인 필요)' : '') +
       ' · LOI/LOC 확인 ' + confs.length + '건</p>' +
       (isCertified(l) && !(rv && rv.overdue) ? '<p class="rfp-hint">인증이 유지되고 있습니다. LOI/LOC 검증 탭에서 확인 처리를 할 수 있습니다.</p>'
@@ -1662,7 +1673,7 @@
         var g2 = lenderGate(ln2);
         if (!g2.ok) { C.toast(g2.why, true); return; }
         var rec2 = C.issueCode({ rfp_id: S.rfpId, holder_type: '금융기관', holder: ln2.name, scope: ['etc'], expires_at: C.addDays(C.today(), 60) });
-        C.modal('금융기관 승인 코드', '<div class="rfp-codebig">' + esc(rec2.code) + '</div><p class="rfp-hint">' + esc(ln2.name) + ' · 만료 ' + esc(rec2.expires_at) + ' · 실체 진위확인 ' + esc(ln2.verified_at ? String(ln2.verified_at).slice(0, 10) : '-') + ' (재확인 ' + esc(ln2.next_review_at || '-') + ')</p>',
+        C.modal('금융기관 승인 코드', '<div class="rfp-codebig">' + esc(rec2.code) + '</div><p class="rfp-hint">' + esc(ln2.name) + ' · 만료 ' + esc(rec2.expires_at) + ' · 실체 진위확인 ' + esc(ln2.verified_at ? whenK(ln2.verified_at).slice(0, 10) : '-') + ' (재확인 ' + esc(ln2.next_review_at || '-') + ')</p>',
           { footer: '<button type="button" class="btn btn-primary" data-rfp="close">확인</button>' });
         return;
       }

@@ -3329,3 +3329,10 @@ label.rfp-pick span { flex: 1; }
 /* RFP 화면 도구 버튼 테두리 (2026-11-27) */
 .rfp-sec-tools .btn-ghost { border: 1px solid var(--line); background: #fff; color: var(--text-2); }
 .rfp-sec-tools .btn-ghost:hover { background: var(--panel-2); }
+
+/* 밝은 배경 화면에서 btn-ghost 가 흰 글자(헤더용)라 안 보이던 문제 — RFP·포털·모달 보정 (2026-11-27) */
+.rfp-view .btn-ghost, .portal-view .btn-ghost, .rfp-card .btn-ghost, .rfp-print .btn-ghost {
+  background: #fff; border: 1px solid var(--line); color: var(--text-2);
+}
+.rfp-view .btn-ghost:hover, .portal-view .btn-ghost:hover, .rfp-card .btn-ghost:hover { background: var(--panel-2); }
+.rfp-view .btn-ghost[disabled], .portal-view .btn-ghost[disabled] { opacity: .5; }

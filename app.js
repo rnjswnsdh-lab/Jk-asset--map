@@ -107,8 +107,13 @@
   function naiKindOf(a) {
     if (!isNaiDeal(a)) return '';
     var k = String(factValue(a, 'NAI 구분') || '');
-    if (!k) return '매각';
-    if (/참고/.test(k)) return '참고';
+    /* 판정 기준 (2026-11-27): sub_type · status · NAI 구분 에 '참고'가 있으면 참고자료(벤치마크).
+       해운대 L7 · 판교 호텔스카이파크 같은 참고 IM 은 NAI 매각 목록에서 분리합니다. */
+    var txt = k + ' ' + String(a.sub_type || '') + ' ' + String(a.status || '');
+    if (/참고/.test(txt)) return '참고';
+    if (!k) {
+      return /임대|LM/.test(String(a.status || '')) ? 'LM' : '매각';
+    }
     if (/개발|투자제안/.test(k)) return '개발';
     var hasLm = /LM|임대|임차/.test(k);
     var hasSale = /매각|매도/.test(k);
@@ -726,7 +731,7 @@
   /* ────────────────────────────── 필터 ────────────────────────────── */
   function initFilters() {
     var sc = {}, gc = {}, regions = {}, subTypes = {};
-    var dealCount = { ALL: state.assets.length, general: 0, auction: 0, nai: 0, naiSale: 0, naiLm: 0 };
+    var dealCount = { ALL: state.assets.length, general: 0, auction: 0, nai: 0, naiSale: 0, naiLm: 0, naiRef: 0 };
     var tradeCount = { sale: 0, lease: 0 };
     state.assets.forEach(function (a) {
       sc[a.sector] = (sc[a.sector] || 0) + 1;
@@ -736,7 +741,8 @@
       var ts = tradeStateOf(a);
       if (ts) tradeCount[ts]++;
       if (isLeaseTrack(a)) { dealCount.naiLm++; }
-      else if (isNaiDeal(a) && naiKindOf(a) !== '참고') {
+      else if (isNaiDeal(a) && naiKindOf(a) === '참고') { dealCount.naiRef++; }
+      else if (isNaiDeal(a)) {
         dealCount.nai++;
         if (isNaiSale(a)) dealCount.naiSale++;
       } else if (isAuction(a)) dealCount.auction++;
@@ -765,21 +771,22 @@
         '<div class="deal-row nai-row"><span class="dr-k">NAI 실행 딜</span>' +
           dealChip('naiSale', '🏷️ NAI 매각', dealCount.naiSale, '#0b6bcb') +
           dealChip('naiLm', '🔑 NAI 임대(LM)', dealCount.naiLm, '#0f766e') +
+          (dealCount.naiRef ? dealChip('naiRef', '📎 참고자료', dealCount.naiRef, '#64748b') : '') +
         '</div>';
     }
     var dealHint = $('#dealTypeHint');
     if (dealHint) {
-      dealHint.textContent = cur === 'auction'
-        ? '경·공매 ' + dealCount.auction + '건 — 토지 100억↑ · 건물포함 300억↑ (온비드 2026-11-22 수집)'
-        : (cur === 'naiSale'
-          ? '🏷️ NAI 매각 ' + dealCount.naiSale + '건 — NAI가 수행 중인 매각·매각자문 건 (source 「NAI 매각·LM」 기준 · 임대 제외)'
-          : (cur === 'naiLm'
-            ? '🔑 NAI 임대(LM) ' + dealCount.naiLm + '건 — 임대 진행 건 전체 (모두 NAI 임대자문 건 · 임차인 모집/임대 진행/임대 완료)'
-            : (cur === 'nai'
-              ? 'NAI 매각·임대(LM) ' + dealCount.nai + '건 — 매각 ' + dealCount.naiSale + ' · 임대 ' + dealCount.naiLm
-              : (cur === 'general'
-                ? '일반 자산 ' + dealCount.general + '건 — AMC·리츠·오너 보유 및 거래·개발 자산'
-                : '전체 ' + dealCount.ALL + '건 — 일반 ' + dealCount.general + ' · NAI 매각 ' + dealCount.naiSale + ' · NAI 임대 ' + dealCount.naiLm + ' · 경·공매 ' + dealCount.auction))));
+      var hints = {
+        auction: '경·공매 ' + dealCount.auction + '건 — 토지 100억↑ · 건물포함 300억↑ (온비드 2026-11-22 수집)',
+        naiSale: '🏷️ NAI 매각 ' + dealCount.naiSale + '건 — NAI가 수행 중인 매각·매각자문 건 (source 「NAI 매각·LM」 기준 · 임대 제외)',
+        naiLm: '🔑 NAI 임대(LM) ' + dealCount.naiLm + '건 — 임대 진행 건 전체 (모두 NAI 임대자문 건 · 임차인 모집/임대 진행/임대 완료)',
+        nai: 'NAI 매각·임대(LM) ' + dealCount.nai + '건 — 매각 ' + dealCount.naiSale + ' · 임대 ' + dealCount.naiLm,
+        naiRef: '📎 참고자료 ' + dealCount.naiRef + '건 — 매각을 수행 중인 건이 아닌 참고 IM·벤치마크 자료 (sub_type·status 에 「참고」)',
+        general: '일반 자산 ' + dealCount.general + '건 — AMC·리츠·오너 보유 및 거래·개발 자산'
+      };
+      dealHint.textContent = hints[cur] ||
+        ('전체 ' + dealCount.ALL + '건 — 일반 ' + dealCount.general + ' · NAI 매각 ' + dealCount.naiSale +
+          ' · NAI 임대 ' + dealCount.naiLm + ' · 경·공매 ' + dealCount.auction);
     }
 
     /* 거래 상태 칩 — 매각중 · 임대중 (일반자산/경·공매와 별개로 따로 표시 · 필터) */
@@ -885,12 +892,14 @@
       if (f.trade && tradeStateOf(a) !== f.trade) return false;
       if (f.dealType && f.dealType !== 'ALL') {
         var au = isAuction(a);
-        var nai = isNaiDeal(a) && naiKindOf(a) !== '참고';   /* 참고(타사 IM) 는 일반 자산으로 */
+        var naiRef = isNaiDeal(a) && naiKindOf(a) === '참고';   /* 참고 IM·벤치마크 — 별도 '참고자료' */
+        var nai = isNaiDeal(a) && !naiRef;
         if (f.dealType === 'auction' && !au) return false;
         if (f.dealType === 'nai' && !nai) return false;
         if (f.dealType === 'naiSale' && !(nai && !isLeaseTrack(a))) return false;
         if (f.dealType === 'naiLm' && !isLeaseTrack(a)) return false;
-        if (f.dealType === 'general' && (au || nai || isLeaseTrack(a))) return false;
+        if (f.dealType === 'naiRef' && !naiRef) return false;
+        if (f.dealType === 'general' && (au || nai || naiRef || isLeaseTrack(a))) return false;
       }
       if (f.sectors[a.sector] === false) return false;
       if (f.statuses[a.status_group] === false) return false;

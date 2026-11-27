@@ -112,7 +112,7 @@
       '<h2>🧾 자문사 딜 — 자문사별 매각 자문 진행현황판</h2>' +
       '<p>Big 4 회계법인 · 글로벌 PM · 국내 자문사가 <b>지금 어느 자산을 어느 단계에서</b> 맡고 있는지 한 화면에 정리했습니다. ' +
       '투자자·자문사 모두 타사 진행 딜까지 비교할 수 있습니다.</p>' +
-      '<p class="adx-meta">기준 <b>' + esc(DATA.asOf) + '</b> · 자문사 <b>' + DATA.advisors.length + '곳</b> · ' +
+      '<p class="adx-meta">기준 <b>' + esc(DATA.asOf) + '</b> · 자문사 <b>' + (DATA.advisors.length - 1) + '곳</b>+기타 · ' +
       '수록 <b>' + DATA.deals.length + '건</b> · 규모 확인분 합계 <b>' + fmtNum(v.sum) + '억원</b>(' + v.n + '건, 거론가·추산 포함) ' +
       '· 출처: 보도·딜북·SPI·각사 발표 + OAAB 자산 DB</p>' +
       '</div>';
@@ -520,8 +520,6 @@
         var act = b.getAttribute('data-adx');
         if (act === 'csv') { csvOut(); return; }
         if (act === 'intake') {
-          var det = $('#adxIntake');
-          if (det) { det.open = true; det.scrollIntoView({ behavior: 'smooth', block: 'start' }); loadIntake(false); }
           if (window.NAI_HUB) window.NAI_HUB.open('advisor');
           return;
         }

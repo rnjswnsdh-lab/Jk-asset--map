@@ -16,7 +16,7 @@
     logistics: { label: '물류센터', color: '#2f6fed', short: 'L' },
     office: { label: '오피스', color: '#12a06b', short: 'O' },
     datacenter: { label: '데이터센터', color: '#8b5cf6', short: 'D' },
-    shipper: { label: '화주·임차수요', color: '#f97316', short: 'S' },
+    shipper: { label: '화주 입주 현황', color: '#f97316', short: 'S' },
     retail: { label: '리테일', color: '#db2777', short: 'R' },
     living: { label: '멀티패밀리·임대·코리빙', color: '#0891b2', short: 'M' }
   };
@@ -765,6 +765,9 @@
     return a._hay;
   }
 
+  /** 참고 판정 — 참고 IM·벤치마크 자료 (2026-11-27부터 물건 지도에서는 표시하지 않음) */
+  function isNaiRef(a) { return !!(a && isNaiDeal(a) && naiKindOf(a) === '참고'); }
+
   function indexSearch() {
     state.assets.forEach(function (a) { hayOf(a); });
   }
@@ -772,17 +775,25 @@
   /* ────────────────────────────── 필터 ────────────────────────────── */
   function initFilters() {
     var sc = {}, gc = {}, regions = {}, subTypes = {};
-    var dealCount = { ALL: state.assets.length, general: 0, auction: 0, nai: 0, naiSale: 0, naiLm: 0, naiRef: 0 };
+    var dealCount = { ALL: 0, general: 0, auction: 0, nai: 0, naiSale: 0, naiLm: 0, demand: 0, trPin: 0, buyPin: 0 };
     var tradeCount = { sale: 0, lease: 0 };
     state.assets.forEach(function (a) {
+      /* 📎 참고자료(벤치마크 IM)는 물건 지도에서 제외 — 집계에도 넣지 않습니다 (2026-11-27) */
+      if (isNaiRef(a)) return;
+      dealCount.ALL++;
       sc[a.sector] = (sc[a.sector] || 0) + 1;
       if (a.status_group) gc[a.status_group] = (gc[a.status_group] || 0) + 1;
       if (a.region) regions[a.region] = (regions[a.region] || 0) + 1;
       if (a.sub_type) subTypes[a.sub_type] = (subTypes[a.sub_type] || 0) + 1;
       var ts = tradeStateOf(a);
       if (ts) tradeCount[ts]++;
+      /* TR·매입 수요 핀은 '자산(일반 자산)'이 아니라 실수요자 집계로 잡습니다 (2026-11-27) */
+      if (a._tr) {
+        dealCount.demand++;
+        if (a.sector === 'si') dealCount.buyPin++; else dealCount.trPin++;
+        return;
+      }
       if (isLeaseTrack(a)) { dealCount.naiLm++; }
-      else if (isNaiDeal(a) && naiKindOf(a) === '참고') { dealCount.naiRef++; }
       else if (isNaiDeal(a)) {
         dealCount.nai++;
         if (isNaiSale(a)) dealCount.naiSale++;
@@ -804,15 +815,20 @@
           '<span class="dl">' + label + '</span><span class="cnt">' + n + '</span></button>';
       };
       dhost.innerHTML =
-        '<div class="deal-row">' +
-          dealChip('ALL', '전체', dealCount.ALL, '#334155') +
-          dealChip('general', '🏢 일반 자산', dealCount.general, '#0b2a4a') +
-          dealChip('auction', '🏛️ 경·공매', dealCount.auction, '#b45309') +
+        '<div class="deal-group">' +
+          '<div class="dg-head">자산 구분</div>' +
+          '<div class="deal-row cols-3">' +
+            dealChip('ALL', '전체', dealCount.ALL, '#334155') +
+            dealChip('general', '🏢 일반 자산', dealCount.general, '#0b2a4a') +
+            dealChip('auction', '🏛️ 경·공매', dealCount.auction, '#b45309') +
+          '</div>' +
         '</div>' +
-        '<div class="deal-row nai-row"><span class="dr-k">NAI 실행 딜</span>' +
-          dealChip('naiSale', '🏷️ NAI 매각', dealCount.naiSale, '#0b6bcb') +
-          dealChip('naiLm', '🔑 NAI 임대(LM)', dealCount.naiLm, '#0f766e') +
-          (dealCount.naiRef ? dealChip('naiRef', '📎 참고자료', dealCount.naiRef, '#64748b') : '') +
+        '<div class="deal-group">' +
+          '<div class="dg-head">NAI 실행 딜</div>' +
+          '<div class="deal-row cols-2">' +
+            dealChip('naiSale', '🏷️ NAI 매각', dealCount.naiSale, '#0b6bcb') +
+            dealChip('naiLm', '🔑 NAI 임대(LM)', dealCount.naiLm, '#0f766e') +
+          '</div>' +
         '</div>';
     }
     var dealHint = $('#dealTypeHint');
@@ -822,12 +838,12 @@
         naiSale: '🏷️ NAI 매각 ' + dealCount.naiSale + '건 — NAI가 수행 중인 매각·매각자문 건 (source 「NAI 매각·LM」 기준 · 임대 제외)',
         naiLm: '🔑 NAI 임대(LM) ' + dealCount.naiLm + '건 — 임대 진행 건 전체 (모두 NAI 임대자문 건 · 임차인 모집/임대 진행/임대 완료)',
         nai: 'NAI 매각·임대(LM) ' + dealCount.nai + '건 — 매각 ' + dealCount.naiSale + ' · 임대 ' + dealCount.naiLm,
-        naiRef: '📎 참고자료 ' + dealCount.naiRef + '건 — 매각을 수행 중인 건이 아닌 참고 IM·벤치마크 자료 (sub_type·status 에 「참고」)',
         general: '일반 자산 ' + dealCount.general + '건 — AMC·리츠·오너 보유 및 거래·개발 자산'
       };
       dealHint.textContent = hints[cur] ||
-        ('전체 ' + dealCount.ALL + '건 — 일반 ' + dealCount.general + ' · NAI 매각 ' + dealCount.naiSale +
-          ' · NAI 임대 ' + dealCount.naiLm + ' · 경·공매 ' + dealCount.auction);
+        ('전체 ' + dealCount.ALL + '건 — 일반 ' + dealCount.general + ' · 경·공매 ' + dealCount.auction +
+          ' · NAI 매각 ' + dealCount.naiSale + ' · NAI 임대 ' + dealCount.naiLm +
+          (dealCount.demand ? (' · 수요 핀 ' + dealCount.demand + '건(TR ' + dealCount.trPin + '·매입 ' + dealCount.buyPin + ')') : ''));
     }
 
     /* 거래 상태 칩 — 매각중 · 임대중 (일반자산/경·공매와 별개로 따로 표시 · 필터) */
@@ -880,7 +896,7 @@
     // 지역
     var sel = $('#regionSelect');
     var rs = Object.keys(regions).sort(function (a, b) { return regions[b] - regions[a]; });
-    sel.innerHTML = '<option value="ALL">전체 지역 (' + state.assets.length + ')</option>' +
+    sel.innerHTML = '<option value="ALL">전체 지역 (' + dealCount.ALL + ')</option>' +
       rs.map(function (r) { return '<option value="' + esc(r) + '">' + esc(r) + ' (' + regions[r] + ')</option>'; }).join('');
     if (state.filters.region !== 'ALL' && rs.indexOf(state.filters.region) === -1) state.filters.region = 'ALL';
     sel.value = state.filters.region;
@@ -930,18 +946,16 @@
     var tokens = f.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
     state.filtered = state.assets.filter(function (a) {
+      if (isNaiRef(a)) return false;   /* 📎 참고자료는 물건 지도에서 제외 (2026-11-27) */
       if (f.trade && tradeStateOf(a) !== f.trade) return false;
       if (f.dealType && f.dealType !== 'ALL') {
         var au = isAuction(a);
-        var naiRef = isNaiDeal(a) && naiKindOf(a) === '참고';   /* 참고 IM·벤치마크 — 별도 '참고자료' */
-        var nai = isNaiDeal(a) && !naiRef;
+        var nai = isNaiDeal(a);
         if (f.dealType === 'auction' && !au) return false;
         if (f.dealType === 'nai' && !nai) return false;
         if (f.dealType === 'naiSale' && !(nai && !isLeaseTrack(a))) return false;
         if (f.dealType === 'naiLm' && !isLeaseTrack(a)) return false;
-        if (f.dealType === 'naiRef' && !naiRef) return false;
-        if (f.dealType === 'general' && (au || nai || naiRef || isLeaseTrack(a))) return false;
-      }
+        if (f.dealType === 'general' && (au || nai || isLeaseTrack(a) || a._tr)) return false;      }
       if (f.sectors[a.sector] === false) return false;
       if (f.statuses[a.status_group] === false) return false;
       if (f.region !== 'ALL' && a.region !== f.region) return false;
@@ -1131,7 +1145,9 @@
     html += '<div class="badges">' + badges.join('') + '</div>';
     html += '<div class="detail-actions">';
     html += '<button type="button" class="action-btn sim" data-act="simulate" title="' + (aucInfo ? '최저입찰가를 매입가로 넣고 수익성·민감도 시뮬레이터로 이동' : '렌트롤·OPEX 기준 수익성·민감도 시뮬레이터로 이동') + '">📊 ' + (aucInfo ? '최저입찰가로 수익성 시뮬레이션' : '수익성 시뮬레이션') + '</button>';
-    /* 📄 TM 제작 · 📘 IM 제작 은 물건 지도 상세에서 제거 (2026-11-27) — 홈·NAI 화면에서 사용합니다. */
+    /* TM·IM 제작 경로는 유지합니다(지도에서는 IM 보유 여부 등 표시만 제거 · 2026-11-27). */
+    html += '<button type="button" class="action-btn tm" data-act="tm" title="NAI 양식 TM(티저) 브리프 미리보기 + 제작 요청">📄 TM 제작</button>';
+    html += '<button type="button" class="action-btn im" data-act="im" title="NAI 양식 IM 브리프 미리보기 + 제작 요청">📘 IM 제작</button>';
     /* 물건별 파트너 메일 공유 버튼은 2026-11-27 폐지 — PR(임차의뢰) 접수 건 단위로만 공유합니다. */
     if (canEdit()) {
       html += '<button type="button" class="action-btn primary" data-act="edit">✏️ 수정</button>';
@@ -1149,7 +1165,18 @@
       html += '<button type="button" class="action-btn logs" data-act="assetlogs" title="관리자 탭 · 이 물건의 열람 이력">👁️ 열람 이력 ' + viewN + '건</button>';
     }
     html += '</div>';
-    /* 📄 IM 열기 · IM·TM 원문 보유 안내는 물건 지도 상세에서 제거 (2026-11-27) */
+    /* IM·TM은 지도의 분류가 아니라 '상세 참고자료'로만 보여줍니다 (2026-11-27 사용자 지시).
+       원문 링크는 기존 정책대로 관리자·내부만 열람, 외부는 요청 흐름입니다. */
+    if (isHttp(a.im_url) && canOpenImDoc()) {
+      html += '<a class="im-btn" href="' + esc(a.im_url) + '" target="_blank" rel="noopener noreferrer">' +
+        '<span>📄 IM 열기</span>' +
+        (a.im_label ? '<span class="im-btn-label">' + esc(a.im_label) + '</span>' : '') +
+        '<span class="im-btn-arrow" aria-hidden="true">↗</span></a>';
+    } else if (isHttp(a.im_url) || String(a.im_label || '').trim()) {
+      html += '<div class="im-hold">📄 IM·TM 원문 보유 — 원문은 <b>NDA·CA 체결 후 담당자 확인</b>을 거쳐 제공됩니다. ' +
+        '<button type="button" class="mini-btn" data-home="im-source" data-id="' + esc(a.id) + '">📩 원문 열람 요청</button></div>';
+    }
+    html += '</div>';
 
     html += '<div class="detail-scroll">';
     html += '<section class="detail-section"><h4>기본 정보</h4><div class="kv-grid">';
@@ -1270,6 +1297,15 @@
           '<p>' + esc(t.text || '') + '</p></div>';
       });
       html += '</section>';
+    }
+    if (isHttp(a.im_url) && canOpenImDoc()) {
+      html += '<section class="detail-section"><h4>IM (참고자료)</h4><div class="detail-source" style="word-break:break-all">' +
+        '<a href="' + esc(a.im_url) + '" target="_blank" rel="noopener noreferrer">' + esc(a.im_url) + '</a>' +
+        (a.im_label ? '<br>' + esc(a.im_label) : '') + '</div></section>';
+    } else if (isHttp(a.im_url) || String(a.im_label || '').trim()) {
+      html += '<section class="detail-section"><h4>IM (참고자료)</h4><div class="detail-source">' +
+        '📄 IM·TM 원문 보유 — 원문은 NDA·CA 체결 후 담당자 확인을 거쳐 제공됩니다. ' +
+        '<button type="button" class="mini-btn" data-home="im-source" data-id="' + esc(a.id) + '">📩 원문 열람 요청</button></div></section>';
     }
     if (a.links && a.links.length) {
       html += '<section class="detail-section"><h4>관련 링크</h4><div class="link-list">';
@@ -3080,6 +3116,8 @@
       state.meta = computeMeta(j.assets);
       state.meta.source = 'Google Sheets(비공개) · Apps Script 실시간 동기화';
       rebuild();
+      /* 권한이 확정된 뒤 소속(TFT) 표시·범위를 다시 계산합니다 (2026-11-27) */
+      if (window.NAI_TFT && window.NAI_TFT.refresh) { try { window.NAI_TFT.refresh(); } catch (eTF) { /* noop */ } }
       cacheSave();
       if (window.NAI_HOME && window.NAI_HOME.autoOpen) { try { window.NAI_HOME.autoOpen(); } catch (e) { /* noop */ } }
       if (!state.mapInitDone) { state.mapInitDone = true; initMap(); }

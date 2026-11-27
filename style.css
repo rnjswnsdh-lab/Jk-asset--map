@@ -1304,27 +1304,29 @@ body.role-external .pf-toggle { display: none; }
 
 /* ── 물건 구분 토글 (사이드바 최상단) ── */
 .deal-block .filter-title { margin-bottom: 7px; }
-.deal-chips { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.deal-chips { display: flex; flex-direction: column; gap: 9px; }
+.deal-group { display: flex; flex-direction: column; gap: 5px; }
 .deal-chip {
   --deal-color: #334155;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  min-height: 37px; padding: 5px 6px;
   border: 1px solid var(--line);
   background: #fff;
   border-radius: 9px;
-  padding: 7px 4px 6px;
-  font-size: 11.5px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
   color: var(--text-2);
+  line-height: 1.15;
   cursor: pointer;
-  transition: background .12s, border-color .12s, box-shadow .12s;
+  transition: background .12s, border-color .12s, box-shadow .12s, color .12s;
 }
-.deal-chip .dl { white-space: nowrap; letter-spacing: -.01em; }
-.deal-chip .cnt { font-size: 11px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
-.deal-chip:hover { background: var(--panel-2); }
+.deal-chip .dl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -.01em; }
+.deal-chip .cnt { font-size: 9.5px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.deal-chip:hover { border-color: #c3d0de; background: var(--panel-2); }
 .deal-chip.is-on {
   color: #fff; background: var(--deal-color); border-color: var(--deal-color);
   box-shadow: 0 2px 8px rgba(15, 35, 60, .18);
 }
-.deal-chip.is-on .cnt { color: rgba(255, 255, 255, .9); }
+.deal-chip.is-on .cnt { color: rgba(255, 255, 255, .85); }
 .deal-hint {
   margin: 6px 0 0; font-size: 10.5px; line-height: 1.5; color: var(--muted);
 }
@@ -2665,10 +2667,19 @@ body.role-logi [data-home="loan"] { display: none !important; }
 
 /* ═════════════ 2026-11-27 홈 재배치 · 거래상태 · 실수요자 · 자문사 딜 시트 ═════════════ */
 
-/* 물건 구분 — 일반자산/경공매 + NAI 실행 딜 별도 줄 */
-.deal-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
-.deal-row.nai-row { align-items: center; padding-top: 6px; border-top: 1px dashed var(--line); }
-.deal-row .dr-k { font-size: 10.5px; font-weight: 800; color: #0b6bcb; letter-spacing: .02em; white-space: nowrap; }
+/* 물건 구분 — '자산 구분'과 'NAI 실행 딜' 두 그룹으로 정리 (2026-11-27 재디자인) */
+.deal-group .dg-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10.5px; font-weight: 800; color: var(--muted); letter-spacing: .02em;
+}
+.deal-group .dg-head::after { content: ''; flex: 1; height: 1px; background: var(--line-2); }
+.deal-row { display: grid; gap: 6px; }
+.deal-row.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.deal-row.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 좁은 폭(모바일 드로어·작은 창)에서는 칸이 짜부라지지 않고 2열로 떨어지게 */
+@media (max-width: 360px) {
+  .deal-row.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* 거래 상태 칩 (매각중 · 임대중) */
 .trade-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
@@ -2901,3 +2912,87 @@ body.role-logi [data-home="loan"] { display: none !important; }
 .tftm-head span { font-size: 11px; color: var(--muted); }
 .tftm-head .tr-x { margin-left: auto; }
 .tftm-body { overflow-y: auto; padding: 8px; }
+
+/* ═════════════ 2026-11-27 물건 지도 좌측 패널 정리 (지도 화면 전용) ═════════════
+   검색 / 필터 / 목록 세 구역으로 나누고, 필터는 자기 영역에서만 스크롤합니다.
+   목록은 별도 스크롤이라 필터가 길어져도 목록이 밀려나지 않습니다.
+   다른 탭의 칩 스타일은 건드리지 않도록 #sidebar 하위로만 적용합니다. */
+#sidebar { background: #fff; }
+#sidebar .sidebar-head { padding: 10px 12px 9px; background: #fff; }
+#sidebar .search-wrap input { height: 34px; font-size: 12.5px; border-radius: 8px; }
+
+#sidebar .sidebar-filters {
+  flex: 0 0 auto; max-height: 56%; overflow-y: auto; overscroll-behavior: contain;
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfe;
+}
+#sidebar .sidebar-filters::-webkit-scrollbar { width: 8px; }
+#sidebar .sidebar-filters::-webkit-scrollbar-thumb { background: #dce3ec; border-radius: 8px; border: 2px solid #fbfcfe; }
+
+#sidebar .filter-block { padding: 10px 12px; border-bottom: 0; border-top: 1px solid var(--line-2); }
+#sidebar .filter-block:first-child { border-top: 0; }
+#sidebar .filter-block.deal-block { border-top: 0; }
+#sidebar .filter-title {
+  font-size: 10px; font-weight: 800; letter-spacing: .07em; color: #8492a3;
+  text-transform: uppercase; margin-bottom: 7px;
+}
+#sidebar .filter-title .mini-btn { font-size: 10px; font-weight: 700; letter-spacing: 0; padding: 1px 2px; }
+
+/* 칩 규격 통일 — 높이·패딩·라운드·글자 크기 한 값으로 */
+#sidebar .chip {
+  min-height: 27px; padding: 3px 8px; border-radius: 7px;
+  font-size: 11.5px; font-weight: 600; gap: 5px;
+  background: #fff; border: 1px solid var(--line); color: var(--text-2);
+}
+#sidebar .chip .cnt { font-size: 10px; font-weight: 600; color: #9aa6b4; }
+#sidebar .chip:hover { background: #f2f6fb; }
+/* 선택 = 채움, 비선택 = 테두리만 (색 체계는 기존 섹터·상태 색 유지) */
+#sidebar .chip.is-on { background: currentColor; border-color: currentColor; }
+#sidebar .chip.is-on span { color: #fff !important; }
+#sidebar .chip.is-on .dot { background: #fff !important; }
+#sidebar .chip.is-on .cnt { color: rgba(255, 255, 255, .82) !important; }
+#sidebar .chip.is-off { opacity: .55; background: #f7f9fc; }
+#sidebar .chip-grid { gap: 5px; }
+#sidebar .chip-wrap { gap: 5px; }
+
+/* 거래 상태 칩 — 규격 통일, 선택 시 채움 */
+#sidebar .trade-chips { gap: 5px; margin: 8px 0 0; }
+#sidebar .trade-chip { min-height: 27px; padding: 3px 9px; font-size: 11px; font-weight: 700; gap: 5px; }
+#sidebar .trade-chip .cnt { font-size: 10px; }
+#sidebar .trade-chip.is-on { background: var(--tc); border-color: var(--tc); box-shadow: none; }
+#sidebar .trade-chip.is-on, #sidebar .trade-chip.is-on .cnt { color: #fff; }
+#sidebar .trade-chip.is-on .dot { background: #fff; }
+#sidebar .deal-hint { margin-top: 8px; font-size: 10px; line-height: 1.5; color: #93a0af; }
+
+#sidebar .filter-stack { gap: 5px; }
+#sidebar .filter-row { gap: 8px; }
+#sidebar .filter-row label { width: 56px; font-size: 10.5px; font-weight: 700; color: #8492a3; }
+#sidebar .filter-stack select { border-radius: 7px; padding: 5px 7px; font-size: 11.5px; border-color: var(--line); }
+
+/* 목록 — 목록만 스크롤 */
+#sidebar .sidebar-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#sidebar .list-head {
+  position: static; padding: 8px 12px; background: #fff;
+  border-bottom: 1px solid var(--line-2);
+  font-size: 11px; font-weight: 800; color: var(--text-2);
+}
+#sidebar .list-head-right { align-items: center; gap: 8px; }
+#sidebar .list-sort {
+  font-size: 9.5px; font-weight: 700; color: #93a0af;
+  border: 1px solid var(--line-2); border-radius: 999px; padding: 1px 6px;
+}
+#sidebar .asset-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 6px 6px 12px; }
+#sidebar .asset-list::-webkit-scrollbar { width: 8px; }
+#sidebar .asset-list::-webkit-scrollbar-thumb { background: #dce3ec; border-radius: 8px; border: 2px solid #fff; }
+#sidebar .asset-row { padding: 8px 9px; border-radius: 8px; border: 1px solid transparent; margin-bottom: 1px; gap: 8px; }
+#sidebar .asset-row + .asset-row { border-top: 0; }
+#sidebar .asset-row:hover { background: #f4f7fb; }
+#sidebar .asset-row.is-selected { background: #eaf3fd; border-color: #bcd7f5; }
+#sidebar .asset-row .row-name { font-size: 12.5px; font-weight: 700; }
+#sidebar .asset-row .row-sub { font-size: 10.5px; }
+#sidebar .asset-row .row-meta { font-size: 10px; }
+#sidebar .list-more { flex: none; padding: 8px 12px; font-size: 11px; border-top: 1px solid var(--line-2); background: #fff; }
+
+@media (max-width: 900px) {
+  #sidebar .sidebar-filters { max-height: 46%; }
+}

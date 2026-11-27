@@ -38,7 +38,7 @@ window.NAI_MAP_CONFIG = {
     office:     { label: "오피스",     color: "#12a06b", dark: "#0b7a50", short: "O" },
     datacenter: { label: "데이터센터", color: "#8b5cf6", dark: "#6d3fd4", short: "D" },
     /* 5번째 섹터 — 화주·임차수요(사용 물류센터·부족권역·공개 신규수요). 주황색으로 구분 */
-    shipper:    { label: "화주·임차수요", color: "#f97316", dark: "#c2410c", short: "S" },
+    shipper:    { label: "화주 입주 현황", color: "#f97316", dark: "#c2410c", short: "S" },
     /* 6번째 섹터 — 리테일(백화점·아울렛·쇼핑몰·대형마트·상가). 로즈색으로 구분 */
     retail:     { label: "리테일",     color: "#db2777", dark: "#9d174d", short: "R" },
     /* 7번째 섹터 — 멀티패밀리·임대주택·코리빙(공공지원민간임대·뉴스테이·청년주택·기숙사). 청록색으로 구분 */
@@ -55,14 +55,16 @@ window.NAI_MAP_CONFIG = {
     si:         { label: "SI·사옥 매입수요", icon: "🏢", color: "#7c3aed", dark: "#5b21b6", short: "SI" }
   },
 
-  /* 섹터 그룹 — 물건 지도 섹터 필터를 '실수요자'와 '자산'으로 분리 (2026-11-27)
-     실수요자 = SI 사옥·매입 수요 + TR 임차수요 + 화주·임차수요 (실제 입주·임차하는 수요)
-     자산     = 매각·임대·투자·개발 대상 물건 */
+  /* 섹터 그룹 — 물건 지도 섹터 필터를 '실수요자'와 '자산', '화주 입주 현황'으로 분리 (2026-11-27)
+     실수요자 = 실제 접수된 신청(TR 임차·SI 매입)만 — 숫자는 접수 건수 그대로(없으면 0)
+     화주 입주 현황 = 화주가 실제 사용 중인 물류센터(점유) — '수요'가 아니므로 따로 표시 */
   SECTOR_GROUPS: [
-    { key: "demand", label: "🎯 실수요자", hint: "SI·화주·TR — 입주·임차 실수요",
-      sectors: ["si", "tr", "shipper"] },
+    { key: "demand", label: "🎯 실수요자", hint: "TR 임차·SI 매입 — 접수된 신청만",
+      sectors: ["tr", "si"] },
     { key: "asset", label: "🏢 자산", hint: "매각·임대·투자·개발 물건",
-      sectors: ["office", "logistics", "datacenter", "hotel", "retail", "living", "land", "senior", "golf"] }
+      sectors: ["office", "logistics", "datacenter", "hotel", "retail", "living", "land", "senior", "golf"] },
+    { key: "occupy", label: "🏭 화주 입주 현황", hint: "화주가 실제 사용 중인 물류센터(점유)",
+      sectors: ["shipper"] }
   ],
 
   /* 거래 상태 표시 — 일반자산/경·공매와 별개로 '매각중·임대중'을 한눈에 (2026-11-27) */

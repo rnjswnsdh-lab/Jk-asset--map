@@ -18,10 +18,29 @@
   function get() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
   function set(k) { try { localStorage.setItem(KEY, k || ''); } catch (e) { /* noop */ } }
 
-  var active = get();
+  /* ── 2026-11-27: TFT위는 '로그인한 계정'이 정합니다 ──
+     서버가 이미 토큰 기준으로 데이터를 걸러 주므로(물류TF 토큰 → 물류센터만),
+     화면에서 그룹을 눌러 켜고 끄지 않습니다. 관리자만 '범위 미리보기'로 바꿀 수 있습니다. */
+  function role() { return (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external'; }
+  function isAdmin() { return role() === 'admin'; }
+  /** 계정 권한 → 소속 공유 그룹 (물류TF = logistics_tft) */
+  function groupForRole() {
+    var r = role();
+    if (r !== 'logi') return null;
+    var list = groups();
+    return list.filter(function (g) { return g.key === 'logistics_tft'; })[0] ||
+      list.filter(function (g) { return (g.sectors || []).indexOf('logistics') >= 0; })[0] || null;
+  }
+  var activeStored = get();
+  function activeKey() {
+    if (isAdmin()) return activeStored;          /* 관리자 미리보기 */
+    var g = groupForRole();
+    return g ? g.key : '';
+  }
   function group() {
-    if (!active) return null;
-    return groups().filter(function (g) { return g.key === active; })[0] || null;
+    var k = activeKey();
+    if (!k) return null;
+    return groups().filter(function (g) { return g.key === k; })[0] || null;
   }
   function sectors() { var g = group(); return g ? (g.sectors || []) : null; }
 
@@ -134,6 +153,7 @@
       }).join('') : '<p class="hs-empty">해당 건이 없습니다.</p>') + '</div></div>';
   }
 
+  /* 소속 표시만 — 전환 버튼이 아닙니다 (TFT 계정 / 관리자 미리보기) */
   function bannerHTML() {
     var g = group();
     var host = $('#tftBanner');
@@ -144,11 +164,13 @@
       var S = CFG.SECTORS || {};
       return (S[k] && (S[k].icon || '') + (S[k].label || k)) || k;
     }).join(' · ');
-    host.innerHTML = '<b>🤝 ' + esc(g.name) + '</b> 적용 중 — <span>' + esc(names) + ' 건만 표시</span>' +
-      ' <span class="tft-types">' + esc((g.types || []).join(' · ')) + '</span>' +
+    var admin = isAdmin();
+    host.innerHTML = '<b>🤝 ' + esc(g.name) + '</b>' +
+      (admin ? ' <span class="tft-types">미리보기</span>' : ' <span class="tft-types">소속</span>') +
+      ' — <span>' + esc(names) + ' 건만 표시</span>' +
       ' <button type="button" class="mini-btn" data-tft-list="sale">매각 ' + saleItems().length + '</button>' +
       ' <button type="button" class="mini-btn" data-tft-list="public">공개·입찰 ' + publicItems().length + '</button>' +
-      ' <button type="button" class="mini-btn" data-tft-off>해제</button>';
+      (admin ? ' <button type="button" class="mini-btn" data-tft-off>미리보기 해제</button>' : '');
   }
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -156,15 +178,19 @@
     });
   }
 
+  /* 관리자에게만 남기는 '범위 미리보기' — TFT 계정은 서버가 이미 범위를 정해 줍니다 */
   function chipsHTML() {
     var host = $('#tftFilters');
     if (!host) return;
+    if (!isAdmin()) { host.innerHTML = ''; host.classList.add('hidden'); return; }
     var list = groups();
     if (!list.length) { host.innerHTML = ''; host.classList.add('hidden'); return; }
     host.classList.remove('hidden');
-    host.innerHTML = '<div class="tft-row"><span class="tft-k">공유 그룹</span>' +
+    host.innerHTML = '<div class="filter-title"><span>범위 미리보기 (관리자)</span></div>' +
+      '<div class="tft-row">' +
+      '<button type="button" class="tft-chip' + (!activeStored ? ' is-on' : '') + '" data-tft="__all">전체</button>' +
       list.map(function (g) {
-        var on = active === g.key;
+        var on = activeStored === g.key;
         return '<button type="button" class="tft-chip' + (on ? ' is-on' : '') + '" data-tft="' + esc(g.key) + '" aria-pressed="' + on + '">' +
           '🤝 ' + esc(g.name) + ' <em>' + esc((g.sectors || []).join('·')) + '</em></button>';
       }).join('') + '</div>';
@@ -178,10 +204,12 @@
   }
 
   function toggle(k) {
-    active = (active === k) ? '' : k;
-    set(active);
+    if (!isAdmin()) return;   /* TFT 계정은 자기 소속 범위로 고정 */
+    if (k === '__all') activeStored = '';
+    else activeStored = (activeStored === k) ? '' : k;
+    set(activeStored);
     refresh();
-    if (window.naiToast) window.naiToast(active ? (group().name + ' 필터를 켰습니다.') : '공유 그룹 필터를 해제했습니다.');
+    if (window.naiToast) window.naiToast(activeStored ? ('미리보기: ' + group().name + ' 범위') : '전체 범위로 되돌렸습니다.');
   }
 
   function bind() {
@@ -189,7 +217,7 @@
       var b = e.target.closest('[data-tft]');
       if (b) { toggle(b.getAttribute('data-tft')); return; }
       var off = e.target.closest('[data-tft-off]');
-      if (off) { active = ''; set(''); refresh(); return; }
+      if (off) { if (isAdmin()) { activeStored = ''; set(''); refresh(); } return; }
       var ls = e.target.closest('[data-tft-list]');
       if (ls) {
         var g = group();
@@ -214,7 +242,7 @@
 
   window.NAI_TFT = {
     groups: groups,
-    activeKey: function () { return active; },
+    activeKey: activeKey,
     group: group,
     isActive: function () { return !!sectors(); },
     filterAssets: filterAssets,

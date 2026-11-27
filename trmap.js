@@ -134,7 +134,8 @@
     var buy = isBuy(row);
     return {
       id: 'TRQ-' + (row.id || i),
-      sector: 'tr',
+      /* 매입·투자 의향(사옥 수요)은 'si' 섹터로 분리 — 물건 지도 섹터의 '🎯 실수요자' 그룹 (2026-11-27) */
+      sector: buy ? 'si' : 'tr',
       sub_type: buy ? '매입·투자 의향' : 'TR 임차의뢰',
       name: String(row.asset_name || ('[TR] ' + (rgn || '권역 미정'))),
       address: rgn ? (rgn + ' (희망 권역 중심 표시)') : '권역 미지정',
@@ -147,7 +148,7 @@
       scale_info: area ? area + '평' : '',
       price_info: rent,
       status: String(row.status || '접수'),
-      status_group: '임차수요',
+      status_group: buy ? '매입수요' : '임차수요',
       tenants: String(row.name || '') + (row.title ? ' ' + row.title : ''),
       maturity_schedule: timeline,
       notes: memo,

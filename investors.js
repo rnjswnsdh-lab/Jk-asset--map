@@ -1462,20 +1462,20 @@
   }
 
   /* ─────────────── 탭 전환 (홈 / 지도 / SI·화주 / FI / 밸류에이션) ─────────────── */
-  var VIEWS = ['home', 'map', 'nai', 'lm', 'vdr', 'match', 'pool', 'ship', 'fi', 'valuation', 'admin'];
+  var VIEWS = ['home', 'map', 'nai', 'lm', 'vdr', 'advise', 'match', 'pool', 'ship', 'fi', 'valuation', 'admin'];
   function showView(view) {
     if (VIEWS.indexOf(view) < 0) view = 'home';
     var home = view === 'home';
     var lmMode = view === 'lm';
     var nai = view === 'nai' || lmMode;
     var vdr = view === 'vdr';
+    var adv = view === 'advise';
     var pool = view === 'pool';
     var fi = view === 'fi';
     var poolLike = pool || fi || view === 'ship';
     var val = view === 'valuation';
     var match = view === 'match';
-    var adminView = view === 'admin';
-    /* 관리자 탭은 관리자만 — 아니면 홈으로 되돌립니다 */
+    var adminView = view === 'admin';    /* 관리자 탭은 관리자만 — 아니면 홈으로 되돌립니다 */
     if (adminView) {
       var r0 = (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external';
       if (r0 !== 'admin') {
@@ -1489,6 +1489,7 @@
     document.body.classList.toggle('view-val', val);
     document.body.classList.toggle('view-nai', nai);
     document.body.classList.toggle('view-vdr', vdr);
+    document.body.classList.toggle('view-advise', adv);
     document.body.classList.toggle('view-match', match);
     document.body.classList.toggle('view-admin', adminView);
     var mv = $('#matchView');
@@ -1504,6 +1505,8 @@
     if (vv) vv.classList.toggle('hidden', !val);
     var dv = $('#vdrView');
     if (dv) dv.classList.toggle('hidden', !vdr);
+    var advv = $('#adviseView');
+    if (advv) advv.classList.toggle('hidden', !adv);
     $$('.vt-btn').forEach(function (b) {
       var on = b.getAttribute('data-view') === view;
       b.classList.toggle('is-active', on);
@@ -1523,12 +1526,14 @@
     if (home && window.NAI_HOME && window.NAI_HOME.show) window.NAI_HOME.show();
     if (nai && window.NAI_NAI && window.NAI_NAI.show) window.NAI_NAI.show(lmMode ? 'lm' : 'sale');
     if (vdr && window.NAI_VDR && window.NAI_VDR.show) window.NAI_VDR.show();
+    if (adv && window.NAI_ADVISE && window.NAI_ADVISE.show) window.NAI_ADVISE.show();
     if (window.naiLog) {
-      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각', lm: 'NAI 임대(LM)', vdr: '자문사 VDR', match: 'AI 매물 매칭', pool: 'SI (사옥·전략투자)', ship: '물류센터 화주', fi: 'FI 풀', valuation: '밸류에이션', admin: '관리자' };
+      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각', lm: 'NAI 임대(LM)', vdr: '자문사 VDR', advise: '자문사 딜 프로세싱', match: 'AI 매물 매칭', pool: 'SI (사옥·전략투자)', ship: '물류센터 화주', fi: 'FI 풀', valuation: '밸류에이션', admin: '관리자' };
       window.naiLog('tab', VIEW_LABEL[view] || view);
     }
     try {
-      history.replaceState(null, '', home ? '#home' : (nai ? (lmMode ? '#lm' : '#nai') : (vdr ? '#vdr' : (match ? '#match' : (adminView ? '#admin' : ((view === 'ship') ? '#ship' : (pool ? '#pool' : (fi ? '#fi' : (val ? '#valuation' : location.pathname + location.search)))))))));
+      var HASHES = { home: '#home', nai: '#nai', lm: '#lm', vdr: '#vdr', advise: '#advise', match: '#match', admin: '#admin', ship: '#ship', pool: '#pool', fi: '#fi', valuation: '#valuation' };
+      history.replaceState(null, '', HASHES[view] || (location.pathname + location.search));
     } catch (e) { /* noop */ }
   }
   window.naiShowView = showView;

@@ -13,8 +13,24 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
-  var BOOT = { homeOpened: false, articles: [], notices: [], loaded: false, subs: {}, artShown: 0, artQ: '' };
+  var BOOT = { homeOpened: false, articles: [], notices: [], loaded: false, subs: {}, artShown: 0, artQ: '', homeSector: 'office' };
   var ART_INIT = 20, ART_STEP = 30;   /* 아티클: 첫 표시 20건 · 더 보기 +30건 */
+
+  /* ─── 거래 상태 · 표기 정리 (2026-11-27) ─── */
+  function tradeStateOf(a) {
+    if (window.naiMap && window.naiMap.tradeState) return window.naiMap.tradeState(a);
+    return '';
+  }
+  /** 출처·본문에 남은 NAI 흔적 정리 — 실제 매각·임대 실행 표기(NAI 매각/임대 탭·딜 데이터)는 그대로 둡니다 */
+  function noNai(s) {
+    return String(s == null ? '' : s)
+      .replace(/NAI\s*Korea\s*리서치/g, '리서치')
+      .replace(/NAI\s*Korea\s*(Research|MarketReview)/gi, '마켓 리포트')
+      .replace(/NAIKorea/gi, 'Asset Bridge')
+      .replace(/NAI\s*Korea/gi, '당사')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -130,7 +146,10 @@
     return /매각|매물|입찰|공매|경매|매도/.test(s);
   }
 
-  /* ─────────────────── 홈 렌더 ─────────────────── */
+  /* ─────────────────── 홈 렌더 (2026-11-27 재배치) ───────────────────
+     순서: 히어로·KPI → 물건검색 → 오늘 아티클 → 공지 → 업무신청 → 매각중 물건 → 진행중인 deal 참여
+     · KPI 박스를 누르면 해당 조건의 물건 리스트가 바로 열립니다.
+     · 접수 내역은 업무신청 아래 글자 버튼으로만 접근합니다(별도 섹션 제거). */
   function renderShell() {
     var host = $('#homeView');
     if (!host) return;
@@ -139,75 +158,39 @@
     var auc = all.filter(isAuction);
     var liveAuc = auc.filter(function (a) { var d = daysUntil(fact(a, '입찰일')); return d !== null && d >= 0; });
     var nego = auc.filter(function (a) { return /수의계약/.test(fact(a, '입찰일') + String(a.status || '')); });
-    var sale = all.filter(function (a) { return !isAuction(a) && isOnSale(a); });
+    var saleN = all.filter(function (a) { return tradeStateOf(a) === 'sale'; }).length;
+    var leaseN = all.filter(function (a) { return tradeStateOf(a) === 'lease'; }).length;
     var meNow = me();
 
     var html = '';
     html += '<div class="home-hero">';
     html += '<div class="hh-left">';
-    html += '<p class="hh-kicker">NAI Korea · 딜 브릿지</p>';
+    html += '<p class="hh-kicker">딜 브릿지</p>';
     html += '<h1 class="hh-title">오늘의 <b>딜 브릿지</b></h1>';
-    html += '<p class="hh-sub">매각 물건 · 입찰 D-Day · 아티클 · 물건등록 · 의향서/대출 · TM·IM 제작을 한 화면에서.</p>';
     html += '<button type="button" class="hh-report" data-home="report">' +
       '<span class="hr-i">📊</span>' +
-      '<span class="hr-t"><b>2026 3Q 마켓 리포트</b><em>NAI Korea Research · 권역별 임대료·공실률 · 주요 거래 20건 · 인사이트</em></span>' +
+      '<span class="hr-t"><b>2026 3Q 마켓 리포트</b><em>권역별 임대료·공실률 · 주요 거래 20건 · 인사이트</em></span>' +
       '<span class="hr-go">바로 보기 →</span></button>';
     html += '<p class="hh-meta">' + (st && st.meta && st.meta.source ? esc(st.meta.source) : '비공개 시트 연동') +
       ' · 기준 ' + esc(todayStr()) + (meNow && meNow.name ? ' · ' + esc(meNow.name) : '') + '</p>';
     html += '</div>';
+    /* KPI — 누르면 조건에 해당하는 물건 리스트가 모달로 열립니다 (2026-11-27) */
     html += '<div class="hh-kpis">';
-    html += kpi('물건 DB', (all.length || 0).toLocaleString('ko-KR') + '건', '전 섹터', '');
-    html += kpi('매각중', (sale.length || 0).toLocaleString('ko-KR') + '건', '일반 매각·검토', 'sale');
+    html += kpi('물건 DB', (all.length || 0).toLocaleString('ko-KR') + '건', '전 섹터 · 누르면 리스트', 'all');
+    html += kpi('매각중', (saleN || 0).toLocaleString('ko-KR') + '건', '매각 진행 자산', 'sale');
+    html += kpi('임대중', (leaseN || 0).toLocaleString('ko-KR') + '건', '임차인 모집·임대 진행', 'lease');
     html += kpi('경·공매', (auc.length || 0).toLocaleString('ko-KR') + '건', '입찰임박 ' + liveAuc.length + ' · 수의계약 ' + nego.length, 'auc');
-    html += kpi('아티클', (BOOT.articles.length ? BOOT.articles.length + '건' : '—'), '매일 08:00 업데이트', 'art');
     html += '</div></div>';
-
-    /* ✦ 업무 신청 — TR · LM · 매입 · 매각을 홈에서 바로 접수 (2026-11-25) */
-    html += '<section class="home-card hc-apply" id="hcApply">';
-    html += '<div class="hc-head"><h2>🧾 업무 신청 <span class="hc-tag">바로 접수</span></h2>' +
-      '<span class="hc-hint">버튼을 누르면 해당 신청서가 바로 열립니다 · 접수 내역은 담당자만 확인</span></div>';
-    html += '<div class="apply-grid">';
-    html += applyBtn('tr', '📋', 'TR 신청', '임차의뢰 · 희망 조건 접수', '화주·임차인');
-    html += applyBtn('lease', '🔑', 'LM 신청', '임대 물건·공실 등록', '임대 자문');
-    if (!isLogi()) html += applyBtn('buy', '🎯', '매입 신청', '사옥·투자 매입 의향', '예산·권역 조건');
-    html += applyBtn('sale', '🏷️', '매각 신청', '매물 등록 · 매각 자문', '검토 → 입찰');
-    html += '</div>';
-    if (isAdmin()) html += '<div class="hc-foot"><button type="button" class="mini-btn" data-home="hub-list">📥 접수 내역 전체 보기</button></div>';
-    html += '</section>';
 
     html += '<div class="home-grid">';
 
-    /* ① 매각중인 물건 · D-Day */
-    html += '<section class="home-card hc-deals" id="hcDeals">';
-    html += '<div class="hc-head"><h2>🔥 매각중인 물건 <span class="hc-tag">입찰 D-Day · 수의계약</span></h2>' +
-      '<div class="hc-tools"><button type="button" class="mini-btn" data-home="more-auction">경·공매 전체</button>' +
-      '<button type="button" class="mini-btn" data-home="more-sale">매각 물건 전체</button></div></div>';
-    html += '<div id="dealStrip" class="deal-strip"></div>';
-    html += '</section>';
-
-    /* ② 빠른 실행 타일 */
-    html += '<section class="home-card hc-quick">';
-    html += '<div class="hc-head"><h2>⚡ 바로 하기</h2></div>';
-    html += '<div class="quick-grid">';
-    html += tile('🔍', '물건검색', '섹터·권역·가격·키워드', 'search');
-    html += tile('🤖', 'AI 매물 매칭', '문장으로 조건 검색', 'match');
-    html += tile('➕', '물건등록', 'TM / IM / 직접 입력', 'register');
-    html += tile('📝', '인수·임차의향서', '매입·임차 조건 제출', 'loi');
-    html += tile('📝', '딜·참여 등록', '매각·매입·임대·TR·호텔·금융 6종', 'hub');
-    if (!isLogi()) html += tile('🏢', '자문사 VDR', 'RFP·렌트롤·LOI·AI 쇼트리스트', 'vdr'); /* 물류TF 는 VDR·FI·SI 접근 없음 */
-    html += tile('📊', '3Q 마켓 리포트', 'NAI Research 2026 Q3', 'report');
-    html += tile('💰', '대출요청·조건제시', '금액·LTV·금리·만기', 'loan');
-    html += tile('📄', 'TM 제작', 'NAI 양식 티저·브리프', 'tm');
-    html += tile('📘', 'IM 제작', 'NAI 양식 IM 브리프', 'im');
-    html += '</div></section>';
-
-    /* ③ 물건검색 */
+    /* ① 물건검색 — 업무 신청 위 (2026-11-27) */
     html += '<section class="home-card hc-search" id="hcSearch">';
     html += '<div class="hc-head"><h2>🔍 물건검색</h2><span class="hc-hint">결과를 누르면 지도·상세로 이동합니다</span></div>';
     html += '<div class="hs-form">';
     html += '<input id="hsQ" type="search" data-enter="search" placeholder="건물명 · 주소 · 운용사 · 임차인 검색" autocomplete="off">';
     html += '<select id="hsSector"><option value="ALL">전체 섹터</option></select>';
-    html += '<select id="hsDeal"><option value="ALL">일반+경공매</option><option value="general">일반 자산</option><option value="auction">경·공매</option></select>';
+    html += '<select id="hsDeal"><option value="ALL">일반+경공매</option><option value="general">일반 자산</option><option value="auction">경·공매</option><option value="sale">매각중</option><option value="lease">임대중</option></select>';
     html += '<select id="hsRegion"><option value="ALL">전체 권역</option></select>';
     html += '<select id="hsPrice"><option value="ALL">가격 전체</option><option value="0-300">300억 미만</option><option value="300-1000">300~1,000억</option><option value="1000-3000">1,000~3,000억</option><option value="3000-">3,000억 이상</option><option value="none">가격 미상</option></select>';
     html += '<button type="button" class="btn btn-solid" data-home="do-search">검색</button>';
@@ -215,33 +198,50 @@
     html += '<div id="hsResult" class="hs-result"><p class="hs-empty">조건을 선택하고 <b>검색</b>을 누르세요. (전체 ' + all.length.toLocaleString('ko-KR') + '건)</p></div>';
     html += '</section>';
 
-    /* ④ 아티클 */
-    html += '<section class="home-card hc-articles" id="hcArticles">';
-    html += '<div class="hc-head"><h2>📰 아티클</h2><span class="hc-hint">매일 오전 8시 · 전일 딜/후속 진척</span></div>';
-    html += '<div id="artList" class="art-list"><p class="hs-empty">불러오는 중…</p></div>';
-    html += '<div class="art-foot" id="artFoot"></div>';
-    if (isAdmin()) html += '<div class="hc-foot"><button type="button" class="mini-btn" data-home="art-new">＋ 아티클 등록</button></div>';
+    /* ② 오늘의 아티클 · 공지 — 업무신청 바로 윗줄, 글자 위주 (2026-11-27) */
+    html += '<section class="home-card hc-today" id="hcToday">';
+    html += '<div class="today-row" id="hrArt"><span class="tr-k">📰 오늘 아티클</span><span class="tr-v">불러오는 중…</span></div>';
+    html += '<div class="today-row noti" id="hrNoti"><span class="tr-k">📢 공지</span><span class="tr-v">불러오는 중…</span></div>';
+    html += '<div class="today-more">' +
+      '<button type="button" class="mini-btn" data-home="art-all">아티클 전체 보기</button>' +
+      (isAdmin() ? '<button type="button" class="mini-btn" data-home="noti-new">＋ 공지 등록</button>' : '') +
+      (isAdmin() ? '<button type="button" class="mini-btn" data-home="art-new">＋ 아티클 등록</button>' : '') + '</div>';
     html += '</section>';
 
-    /* ⑤ 공지사항 */
-    html += '<section class="home-card hc-notices" id="hcNotices">';
-    html += '<div class="hc-head"><h2>📢 공지사항</h2></div>';
-    html += '<div id="notiList" class="noti-list"><p class="hs-empty">불러오는 중…</p></div>';
-    if (isAdmin()) html += '<div class="hc-foot"><button type="button" class="mini-btn" data-home="noti-new">＋ 공지 등록</button></div>';
+    /* ③ 업무 신청 — TR · LM · 매입 · 매각 + 대출·금융주선(자격증명) + 자문사 딜 참여 */
+    html += '<section class="home-card hc-apply" id="hcApply">';
+    html += '<div class="hc-head"><h2>🧾 업무 신청 <span class="hc-tag">바로 접수</span></h2>' +
+      '<span class="hc-hint">버튼을 누르면 해당 신청서가 바로 열립니다</span></div>';
+    html += '<div class="apply-grid">';
+    html += applyBtn('tr', '📋', 'TR 신청', '임차의뢰 · 희망 조건 접수', '화주·임차인');
+    html += applyBtn('lease', '🔑', 'LM 신청', '임대 물건·공실 등록', '임대 자문');
+    if (!isLogi()) html += applyBtn('buy', '🎯', '매입 신청', '사옥·투자 매입 의향', '예산·권역 조건');
+    html += applyBtn('sale', '🏷️', '매각 신청', '매물 등록 · 매각 자문', '검토 → 입찰');
+    html += applyBtn('finance', '🏦', '대출신청·금융주선', '금리·LTV·트랑슈 조건 제시', '자격증명 필수');
+    html += applyBtn('advisor', '🧾', '자문사 딜 참여', '매각·매입·임대·금융 자문 참여', '자격·실적 확인');
+    html += '</div>';
+    html += '<div class="hc-foot"><button type="button" class="mini-btn" data-home="hub-list">📥 접수 내역 보기</button> ' +
+      '<button type="button" class="mini-btn" data-home="advise">🧾 자문사 딜 프로세싱 시트</button></div>';
     html += '</section>';
 
-    /* ⑥ 관리자: 접수 내역 */
-    if (isAdmin()) {
-      html += '<section class="home-card hc-subs" id="hcSubs">';
-      html += '<div class="hc-head"><h2>📥 접수 내역</h2><span class="hc-hint">관리자만 조회</span></div>';
-      html += '<div class="subs-grid">';
-      html += subBox('의향서', 'lois', '📝');
-      html += subBox('대출요청·조건', 'loans', '💰');
-      html += subBox('TM·IM 제작요청', 'doc_requests', '📄');
-      html += subBox('물건 등록제안', 'proposals', '➕');
-      html += '</div>' +
-        '<div class="hc-foot"><button type="button" class="mini-btn" data-home="hub-list">📥 딜·참여 등록 6종 전체 보기(유형 필터)</button></div></section>';
-    }
+    /* ④ 매각중인 물건 · D-Day */
+    html += '<section class="home-card hc-deals" id="hcDeals">';
+    html += '<div class="hc-head"><h2>🔥 매각중·임대중 물건 <span class="hc-tag">오피스 · 데이터센터 · 진행 중만</span></h2>' +
+      '<div class="hc-tools"><button type="button" class="mini-btn" data-home="more-auction">경·공매 전체</button>' +
+      '<button type="button" class="mini-btn" data-home="more-sale">매각중 전체</button>' +
+      '<button type="button" class="mini-btn" data-home="more-lease">임대중 전체</button></div></div>';
+    html += '<div id="dealStrip" class="deal-strip"></div>';
+    html += '</section>';
+
+    /* ⑤ 진행중인 deal 참여 — 중복 항목(물건검색·물건등록·TM·IM·3Q리포트·대출) 정리 */
+    html += '<section class="home-card hc-quick">';
+    html += '<div class="hc-head"><h2>⚡ 진행중인 deal 참여</h2><span class="hc-hint">지금 진행 중인 딜에 바로 참여하거나 의향을 남깁니다</span></div>';
+    html += '<div class="quick-grid">';
+    html += tile('🤖', 'AI 매물 매칭', '문장으로 조건 검색', 'match');
+    html += tile('📝', '인수·임차의향서', '매입·임차 조건 제출', 'loi');
+    html += tile('📝', '딜·참여 등록', '매각·매입·임대·TR·호텔·금융·자문 7종', 'hub');
+    if (!isLogi()) html += tile('🏢', '자문사 VDR', 'RFP·렌트롤·LOI·AI 쇼트리스트', 'vdr'); /* 물류TF 는 VDR·FI·SI 접근 없음 */
+    html += '</div></section>';
 
     html += '</div>'; /* home-grid */
     host.innerHTML = html;
@@ -271,14 +271,13 @@
     }
 
     renderDealStrip();
-    renderArticles();
-    renderNotices();
-    if (isAdmin()) renderSubs();
+    renderToday();
   }
 
   function kpi(label, value, sub, key) {
-    return '<div class="kpi kpi-' + (key || 'x') + '"' + (key ? ' data-kpi="' + key + '"' : '') + '><span class="kpi-k">' + esc(label) + '</span>' +
-      '<strong class="kpi-v">' + esc(value) + '</strong><span class="kpi-s">' + esc(sub) + '</span></div>';
+    return '<button type="button" class="kpi kpi-' + (key || 'x') + '"' + (key ? ' data-home="kpi" data-kpi="' + key + '"' : '') + '>' +
+      '<span class="kpi-k">' + esc(label) + '</span>' +
+      '<strong class="kpi-v">' + esc(value) + '</strong><span class="kpi-s">' + esc(sub) + '</span></button>';
   }
   function tile(icon, title, sub, act) {
     return '<button type="button" class="qtile" data-home="' + act + '"><span class="qti">' + icon + '</span>' +
@@ -299,22 +298,37 @@
       '<strong class="sb-v" data-sub-count="' + kind + '">' + esc(String(n)) + '</strong></button>';
   }
 
-  /* ── 매각중 물건 스트립 ── */
+  /* ── 매각중·임대중 물건 스트립 — 홈은 '진행 중'만, 섹터는 오피스·데이터센터 중심 (2026-11-27) ── */
+  function homeSector() { return BOOT.homeSector || 'office'; }
+  function inHomeSector(a) {
+    var k = homeSector();
+    if (k === 'ALL') return true;
+    if (k === 'office') return a.sector === 'office';
+    if (k === 'datacenter') return a.sector === 'datacenter';
+    return true;
+  }
   function renderDealStrip() {
     var host = $('#dealStrip');
     if (!host) return;
     var all = assets();
-    var auc = all.filter(function (a) { return isAuction(a); });
+    var auc = all.filter(function (a) { return isAuction(a) && inHomeSector(a); });
     var scored = auc.map(function (a) {
       var n = daysUntil(fact(a, '입찰일'));
       return { a: a, n: (n === null ? 9999 : (n < 0 ? 10000 - Math.abs(n) : n)) };
-    }).sort(function (x, y) { return x.n - y.n; }).slice(0, 14);
+    }).sort(function (x, y) { return x.n - y.n; }).slice(0, 12);
 
-    var sale = all.filter(function (a) { return !isAuction(a) && isOnSale(a); })
+    var sale = all.filter(function (a) { return tradeStateOf(a) === 'sale' && inHomeSector(a); })
       .sort(function (a, b) { return (parseEok(b.price_info) || 0) - (parseEok(a.price_info) || 0); })
-      .slice(0, 8);
+      .slice(0, 10);
+    var lease = all.filter(function (a) { return tradeStateOf(a) === 'lease' && inHomeSector(a); })
+      .sort(function (a, b) { return (parseEok(b.price_info) || 0) - (parseEok(a.price_info) || 0); })
+      .slice(0, 10);
 
-    var html = '';
+    var html = '<div class="strip-chips">' +
+      [['office', '🏢 오피스'], ['datacenter', '🖥️ 데이터센터'], ['ALL', '전체 섹터']].map(function (it) {
+        return '<button type="button" class="mini-btn' + (homeSector() === it[0] ? ' is-on' : '') + '" data-home="home-sector" data-sector="' + it[0] + '">' + it[1] + '</button>';
+      }).join('') +
+      '<span class="strip-note">진행 중인 매각·임대·경공매만 표시 (검토·예정·종결 제외)</span></div>';
     if (scored.length) {
       html += '<h3 class="strip-h">🏛️ 경·공매 · 입찰임박</h3><div class="cards-row">';
       scored.forEach(function (o) {
@@ -331,7 +345,7 @@
       html += '</div>';
     }
     if (sale.length) {
-      html += '<h3 class="strip-h">🏢 일반 매각 · 검토 물건</h3><div class="cards-row">';
+      html += '<h3 class="strip-h">🏷️ 매각 진행 · 매각중</h3><div class="cards-row">';
       sale.forEach(function (a) {
         html += '<button type="button" class="deal-card" data-home="open-asset" data-id="' + esc(a.id) + '">' +
           '<span class="dc-badge gen">' + esc(a.status_group || '매각') + '</span>' +
@@ -343,7 +357,20 @@
       });
       html += '</div>';
     }
-    if (!html) html = '<p class="hs-empty">표시할 매각 물건이 없습니다.</p>';
+    if (lease.length) {
+      html += '<h3 class="strip-h">🔑 임대 진행 · 임대중</h3><div class="cards-row">';
+      lease.forEach(function (a) {
+        html += '<button type="button" class="deal-card" data-home="open-asset" data-id="' + esc(a.id) + '">' +
+          '<span class="dc-badge lease">임대중</span>' +
+          '<span class="dc-sector" style="color:' + sectorColor(a.sector) + '">' + esc(sectorLabel(a.sector)) + '</span>' +
+          '<strong class="dc-name">' + esc(a.name) + '</strong>' +
+          '<span class="dc-addr">' + esc(a.address || '') + '</span>' +
+          '<span class="dc-price">' + esc(eokText(a) || a.price_info || '가격 미상') + '</span>' +
+          '<span class="dc-date">' + esc(a.status || '') + '</span></button>';
+      });
+      html += '</div>';
+    }
+    if (!html) html = '<p class="hs-empty">표시할 물건이 없습니다.</p>';
     host.innerHTML = html;
   }
 
@@ -469,6 +496,145 @@
     }).join('');
   }
 
+  /* ── 업무신청 윗줄: 오늘 아티클 · 공지 (글자 위주 · 2026-11-27) ── */
+  function renderToday() {
+    renderTodayArticles();
+    renderTodayNotices();
+  }
+  function renderTodayArticles() {
+    var host = $('#hrArt');
+    if (!host) return;
+    var v = host.querySelector('.tr-v');
+    if (!v) return;
+    if (!BOOT.loaded) { v.innerHTML = '<span class="tr-empty">불러오는 중…</span>'; return; }
+    var today = todayStr();
+    var todayList = BOOT.articles.filter(function (a) { return String(a.date || '').slice(0, 10) === today; });
+    var fallback = false;
+    var list = todayList;
+    if (!list.length) { list = BOOT.articles.slice(0, 1); fallback = true; }
+    if (!list.length) { v.innerHTML = '<span class="tr-empty">오늘 올라온 아티클이 없습니다.</span>'; return; }
+    v.innerHTML = list.slice(0, 4).map(function (a) {
+      var idx = BOOT.articles.indexOf(a);
+      return '<button type="button" class="tr-art" data-home="open-article" data-idx="' + idx + '" title="' + esc(noNai(a.title || '')) + '">' +
+        '<span class="ta-t">' + esc(noNai(a.title || '(제목 없음)')) + '</span>' +
+        (fallback ? '<em class="ta-d">최근 ' + esc(a.date || '') + '</em>' : (isDaily(a) ? '<em class="ta-d">데일리</em>' : '')) +
+        '</button>';
+    }).join('<span class="tr-dot">·</span>');
+  }
+  function renderTodayNotices() {
+    var host = $('#hrNoti');
+    if (!host) return;
+    var v = host.querySelector('.tr-v');
+    if (!v) return;
+    if (!BOOT.loaded) { v.innerHTML = '<span class="tr-empty">불러오는 중…</span>'; return; }
+    var list = BOOT.notices.slice(0, 3);
+    if (!list.length) { v.innerHTML = '<span class="tr-empty">등록된 공지가 없습니다.</span>'; return; }
+    v.innerHTML = list.map(function (n, i) {
+      return '<button type="button" class="tr-noti" data-home="open-notice" data-idx="' + i + '">' +
+        (String(n.pinned || '').toUpperCase() === 'Y' ? '📌 ' : '') + esc(noNai(n.title || '(제목 없음)')) + '</button>';
+    }).join('<span class="tr-dot">·</span>');
+  }
+
+  /* ── KPI 박스 → 해당 조건 물건 리스트 모달 + 엑셀 다운로드 (2026-11-27) ── */
+  var KPL = { kind: 'all', sector: 'office' };
+  function kpiListItems(noSector) {
+    var all = assets();
+    var list;
+    if (KPL.kind === 'sale') list = all.filter(function (a) { return tradeStateOf(a) === 'sale'; });
+    else if (KPL.kind === 'lease') list = all.filter(function (a) { return tradeStateOf(a) === 'lease'; });
+    else if (KPL.kind === 'auc') list = all.filter(isAuction);
+    else list = all.slice();
+    if (!noSector && KPL.sector !== 'ALL') list = list.filter(function (a) { return a.sector === KPL.sector; });
+    return list.sort(function (a, b) { return (parseEok(b.price_info) || 0) - (parseEok(a.price_info) || 0); });
+  }
+  function kpiListTitle() {
+    if (KPL.kind === 'sale') return '🏷️ 매각중인 물건';
+    if (KPL.kind === 'lease') return '🔑 임대중인 물건';
+    if (KPL.kind === 'auc') return '🏛️ 경·공매 물건';
+    return '📦 물건 DB 전체';
+  }
+  function kpiListBody() {
+    var list = kpiListItems();
+    var total = list.length;
+    var CAP = 120;
+    var rows = list.slice(0, CAP).map(function (a) {
+      var b = isAuction(a) ? ddayBadge(a) : null;
+      var ts = tradeStateOf(a);
+      return '<button type="button" class="hs-item" data-home="open-asset" data-id="' + esc(a.id) + '">' +
+        '<span class="hsi-sector" style="background:' + sectorColor(a.sector) + '"></span>' +
+        '<span class="hsi-main"><strong>' + esc(a.name) +
+        (ts ? ' <span class="trade-badge mini t-' + ts + '">' + (ts === 'sale' ? '🏷️ 매각중' : '🔑 임대중') + '</span>' : '') + '</strong>' +
+        '<span class="hsi-sub">' + esc([sectorLabel(a.sector), a.region, a.status || ''].filter(Boolean).join(' · ')) + '</span></span>' +
+        '<span class="hsi-right">' + esc(eokText(a) || a.price_info || '') +
+        (b ? ' <span class="dc-badge ' + b.cls + ' mini">' + esc(b.label) + '</span>' : '') + '</span></button>';
+    }).join('');
+    var sec = [['office', '🏢 오피스'], ['datacenter', '🖥️ 데이터센터'], ['ALL', '전체 섹터']];
+    var head = '<div class="kp-list-head">' + sec.map(function (it) {
+      return '<button type="button" class="mini-btn' + (KPL.sector === it[0] ? ' is-on' : '') + '" data-home="kpi-sector" data-sector="' + it[0] + '">' + it[1] + '</button>';
+    }).join('') +
+      '<span class="kpl-count"><b>' + total.toLocaleString('ko-KR') + '건</b>' +
+      (total > CAP ? ' · 상위 ' + CAP + '건 표시' : '') +
+      (KPL.sector === 'ALL' ? '' : ' <em class="kpl-all">(전체 섹터 ' + kpiListItems(true).length.toLocaleString('ko-KR') + '건)</em>') + '</span>' +
+      '<span class="kpl-spacer"></span>' +
+      '<button type="button" class="btn btn-ghost mini" data-home="kpi-xlsx">📥 엑셀 다운로드</button>' +
+      '<button type="button" class="btn btn-solid mini" data-home="kpi-map" data-kpi-deal="' + esc(KPL.kind === 'all' ? '' : KPL.kind) + '">🗺️ 지도에서 보기</button></div>';
+    return head + '<div class="hs-list">' + (rows || '<p class="hs-empty">해당하는 물건이 없습니다.</p>') + '</div>';
+  }
+  function renderKpiList() {
+    var host = $('#kpiListBody');
+    if (host) host.innerHTML = kpiListBody();
+  }
+  function openKpiList(kind, sector) {
+    KPL.kind = kind || 'all';
+    KPL.sector = sector || (kind === 'sale' || kind === 'lease' ? 'office' : 'ALL');
+    openModal(kpiListTitle(), '<div id="kpiListBody">' + kpiListBody() + '</div>', { wide: true });
+  }
+  /** 현재 KPI 필터 목록 → 엑셀(xlsx) 다운로드 (SheetJS 없으면 CSV) — 시트 원본에 쓰지 않습니다 */
+  function downloadKpiList() {
+    var list = kpiListItems();
+    if (!list.length) { toast('다운로드할 물건이 없습니다.', true); return; }
+    var secLabel = KPL.sector === 'office' ? '오피스' : (KPL.sector === 'datacenter' ? '데이터센터' : '전체섹터');
+    var kindLabel = KPL.kind === 'sale' ? '매각중' : (KPL.kind === 'lease' ? '임대중' : (KPL.kind === 'auc' ? '경공매' : '물건DB전체'));
+    var stamp = todayStr().replace(/-/g, '');
+    var base = 'AssetBridge_' + kindLabel + '_' + secLabel + '_' + stamp;
+    var rows = list.map(function (a) {
+      var ts = tradeStateOf(a);
+      return {
+        'ID': a.id || '', '물건명': a.name || '', '섹터': sectorLabel(a.sector), '구분': a.sub_type || '',
+        '지역': a.region || '', '주소': a.address || '', '규모': a.scale_info || '', '가격·규모(억)': a.price_info || '',
+        '진행상태': displayStatusOf(a), '상태그룹': a.status_group || '',
+        '거래상태': ts === 'sale' ? '매각중' : (ts === 'lease' ? '임대중' : ''),
+        '운용사/소유주': a.owner_amc || '', '임차인': a.tenants || '', '만기·일정': a.maturity_schedule || '',
+        '출처': a.source || '', '기준일': a.updated_at || ''
+      };
+    });
+    var fname = base;
+    try {
+      if (window.XLSX && XLSX.utils && XLSX.writeFile) {
+        var ws = XLSX.utils.json_to_sheet(rows);
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '물건');
+        XLSX.writeFile(wb, fname + '.xlsx');
+        toast(rows.length + '건을 엑셀(.xlsx)로 저장했습니다.');
+        return;
+      }
+    } catch (e) { /* 아래 CSV로 대체 */ }
+    var heads = Object.keys(rows[0]);
+    var esc2 = function (v) { var s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    var csv = '\ufeff' + heads.join(',') + '\n' + rows.map(function (r) { return heads.map(function (h) { return esc2(r[h]); }).join(','); }).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a2 = document.createElement('a');
+    a2.href = url; a2.download = fname + '.csv';
+    document.body.appendChild(a2); a2.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a2.remove(); }, 500);
+    toast(rows.length + '건을 CSV로 저장했습니다.');
+  }
+  function displayStatusOf(a) {
+    if (window.naiMap && window.naiMap.displayStatus) return window.naiMap.displayStatus(a);
+    return a.status_group || a.status || '';
+  }
+
   /* ── 관리자: 접수 내역 카운트 ── */
   function renderSubs() {
     ['lois', 'loans', 'doc_requests', 'proposals'].forEach(function (k) {
@@ -499,10 +665,9 @@
       if (!BOOT.artShown) BOOT.artShown = ART_INIT;
       BOOT.notices = (res[1] && res[1].items) || [];
       BOOT.loaded = true;
+      renderToday();
       renderArticles();
       renderNotices();
-      var kv = $('[data-kpi="art"] .kpi-v');
-      if (kv) kv.textContent = BOOT.articles.length ? BOOT.articles.length + '건' : '—';
     });
   }
 
@@ -1146,10 +1311,10 @@
     var a = BOOT.articles[idx];
     if (!a) return;
     var body = (fromList ? '<div class="read-top"><button type="button" class="mini-btn" data-home="art-list">← 아티클 목록</button></div>' : '') +
-      '<div class="read-meta">' + esc(a.date || '') + (a.source ? ' · ' + esc(a.source) : '') + '</div>' +
-      '<h2 class="read-title">' + esc(a.title || '') + '</h2>' +
-      (a.summary ? '<p class="read-sum">' + esc(a.summary) + '</p>' : '') +
-      '<div class="read-body">' + articleBody(a.body || '') + '</div>' +
+      '<div class="read-meta">' + esc(a.date || '') + (a.source ? ' · ' + esc(noNai(a.source)) : '') + '</div>' +
+      '<h2 class="read-title">' + esc(noNai(a.title || '')) + '</h2>' +
+      (a.summary ? '<p class="read-sum">' + esc(noNai(a.summary)) + '</p>' : '') +
+      '<div class="read-body">' + articleBody(noNai(a.body || '')) + '</div>' +
       (function () {
         var links = [];
         (a.tags || '').split(',').forEach(function (t) { if (t.trim()) links.push('<span class="rd-tag">#' + esc(t.trim()) + '</span>'); });
@@ -1157,7 +1322,7 @@
       })() +
       (isAdmin() ? '<div class="read-tools"><button type="button" class="mini-btn" data-home="art-edit" data-id="' + esc(a.id || '') + '">✏️ 수정</button>' +
         '<button type="button" class="mini-btn danger" data-home="art-del" data-id="' + esc(a.id || '') + '">🗑 삭제</button></div>' : '');
-    openModal('📰 ' + (a.title || '아티클'), body, { wide: true });
+    openModal('📰 ' + noNai(a.title || '아티클'), body, { wide: true });
   }
   function articleBody(text) {
     var t = String(text || '');
@@ -1309,6 +1474,8 @@
       if (sector !== 'ALL' && a.sector !== sector) return false;
       if (deal === 'auction' && !isAuction(a)) return false;
       if (deal === 'general' && isAuction(a)) return false;
+      if (deal === 'sale' && tradeStateOf(a) !== 'sale') return false;
+      if (deal === 'lease' && tradeStateOf(a) !== 'lease') return false;
       if (region !== 'ALL' && a.region !== region) return false;
       if (price !== 'ALL') {
         var v = parseEok(a.price_info);
@@ -1357,17 +1524,37 @@
         return;
       }
       if (act === 'do-search') { doSearch(); return; }
-      if (act === 'more-auction' || act === 'more-sale') {
+      if (act === 'kpi') { openKpiList(btn.getAttribute('data-kpi')); return; }
+      if (act === 'kpi-sector') { KPL.sector = btn.getAttribute('data-sector') || 'ALL'; renderKpiList(); return; }
+      if (act === 'kpi-xlsx') { downloadKpiList(); return; }
+      if (act === 'home-sector') {
+        BOOT.homeSector = btn.getAttribute('data-sector') || 'office';
+        renderDealStrip();
+        return;
+      }
+      if (act === 'kpi-map') {
+        var dk = btn.getAttribute('data-kpi-deal') || '';
+        closeModal();
+        if (window.naiShowView) window.naiShowView('map');
+        setTimeout(function () { if (window.naiMap && window.naiMap.setDealType) window.naiMap.setDealType(dk); }, 120);
+        return;
+      }
+      if (act === 'more-auction' || act === 'more-sale' || act === 'more-lease') {
+        var target = act === 'more-auction' ? 'auction' : (act === 'more-lease' ? 'lease' : 'general');
         if (window.naiShowView) window.naiShowView('map');
         setTimeout(function () {
+          if (window.naiMap && window.naiMap.setDealType) {
+            window.naiMap.setDealType(target === 'general' ? 'sale' : (target === 'lease' ? 'lease' : 'auc'));
+            return;
+          }
           var f = $('#dealTypeFilters');
-          var target = act === 'more-auction' ? 'auction' : 'general';
           if (f) { var b = f.querySelector('[data-deal="' + target + '"]'); if (b) b.click(); }
         }, 120);
         return;
       }
       if (act === 'search') { var s = $('#hcSearch'); if (s) { s.scrollIntoView({ behavior: 'smooth', block: 'center' }); var q = $('#hsQ'); if (q) q.focus(); } return; }
       if (act === 'register') { openRegister('직접'); return; }
+      if (act === 'advise') { closeModal(); if (window.naiShowView) window.naiShowView('advise'); return; }
       if (act === 'apply') { openHub(btn.getAttribute('data-type') || 'tr'); return; }
       if (act === 'match') { if (window.naiShowView) window.naiShowView('match'); return; }
       if (act === 'tr') { openHub('tr'); return; }

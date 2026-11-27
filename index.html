@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<title>Open AI Asset Bridge — NAI Korea</title>
+<title>Open AI Asset Bridge — 상업용 부동산 통합 플랫폼</title>
 <meta name="theme-color" content="#0b2a4a">
 <meta name="application-name" content="Asset Bridge">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,9 +15,9 @@
 <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-<meta name="description" content="Open AI Asset Bridge — NAI Korea 상업용 부동산 물건·투자자(SI·FI)·VDR·밸류에이션 통합 플랫폼">
-<link rel="stylesheet" href="style.css?v=20261126e">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2a4a'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='system-ui,sans-serif' font-size='13' font-weight='800' fill='%23ffffff'%3ENAI%3C/text%3E%3C/svg%3E">
+<meta name="description" content="Open AI Asset Bridge — 상업용 부동산 물건·투자자(SI·FI)·VDR·밸류에이션 통합 플랫폼">
+<link rel="stylesheet" href="style.css?v=20261127b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2a4a'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='system-ui,sans-serif' font-size='11' font-weight='800' fill='%23ffffff'%3EAB%3C/text%3E%3C/svg%3E">
 </head>
 <body>
 
@@ -33,7 +33,7 @@
   </div>
 
   <div class="header-actions">
-    <button id="btnReport" class="icon-btn report-btn" type="button" aria-label="2026 3Q 마켓 리포트" title="📊 2026 3Q 마켓 리포트 (NAI Korea Research)">📊</button>
+    <button id="btnReport" class="icon-btn report-btn" type="button" aria-label="2026 3Q 마켓 리포트" title="📊 2026 3Q 마켓 리포트">📊</button>
     <button id="btnCodeChange" class="icon-btn" type="button" aria-label="접속코드 변경" title="접속코드 변경 (관리자 / 읽기 전용)">🔑</button>
     <span id="roleBadge" class="role-chip hidden">관리자</span>
     <span id="syncStatus" class="sync-chip hidden">동기화</span>
@@ -68,6 +68,7 @@
   <button class="vt-btn" type="button" data-view="nai" role="tab" aria-selected="false">🏷️ NAI 매각</button>
   <button class="vt-btn" type="button" data-view="lm" role="tab" aria-selected="false">🔑 NAI 임대(LM)</button>
   <button class="vt-btn" type="button" data-view="vdr" role="tab" aria-selected="false">🏢 자문사 VDR</button>
+  <button class="vt-btn" type="button" data-view="advise" role="tab" aria-selected="false">🧾 자문사 딜</button>
   <button class="vt-btn" type="button" data-view="pool" role="tab" aria-selected="false">🏢 SI (사옥·전략투자)</button>
   <button class="vt-btn" type="button" data-view="ship" role="tab" aria-selected="false">🚚 물류센터 화주</button>
   <button class="vt-btn" type="button" data-view="fi" role="tab" aria-selected="false">🏦 FI 풀</button>
@@ -94,6 +95,7 @@
           <button id="btnDealAuction" class="mini-btn" type="button" title="경·공매만 보기 (토지 100억↑ · 건물포함 300억↑)">경·공매만</button>
         </div>
         <div id="dealTypeFilters" class="deal-chips" role="group" aria-label="물건 구분 (일반 자산 / 경·공매)"></div>
+        <div id="tradeFilters" class="trade-chips" role="group" aria-label="거래 상태 (매각중 / 임대중)"></div>
         <p id="dealTypeHint" class="deal-hint">불러오는 중…</p>
       </section>
 
@@ -228,7 +230,7 @@
       <button id="poolComposeToggle" class="mini-btn" type="button">▴ 입력칸 펼치기</button>
     </div>
     <div id="poolComposeFields" class="pc-fields hidden">
-      <label class="pc-field pc-subject">티저 제목<input id="mailSubject" type="text" placeholder="예) [NAI Korea] 이천 덕평 물류센터 매각 티저"></label>
+      <label class="pc-field pc-subject">티저 제목<input id="mailSubject" type="text" placeholder="예) 이천 덕평 물류센터 매각 티저"></label>
       <label class="pc-field pc-link">클라우드 티저 링크<input id="mailLink" type="url" placeholder="https://drive.google.com/..."></label>
       <label class="pc-field pc-msg">간단 메시지<textarea id="mailBody" rows="2" placeholder="예) 관심 있으실 만한 물건이 있어 티저를 보내드립니다. 회신 주시면 상세 자료 보내드리겠습니다."></textarea></label>
     </div>
@@ -242,6 +244,9 @@
 
 <!-- ───────────────────── 🏢 NAI 매각·LM (별도 탭) ───────────────────── -->
 <section id="naiView" class="nai-view hidden" aria-label="NAI 매각·LM"></section>
+
+<!-- ───────────────────── 🧾 자문사 딜 프로세싱 (별도 시트·탭) ───────────────────── -->
+<section id="adviseView" class="advise-view hidden" aria-label="자문사 딜 프로세싱"></section>
 
 <!-- ───────────────────── 🏢 자문사 VDR · 입찰 워크룸 (별도 탭) ───────────────────── -->
 <section id="vdrView" class="vdr-view hidden" aria-label="자문사 VDR · 입찰 워크룸"></section>
@@ -262,7 +267,7 @@
   <div id="gateCard" class="gate-card">
     <span class="brand-mark gate-mark">ASSET<span>BRIDGE</span></span>
     <h1 id="gateTitle" class="gate-title">Open AI Asset Bridge</h1>
-    <p class="gate-sub">NAI Korea 상업용 부동산 DB 기반 프로토타입입니다.<br>내부 접속코드 또는 <b>리멤버 명함 인증</b>으로 입장하세요.</p>
+    <p class="gate-sub">상업용 부동산 DB 기반 프로토타입입니다.<br>내부 접속코드 또는 <b>리멤버 명함 인증</b>으로 입장하세요.</p>
 
     <div class="gate-tabs" role="tablist" aria-label="접속 방식">
       <button type="button" class="gate-tab is-active" data-gate-tab="code" role="tab" aria-selected="true">🔑 내부 접속</button>
@@ -291,7 +296,7 @@
         <form id="extFormA" autocomplete="off" novalidate>
           <div class="ext-grid">
             <label class="ext-field"><span>이름 *</span><input id="extNameA" type="text" autocomplete="off" placeholder="예) 김광연"></label>
-            <label class="ext-field"><span>회사 *</span><input id="extCompanyA" type="text" autocomplete="off" placeholder="예) NAI Korea"></label>
+            <label class="ext-field"><span>회사 *</span><input id="extCompanyA" type="text" autocomplete="off" placeholder="예) ○○자산운용"></label>
             <label class="ext-field wide"><span>전화번호 *</span><input id="extPhoneA" type="tel" autocomplete="off" placeholder="예) 010-9171-1723 (휴대폰 또는 회사)"></label>
           </div>
           <button id="extSubmitA" class="btn btn-primary gate-submit" type="submit">명함 인증하고 입장</button>
@@ -301,7 +306,7 @@
       <div id="extPanelNew" class="ext-panel hidden">
         <div class="ext-guide">
           <b>① 리멤버 친추(명함 교환)</b>
-          <p>리멤버 앱에서 <b>권준오</b>를 검색해 <b>NAI Korea · 상무</b>(010-7731-4316)와 명함을 교환해 주세요.</p>
+          <p>리멤버 앱에서 <b>권준오</b>(010-7731-4316)를 검색해 명함을 교환해 주세요.</p>
         </div>
         <form id="extFormB" autocomplete="off" novalidate>
           <b class="ext-step">② 본인 정보 등록</b>
@@ -349,17 +354,18 @@ window.addEventListener('error', function (e) { window.__errs.push(String((e && 
 window.addEventListener('unhandledrejection', function (e) { window.__errs.push('rejection: ' + String(e && e.reason)); });
 </script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<script src="config.js?v=20261126a"></script>
-<script src="app.js?v=20261127a"></script>
+<script src="config.js?v=20261127b"></script>
+<script src="app.js?v=20261127b"></script>
 <script src="investors_fin.js?v=20261126a"></script>
-<script src="investors.js?v=20261127a"></script>
+<script src="investors.js?v=20261127b"></script>
 <script src="valsec.js?v=20261124y"></script>
 <script src="valuation.js?v=20261126a"></script>
-<script src="home.js?v=20261127a"></script>
-<script src="nai.js?v=20261127a"></script>
+<script src="home.js?v=20261127b"></script>
+<script src="advisor.js?v=20261127b"></script>
+<script src="nai.js?v=20261127b"></script>
 <script src="market_review_2026q3.js?v=20261124y"></script>
 <script src="report.js?v=20261124y"></script>
-<script src="hub.js?v=20261127a"></script>
+<script src="hub.js?v=20261127b"></script>
 <script src="share.js?v=20261125d"></script>
 <script src="vdr.js?v=20261124y"></script>
 <script src="trmap.js?v=20261125g"></script>

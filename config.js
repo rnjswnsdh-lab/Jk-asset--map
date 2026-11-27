@@ -50,7 +50,25 @@ window.NAI_MAP_CONFIG = {
     /* 10번째 섹터 — 골프장(회원제·대중제·비회원제). 진녹색으로 구분 (2026-11-26) */
     golf:       { label: "골프장", icon: "⛳", color: "#166534", dark: "#14532d", short: "G" },
     /* 지도 레이어 — TR 임차의뢰(수요). 자산이 아니라 '수요 핀'이므로 스카이색 */
-    tr:         { label: "TR 임차수요", icon: "📋", color: "#0ea5e9", dark: "#0284c7", short: "TR" }
+    tr:         { label: "TR 임차수요", icon: "📋", color: "#0ea5e9", dark: "#0284c7", short: "TR" },
+    /* 지도 레이어 — SI 사옥·매입 수요(수요 핀). 보라색으로 구분 (2026-11-27) */
+    si:         { label: "SI·사옥 매입수요", icon: "🏢", color: "#7c3aed", dark: "#5b21b6", short: "SI" }
+  },
+
+  /* 섹터 그룹 — 물건 지도 섹터 필터를 '실수요자'와 '자산'으로 분리 (2026-11-27)
+     실수요자 = SI 사옥·매입 수요 + TR 임차수요 + 화주·임차수요 (실제 입주·임차하는 수요)
+     자산     = 매각·임대·투자·개발 대상 물건 */
+  SECTOR_GROUPS: [
+    { key: "demand", label: "🎯 실수요자", hint: "SI·화주·TR — 입주·임차 실수요",
+      sectors: ["si", "tr", "shipper"] },
+    { key: "asset", label: "🏢 자산", hint: "매각·임대·투자·개발 물건",
+      sectors: ["office", "logistics", "datacenter", "hotel", "retail", "living", "land", "senior", "golf"] }
+  ],
+
+  /* 거래 상태 표시 — 일반자산/경·공매와 별개로 '매각중·임대중'을 한눈에 (2026-11-27) */
+  TRADE_STATES: {
+    sale:  { label: "매각중", color: "#dc2626", icon: "🏷️" },
+    lease: { label: "임대중", color: "#0f766e", icon: "🔑" }
   },
 
   /* 물건 구분 — 🗺️ 물건 지도 상단 토글 (일반 자산 / 경·공매) */
@@ -63,6 +81,7 @@ window.NAI_MAP_CONFIG = {
   /* 진행상태 그룹 — 배지 색상 */
   STATUS_GROUPS: {
     "운영중":       "#12a06b",
+    "운용중":       "#12a06b",   /* 시트에 섞여 들어온 표기 — app.js에서 '운영중'으로 정규화 */
     "개발중":       "#f59e0b",
     "거래진행중":   "#ef4444",
     "거래완료":     "#6b7280",
@@ -79,7 +98,9 @@ window.NAI_MAP_CONFIG = {
     "임대 완료":      "#6b7280",
     "임대 보류":      "#94a3b8",
     /* TR 임차의뢰(수요) 레이어 */
-    "임차수요":       "#0ea5e9"
+    "임차수요":       "#0ea5e9",
+    /* SI 사옥·매입 수요 레이어 */
+    "매입수요":       "#7c3aed"
   },
 
   /* 목록에 표시할 최대 건수 (검색·필터 결과가 많을 때 성능 보호) */

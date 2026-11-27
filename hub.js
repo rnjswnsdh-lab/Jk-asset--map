@@ -1,7 +1,7 @@
 /* =========================================================================
    Open AI Asset Bridge — hub.js  (📝 딜·참여 등록 허브, 2026-11-24)
    -------------------------------------------------------------------------
-   기존 📋 TR 임차의뢰 단일 모달을 6가지 유형을 받는 참여 허브로 확장했습니다.
+   기존 📋 TR 임차의뢰 단일 모달을 7가지 유형(자문사 딜 참여 포함)을 받는 참여 허브로 확장했습니다.
 
      ① 매각 (매물 등록)          ② 매입 / 투자 (사옥·투자 의향)
      ③ 임대 / LM (임대 물건)      ④ TR 임차의뢰
@@ -226,8 +226,8 @@
       title: function (v) { return '[호텔운영] ' + (v.asset || (v.region || '') + ' 호텔') + (v.rooms ? ' · ' + v.rooms + '실' : ''); }
     },
     {
-      code: 'finance', short: '대출·금융', icon: '🏦', label: '대출 / 금융 PR (금리·LTV·조건)',
-      desc: '증권사·금융기관의 대출 조건(금리·LTV·만기·트랑슈)을 제시합니다. NAI 딜 파이프라인과 매칭합니다.',
+      code: 'finance', short: '대출·금융', icon: '🏦', label: '대출신청 / 금융주선 (자격증명 필수)',
+      desc: '대출 신청 및 금융주선(증권사·금융기관의 금리·LTV·만기·트랑슈 제시)을 접수합니다. 금융기관·심사역 자격증명을 반드시 함께 제출해야 검토됩니다.',
       deal: '매입',
       fields: [
         { k: 'asset', l: '대상 사업 · 물건', wide: true, ph: '예) 오피스 매입 1,000억 / 물류센터 개발PF' },
@@ -235,6 +235,7 @@
           { v: '선순위', l: '선순위 담보대출' }, { v: '중순위·메자닌', l: '중순위 · 메자닌' },
           { v: '브릿지', l: '브릿지론' }, { v: '개발PF', l: '개발 PF' }, { v: '리파이낸싱', l: '리파이낸싱' }
         ], v: '선순위' },
+        { k: 'cred', l: '자격 증명 (필수)', req: true, wide: true, ph: '예) 금융투자업 인가번호 / 기관 고유번호 / 심사역 명함(성명·직책·연락처)' },
         { k: 'amount', l: '대출 가능 금액', ph: '예) 600억원 ~ 900억원' },
         { k: 'ltv', l: 'LTV', ph: '예) 60~65%' },
         { k: 'rate', l: '금리', ph: '예) 4.3~4.8% (3년 고정)' },
@@ -243,12 +244,32 @@
         { k: 'memo', l: '비고', t: 'textarea', wide: true, rows: 2, ph: '취급 가능 지역·자산군, 심사 소요기간, 수수료 등' }
       ],
       title: function (v) { return '[금융] ' + (v.finType || '대출') + ' · ' + (v.asset || '대상 미정') + (v.amount ? ' · ' + v.amount : ''); }
+    },
+    {
+      code: 'advisor', short: '자문사딜', icon: '🧾', label: '자문사 딜 참여',
+      desc: '매각·매입·임대·금융 딜에 자문사(회계·세무·감정·기술·법률·AMC)로 참여 의향을 접수합니다. 접수된 자문사 딜은 자문사 딜 프로세싱 시트에서 진행 단계를 관리합니다.',
+      deal: '매입',
+      fields: [
+        { k: 'asset', l: '참여 대상 딜 · 물건', wide: true, ph: '예) CBD 오피스 매각자문 / 특정 물건명' },
+        { k: 'advType', l: '자문 유형', t: 'select', opts: [
+          { v: '매각자문', l: '매각 자문' }, { v: '매입자문', l: '매입 자문' },
+          { v: '임대자문', l: '임대(LM) 자문' }, { v: '금융자문', l: '금융 · PF 자문' },
+          { v: '감정·기술', l: '감정 · 기술용역' }, { v: '회계·세무', l: '회계 · 세무' },
+          { v: '법률', l: '법률' }, { v: 'AMC·운용', l: 'AMC · 운용 대행' }
+        ], v: '매각자문' },
+        { k: 'region', l: '권역', t: 'select', opts: regionOpts() },
+        { k: 'cred', l: '자격 · 실적', wide: true, ph: '예) 감정평가법인 등록번호 / 연간 자문 12건 · 오피스 8건' },
+        { k: 'fee', l: '수수료 · 보수 조건', ph: '예) 성공보수 0.8% / 착수보수 3,000만원' },
+        { k: 'timeline', l: '참여 가능 시기', ph: '예) 즉시 / 2026-12 착수' },
+        { k: 'memo', l: '비고', t: 'textarea', wide: true, rows: 2, ph: '이해상충 여부, 보유 장비·인력, 협업 제안 등' }
+      ],
+      title: function (v) { return '[자문사딜] ' + (v.advType || '자문') + ' · ' + (v.asset || '대상 미정'); }
     }
   ];
 
   /* 접수 유형 라벨 — 목록 필터 칩(['매각','매입','임대','TR','호텔운영','금융'])과
      정확히 같은 문자열이어야 유형별 필터에 잡힙니다. (호텔은 label 첫 단어가 '호텔'이라 어긋났음) */
-  var TYPE_TAGS = { sale: '매각', buy: '매입', lease: '임대', tr: 'TR', hotel: '호텔운영', finance: '금융' };
+  var TYPE_TAGS = { sale: '매각', buy: '매입', lease: '임대', tr: 'TR', hotel: '호텔운영', finance: '금융', advisor: '자문사딜' };
   function tagOf(t) { return TYPE_TAGS[t.code] || String(t.label || '').split(' ')[0]; }
   /** 폼에 '물건명' 입력칸이 있는 유형인지 — 없는 유형(TR·매입·호텔·금융)에
       물건명을 요구하면 입력할 칸조차 없어 접수가 영구히 막힙니다. */
@@ -336,7 +357,7 @@
     var h = '';
     h += '<div class="tr-head">';
     h += '<div><h3>' + t.icon + ' 딜·참여 등록 허브</h3>';
-    h += '<p>매각·매입·임대·TR·호텔운영·금융 6가지 유형을 한 곳에서 등록합니다. 접수 내용은 담당자만 확인합니다.</p></div>';
+    h += '<p>매각·매입·임대·TR·호텔운영·금융·자문사딜 7가지 유형을 한 곳에서 등록합니다. 접수 내용은 담당자만 확인합니다.</p></div>';
     h += '<button type="button" class="tr-x" data-hub="close" aria-label="닫기">×</button>';
     h += '</div>';
     h += '<div class="hub-types">' + chipsHTML(t.code) + '</div>';
@@ -486,6 +507,9 @@
     var t = typeByCode(HUB.type) || TYPES[3];
     var v = collect(host, t);
     if (needAsset(t) && !v.asset) { err(host, '물건명을 입력하세요.'); return; }
+    /* 필수 항목 공통 검증 — 예: 대출·금융주선의 '자격 증명(필수)' */
+    var missing = (t.fields || []).filter(function (f) { return f.req && !v[f.k]; })[0];
+    if (missing) { err(host, missing.l.replace(/\s*\(.*\)\s*$/, '') + '을(를) 입력하세요.'); return; }
     if (!v.company) { err(host, '회사명을 입력하세요.'); return; }
     if (!v.name) { err(host, '성명을 입력하세요.'); return; }
     if (String(v.phone).replace(/[^0-9]/g, '').length < 7) { err(host, '연락처를 정확히 입력하세요.'); return; }
@@ -589,7 +613,7 @@
   function typeChipsHTML() {
     var counts = {};
     LIST.items.forEach(function (r) { var k = normType(r); counts[k] = (counts[k] || 0) + 1; });
-    var codes = ['매각', '매입', '임대', 'TR', '호텔운영', '금융'];
+    var codes = ['매각', '매입', '임대', 'TR', '호텔운영', '금융', '자문사딜'];
     var h = '<button type="button" class="hub-fchip' + (LIST.filter === 'ALL' ? ' on' : '') + '" data-hub-filter="ALL">전체 <b>' + LIST.items.length + '</b></button>';
     codes.forEach(function (c) {
       h += '<button type="button" class="hub-fchip' + (LIST.filter === c ? ' on' : '') + '" data-hub-filter="' + esc(c) + '">' +

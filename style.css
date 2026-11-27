@@ -3389,3 +3389,85 @@ label.rfp-pick span { flex: 1; }
   .bc-hit-mail { display: none; }
   .bc-acts .btn { margin-left: 0; width: 100%; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   2026-11-27 금융기관 실체 진위확인 (3단계 체크리스트 · 인증 대장)
+   ══════════════════════════════════════════════════════════════════════ */
+.lv-sum { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.lv-chip { display: inline-flex; align-items: baseline; gap: 5px; font-size: 10.2px; font-weight: 800;
+  border-radius: 999px; padding: 3px 10px; background: #eef2f7; color: #40556e; border: 1px solid transparent; }
+.lv-chip b { font-size: 12.5px; letter-spacing: -.01em; }
+.lv-chip.ok { background: #ecfdf5; color: #0f766e; border-color: #a7f3d0; }
+.lv-chip.wait { background: #fff7ed; color: #b45309; border-color: #fde3c0; }
+.lv-chip.off { background: #fdecec; color: #b3262c; border-color: #f6c9c9; }
+.lv-chip.info { background: #eef4ff; color: #0b4a8f; border-color: #cfe0fa; }
+
+.lv-prog { display: inline-flex; gap: 3px; vertical-align: middle; }
+.lv-prog i { width: 17px; height: 17px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
+  font-style: normal; font-size: 9.6px; font-weight: 800; background: #eef2f7; color: #94a3b8; }
+.lv-prog i.pass { background: #0f766e; color: #fff; }
+.lv-prog i.warn { background: #f59e0b; color: #fff; }
+.lv-prog i.fail { background: #b3262c; color: #fff; }
+.lv-prog i.hold { background: #e2e8f0; color: #64748b; }
+
+.lv-board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lv-card { border: 1px solid var(--line); border-left: 3px solid #cbd5e1; border-radius: 12px;
+  padding: 10px 11px; background: #fff; box-shadow: var(--shadow-sm); }
+.lv-card.st-done { border-left-color: #0f766e; }
+.lv-card.st-doing { border-left-color: #f59e0b; }
+.lv-card.st-rejected { border-left-color: #b3262c; }
+.lv-card.st-review { border-left-color: #dc2626; background: #fffbfb; }
+.lv-head { display: flex; align-items: flex-start; gap: 7px; flex-wrap: wrap; }
+.lv-head b { font-size: 12.6px; color: var(--navy); }
+.lv-head em { font-style: normal; font-size: 9.8px; color: var(--muted); }
+.lv-tools { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+.lv-steps { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.lv-step { display: flex; align-items: flex-start; gap: 7px; border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 5px 8px; background: #fbfcfe; }
+.lv-step .lv-ico { width: 17px; height: 17px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; background: #eef2f7; color: #94a3b8; flex-shrink: 0; }
+.lv-step b { font-size: 10.9px; color: var(--text-2); display: block; }
+.lv-step em { font-style: normal; font-size: 9.8px; color: var(--muted); display: block; line-height: 1.5; }
+.lv-step.st-pass { border-color: #bbf0d9; background: #f2fdf8; }
+.lv-step.st-pass .lv-ico { background: #0f766e; color: #fff; }
+.lv-step.st-warn { border-color: #fde3c0; background: #fffbf3; }
+.lv-step.st-warn .lv-ico { background: #f59e0b; color: #fff; }
+.lv-step.st-fail { border-color: #f6c9c9; background: #fdf5f5; }
+.lv-step.st-fail .lv-ico { background: #b3262c; color: #fff; }
+.lv-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 9.8px; color: var(--muted); }
+.lv-reject { color: #b3262c; background: #fdecec; border: 1px dashed #f6c9c9; border-radius: 8px;
+  padding: 5px 8px; font-size: 10.2px; margin-top: 7px; line-height: 1.55; }
+
+.lv-sec { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 11px; background: #fbfdff; }
+.lv-sec-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; flex-wrap: wrap; }
+.lv-sec-head b { font-size: 11.9px; color: var(--navy); }
+.lv-sec-head .lv-n { width: 19px; height: 19px; border-radius: 50%; background: var(--navy); color: #fff;
+  font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.lv-badge { font-size: 9.6px; font-weight: 800; border-radius: 999px; padding: 2px 8px; background: #eef2f7; color: #64748b; margin-left: auto; }
+.lv-badge.pass { background: #ecfdf5; color: #0f766e; }
+.lv-badge.warn { background: #fff7ed; color: #b45309; }
+.lv-badge.fail { background: #fdecec; color: #b3262c; }
+.lv-badge.hold { background: #f1f5f9; color: #475569; }
+.lv-links { display: flex; flex-wrap: wrap; gap: 5px 12px; margin: 5px 0 8px; font-size: 10.2px; }
+.lv-links a { color: #0b6bcb; text-decoration: none; }
+.lv-links a:hover { text-decoration: underline; }
+.lv-auto { border: 1px dashed var(--line); border-radius: 9px; padding: 8px 10px; background: #fff; font-size: 10.4px; color: var(--text-2); }
+.lv-auto > b { font-size: 10.6px; color: var(--navy); }
+.lv-auto ul { margin: 5px 0 0 14px; padding: 0; }
+.lv-auto li { margin: 1px 0; line-height: 1.5; }
+.lv-auto li.ok { color: #0f766e; }
+.lv-auto li.warn { color: #b45309; }
+.lv-auto li.bad { color: #b3262c; font-weight: 700; }
+.lv-file { display: flex; align-items: center; gap: 7px; font-size: 10.4px; background: #f6f9fc;
+  border: 1px solid var(--line-2); border-radius: 8px; padding: 5px 8px; margin-top: 5px; }
+.lv-file em { font-style: normal; font-size: 9.8px; color: var(--muted); }
+.lv-file .mini-btn { margin-left: auto; }
+.lv-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; margin-right: 5px; vertical-align: middle; }
+.lv-dot.ok { background: #0f766e; }
+.lv-dot.wait { background: #f59e0b; }
+.lv-dot.off { background: #b3262c; }
+
+@media (max-width: 860px) {
+  .lv-board { grid-template-columns: 1fr; }
+  .lv-sec .rfp-formgrid { grid-template-columns: 1fr; }
+}

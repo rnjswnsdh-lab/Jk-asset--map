@@ -27,6 +27,7 @@
 ## 1. 시트 탭과 헤더
 
 > **2026-11-27 현재: 아래 18개 탭과 헤더를 시트에 이미 만들어 두었습니다.**
+> (`rfp_lender_checks` 는 **추가 제안**입니다 — 실체 진위확인 감사 로그용, 아직 시트에 없음)
 > (`rfp`, `rfp_docs`, `rfp_items`, `rfp_invites`, `rfp_submissions`, `rfp_scores`, `rfp_codes`,
 > `rfp_access`, `rfp_ca`, `rfp_marketing`, `rfp_notices`, `rfp_buyers`, `rfp_bid_subs`,
 > `rfp_lenders`, `rfp_loi_conf`, `rfp_advisors`, `rfp_sessions`, `rfp_works`)
@@ -51,7 +52,8 @@
 | `rfp_notices` | `id, rfp_id, title, open_at, close_at, status, updated_at, json` |
 | `rfp_buyers` | `id, name, corp_no, ceo, contact, email, phone, status, verified_at, updated_at, json` |
 | `rfp_bid_subs` | `id, notice_id, rfp_id, buyer_id, kind, version, status, amount_eok, at, updated_at, json` |
-| `rfp_lenders` | `id, name, dept, manager, email, phone, status, verified_at, updated_at, json` |
+| `rfp_lenders` | `id, name, dept, manager, email, phone, status, verified_at, updated_at, json` — `json` 에 실체 진위확인(`vf` 3단계·`history`·`declared`·`next_review_at`)이 들어갑니다. 사람이 보기용 확장 열 제안: `biz_no, ceo, opened_at, org_tel, verified_by, next_review_at, step1_result, step2_tax, step3_domain, reject_reason` |
+| `rfp_lender_checks` *(제안)* | `id, lender_id, lender_name, step, result, by, at, source_url, evidence, memo, json` — 실체 진위확인 감사 로그(append-only). 여러 기기 동시 작업 시 `json.history` 덮어쓰기를 막습니다 |
 | `rfp_loi_conf` | `id, sub_id, rfp_id, lender_id, result, amount_eok, ltv, at, json` |
 | `rfp_works` | `id, asset_id, name, address, sector, at` |
 | `rfp_sessions` | `token, code, holder, holder_type, rfp_id, issued_at, expires_at` (코드 로그인 세션) |
@@ -91,7 +93,8 @@ var RFP_SHEETS = {
   notices:     ['id','rfp_id','title','open_at','close_at','status','updated_at','json'],
   buyers:      ['id','name','corp_no','ceo','contact','email','phone','status','verified_at','updated_at','json'],
   bidSubs:     ['id','notice_id','rfp_id','buyer_id','kind','version','status','amount_eok','at','updated_at','json'],
-  lenders:     ['id','name','dept','manager','email','phone','status','verified_at','updated_at','json'],
+  lenders:     ['id','name','dept','manager','email','phone','status','verified_at','updated_at','json','biz_no','ceo','opened_at','org_tel','verified_by','next_review_at','step1_result','step2_tax','step3_domain','reject_reason'],
+  lenderChecks:['id','lender_id','lender_name','step','result','by','at','source_url','evidence','memo','json'],
   loiconf:     ['id','sub_id','rfp_id','lender_id','result','amount_eok','ltv','at','json'],
   advisors:    ['id','company','name','email','phone','at','updated_at','json']
 };
@@ -100,7 +103,8 @@ var RFP_TAB_NAME = {
   works:'rfp_works', docs:'rfp_docs', rfps:'rfp', items:'rfp_items', invites:'rfp_invites',
   submissions:'rfp_submissions', scores:'rfp_scores', codes:'rfp_codes', access:'rfp_access',
   ca:'rfp_ca', marketing:'rfp_marketing', notices:'rfp_notices', buyers:'rfp_buyers',
-  bidSubs:'rfp_bid_subs', lenders:'rfp_lenders', loiconf:'rfp_loi_conf', advisors:'rfp_advisors'
+  bidSubs:'rfp_bid_subs', lenders:'rfp_lenders', loiconf:'rfp_loi_conf', advisors:'rfp_advisors',
+  lenderChecks:'rfp_lender_checks'
 };
 
 function rfpSetup() {
@@ -367,8 +371,10 @@ function rfpPost_(body, token) {
 - 자문사·매수자·금융기관 **계정 체계**: 지금은 승인 코드(무계정) 방식입니다. 기업별 상시 계정이
   필요하면 코드 → 계정 매핑 테이블과 로그인 화면이 추가로 필요합니다.
 - **파일 저장 위치**: 시트 셀 vs Google Drive. VDR 급 자료(렌트롤 원본·IM)는 Drive 가 맞습니다.
-- **금융기관 인증 방식**: 현재는 담당자 수동 인증(등록 → 인증)입니다. 실제로는 은행 담당자
-  본인확인(업무 이메일 도메인 인증, 확인서 업로드 등)이 필요할 수 있습니다.
+- **금융기관 인증 방식**: 2026-11-27부터 **실체 진위확인 3단계**(제도권 여부·사업자등록/법인등기·담당자 콜백)로
+  바뀌었습니다. 절차·데이터·연동 지점은 `docs/금융기관_실체진위확인_설계.md` 참고.
+  남은 결정: (1) 국세청·금융위 API 자동 호출 도입 여부(키는 스크립트 속성에), (2) 등기부 원본의
+  Drive 보관·권한, (3) 재확인 주기(현재 12개월)와 경고 시점(현재 60일).
 - **RFP 표준 양식 확정**: 지금 기본값은 기획 문서의 항목(수수료·매각가·기간·실적·접근력·인력·일정·
   추가 서비스)입니다. NAI Korea 표준 배포 문구가 있으면 `rfpcore.js` 의 `DEFAULT_DOCS`·
   `newRfp()` 문구만 바꾸면 됩니다.

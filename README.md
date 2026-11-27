@@ -48,7 +48,8 @@ NAI Korea의 상업용 부동산 물건 DB(호텔 · 물류센터 · 오피스 �
 
 - **현재 동작**: Apps Script 에 `type=rfp` API 가 아직 없어 **브라우저 localStorage**(`nai-map:rfp:v1`)에 저장되고 화면에 `💾 로컬 저장` 배지가 표시됩니다. 다른 기기와 공유되지 않습니다.
 - **서버가 붙으면**: `GET ?type=rfp` → `{ok:true, data:{rfps:[…], submissions:[…], …}}`, `POST {action:'rfp_save'|'rfp_delete', entity, item}` 로 자동 전환(`rfpcore.js` 의 `pullServer`·`pushServer`). 응답이 없으면 로컬로 폴백합니다.
-- 시트 탭·헤더·Apps Script 코드는 **`docs/RFP_서버_패치.md`** 에 붙여넣을 위치와 함께 정리했습니다(서버 배포는 담당자가 진행).
+- 시트에는 RFP 탭 18종(`rfp`, `rfp_docs`, `rfp_items`, `rfp_invites`, `rfp_submissions`, `rfp_scores`, `rfp_codes`, `rfp_access`, `rfp_ca`, `rfp_marketing`, `rfp_notices`, `rfp_buyers`, `rfp_bid_subs`, `rfp_lenders`, `rfp_loi_conf`, `rfp_advisors`, `rfp_sessions`, `rfp_works`)과 헤더를 **미리 만들어 두었습니다**(기존 탭은 그대로). Apps Script 코드는 아직 배포 전이라 현재는 로컬 모드입니다.
+- Apps Script 코드(`Rfp.gs`)·연결 위치·권한 판정·배포 순서는 **`docs/RFP_서버_패치.md`** 에 정리했습니다(서버 배포는 담당자가 진행).
 - 로컬 데이터는 `📑 RFP → 내보내기(JSON)`로 백업·이전할 수 있습니다.
 
 ## 🧾 홈 재배치 · 물건 지도 구분 정리 (2026-11-27 저녁)

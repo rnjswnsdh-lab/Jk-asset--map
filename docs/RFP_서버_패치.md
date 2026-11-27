@@ -26,7 +26,14 @@
 
 ## 1. 시트 탭과 헤더
 
-`rfpSetup()` 을 편집기에서 **한 번** 실행하면 아래 탭이 없을 때만 만듭니다(기존 데이터 보존).
+> **2026-11-27 현재: 아래 18개 탭과 헤더를 시트에 이미 만들어 두었습니다.**
+> (`rfp`, `rfp_docs`, `rfp_items`, `rfp_invites`, `rfp_submissions`, `rfp_scores`, `rfp_codes`,
+> `rfp_access`, `rfp_ca`, `rfp_marketing`, `rfp_notices`, `rfp_buyers`, `rfp_bid_subs`,
+> `rfp_lenders`, `rfp_loi_conf`, `rfp_advisors`, `rfp_sessions`, `rfp_works`)
+> 기존 탭(`assets`·`lois`·`investors`·`vdr_rooms`·`admin` 등)은 건드리지 않았습니다.
+> 서버 코드가 배포되기 전이라 아직 비어 있고, 앱은 로컬 모드로 동작합니다.
+
+`rfpSetup()` 은 다른 환경(복제 시트 등)에서 한 번 실행하면 아래 탭이 없을 때만 만듭니다(기존 데이터 보존).
 각 행은 `json` 컬럼에 원본 객체를 JSON 으로 보관하고, 앞쪽 컬럼은 사람이 시트에서 보기·검색하기 위한 사본입니다.
 
 | 탭 | 헤더 |

@@ -170,6 +170,7 @@
       ' — <span>' + esc(names) + ' 건만 표시</span>' +
       ' <button type="button" class="mini-btn" data-tft-list="sale">매각 ' + saleItems().length + '</button>' +
       ' <button type="button" class="mini-btn" data-tft-list="public">공개·입찰 ' + publicItems().length + '</button>' +
+      ' <button type="button" class="mini-btn" data-sharelist-open>📤 화주 공개 목록</button>' +
       (admin ? ' <button type="button" class="mini-btn" data-tft-off>미리보기 해제</button>' : '');
   }
   function esc(s) {

@@ -236,6 +236,7 @@
       '<p>팀장회의(화 08:31)·월간회의 기록을 <b>매각·임대(딜) 화면과 분리</b>해 두는 자리입니다. 관리자만 열람·수정할 수 있고, 수정할 때마다 누가·언제·무엇을 고쳤는지 기록이 남습니다.</p></div>' +
       '<div class="ad-tools">' +
       '<button type="button" class="btn btn-ghost" id="hqRefresh">↻ 새로고침</button>' +
+      (isAdmin() ? '<button type="button" class="btn btn-ghost" id="hqBroadcast">📰 아티클 배포</button>' : '') +
       (isAdmin() ? '<button type="button" class="btn btn-ghost" id="hqAcl">🔐 접근 명단</button>' : '') +
       '<button type="button" class="btn btn-outline" id="hqNew">＋ 회의록 등록</button>' +
       '</div></div>' +
@@ -361,6 +362,11 @@
     if (nw) nw.addEventListener('click', function () { openEditor(null); });
     var acl = $('#hqAcl');
     if (acl) acl.addEventListener('click', function () { openAcl(); });
+    var bc = $('#hqBroadcast');
+    if (bc) bc.addEventListener('click', function () {
+      if (window.NAI_BROADCAST) window.NAI_BROADCAST.open();
+      else toast('배포 화면(broadcast.js)을 불러오지 못했습니다. 새로고침해 주세요.', true);
+    });
     var q = $('#hqQ');
     if (q) {
       var t = null;

@@ -301,6 +301,10 @@
   /* ── 매각중·임대중 물건 스트립 — 홈은 '진행 중'만, 섹터는 오피스·데이터센터 중심 (2026-11-27) ── */
   function homeSector() { return BOOT.homeSector || 'office'; }
   function inHomeSector(a) {
+    /* 공유 그룹(TFT)이 켜져 있으면 그 그룹의 섹터만 (예: 물류센터 TFT → logistics) */
+    if (window.NAI_TFT && window.NAI_TFT.isActive && window.NAI_TFT.isActive()) {
+      return window.NAI_TFT.matchAsset(a);
+    }
     var k = homeSector();
     if (k === 'ALL') return true;
     if (k === 'office') return a.sector === 'office';
@@ -325,9 +329,11 @@
       .slice(0, 10);
 
     var html = '<div class="strip-chips">' +
-      [['office', '🏢 오피스'], ['datacenter', '🖥️ 데이터센터'], ['ALL', '전체 섹터']].map(function (it) {
-        return '<button type="button" class="mini-btn' + (homeSector() === it[0] ? ' is-on' : '') + '" data-home="home-sector" data-sector="' + it[0] + '">' + it[1] + '</button>';
-      }).join('') +
+      (window.NAI_TFT && window.NAI_TFT.isActive()
+        ? '<span class="strip-tft">🤝 ' + esc((window.NAI_TFT.group() || {}).name || 'TFT') + ' 적용 중</span>'
+        : [['office', '🏢 오피스'], ['datacenter', '🖥️ 데이터센터'], ['ALL', '전체 섹터']].map(function (it) {
+          return '<button type="button" class="mini-btn' + (homeSector() === it[0] ? ' is-on' : '') + '" data-home="home-sector" data-sector="' + it[0] + '">' + it[1] + '</button>';
+        }).join('')) +
       '<span class="strip-note">진행 중인 매각·임대·경공매만 표시 (검토·예정·종결 제외)</span></div>';
     if (scored.length) {
       html += '<h3 class="strip-h">🏛️ 경·공매 · 입찰임박</h3><div class="cards-row">';

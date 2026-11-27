@@ -617,8 +617,20 @@
       adTab.classList.toggle('hidden', !admin);
       adTab.disabled = !admin;
     }
-    if (!admin && document.body.classList.contains('view-admin') && window.naiShowView) {
+    /* 🗂️ NAI 행정 탭 — 회의록 열람 권한(관리자 + 시트 admin_access 명단)에게만 노출합니다.
+       서버가 권한 없는 요청에는 회의록을 내려주지 않으므로, 화면 숨김은 보조 수단입니다. */
+    var hqTab = $('#btnAdminHqTab');
+    if (hqTab) {
+      var hqOk = !!(window.NAI_HQ && window.NAI_HQ.canAccess && window.NAI_HQ.canAccess());
+      hqTab.classList.toggle('hidden', !hqOk);
+      hqTab.disabled = !hqOk;
+    }
+    if (!admin && (document.body.classList.contains('view-admin') || document.body.classList.contains('view-adminhq')) && window.naiShowView) {
       try { window.naiShowView('home'); } catch (e4) { /* noop */ }
+    }
+    /* 권한이 바뀌면 받아 둔 회의록을 즉시 버립니다 */
+    if (window.NAI_HQ && window.NAI_HQ.reset) {
+      try { window.NAI_HQ.reset(); } catch (e6) { /* noop */ }
     }
     if (admin && window.NAI_LOGS && window.NAI_LOGS.prefetch) {
       try { window.NAI_LOGS.prefetch(); } catch (e5) { /* noop */ }
@@ -3106,6 +3118,12 @@
       else { state.filters.dealType = 'ALL'; state.filters.trade = (k === 'sale' || k === 'lease') ? k : ''; }
       initFilters();
       applyFilters();
+    },
+    /* 공유 그룹(TFT) 필터 적용 후 재계산 (tft.js) */
+    applyGroupFilter: function () {
+      initFilters();
+      applyFilters();
+      buildLegend();
     },
     lmStatus: lmStatusOf,
     displayStatus: displayStatus,

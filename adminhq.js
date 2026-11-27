@@ -26,7 +26,9 @@
   var S = {
     items: [], loaded: false, loading: false, err: '', src: '',
     q: '', kind: 'ALL', deal: 'ALL', sort: 'recent',
-    open: {}, hist: null, histFor: '', built: false
+    open: {}, hist: null, histFor: '', built: false,
+    /* 권한 — 관리자이거나, 서버가 admin_access 명단으로 허용한 사용자만 */
+    granted: false, acl: [], aclLoaded: false, aclErr: ''
   };
   var loadedToken = null;
 
@@ -101,8 +103,20 @@
 
   function clear() {
     S.items = []; S.loaded = false; S.loading = false; loadedToken = null; S.err = ''; S.src = '';
+    S.granted = false; S.acl = []; S.aclLoaded = false; S.aclErr = '';
     window.NAI_TEAM = null;
     document.body.classList.remove('has-team');
+  }
+
+  /** 회의록 접근 가능 여부 — 관리자(role==='admin') 또는 서버가 허용한 명단 사용자 */
+  function canAccess() { return isAdmin() || S.granted === true; }
+
+  function syncTab() {
+    var b = document.getElementById('btnAdminHqTab');
+    if (!b) return;
+    var ok = canAccess();
+    b.classList.toggle('hidden', !ok);
+    b.disabled = !ok;
   }
 
   function useItems(list, src) {
@@ -125,7 +139,21 @@
   }
 
   function load(force) {
-    if (!isAdmin() || !token()) { clear(); return Promise.resolve(false); }
+    if (!token()) { clear(); return Promise.resolve(false); }
+    if (!isAdmin() && !S.granted) {
+      /* 관리자가 아니면 서버에 한 번만 물어봅니다 — 명단에 있으면 서버가 데이터를 내려줍니다. */
+      if (S.loaded && !force) return Promise.resolve(false);
+      S.loaded = true;
+      return apiGet('type=admin').then(function (j) {
+        if (j && j.ok && Array.isArray(j.items)) {
+          S.granted = true; loadedToken = token();
+          useItems(j.items.filter(isMeeting), 'admin'); syncTab();
+          if (built()) render();
+          return true;
+        }
+        return false;
+      }).catch(function () { return false; });
+    }
     var tk = token();
     if (loadedToken && loadedToken !== tk) clear();
     if (S.loading) return Promise.resolve(false);
@@ -186,6 +214,7 @@
       '<p>팀장회의(화 08:31)·월간회의 기록을 <b>매각·임대(딜) 화면과 분리</b>해 두는 자리입니다. 관리자만 열람·수정할 수 있고, 수정할 때마다 누가·언제·무엇을 고쳤는지 기록이 남습니다.</p></div>' +
       '<div class="ad-tools">' +
       '<button type="button" class="btn btn-ghost" id="hqRefresh">↻ 새로고침</button>' +
+      (isAdmin() ? '<button type="button" class="btn btn-ghost" id="hqAcl">🔐 접근 명단</button>' : '') +
       '<button type="button" class="btn btn-outline" id="hqNew">＋ 회의록 등록</button>' +
       '</div></div>' +
       '<div id="hqKpi" class="ad-kpi"></div>' +
@@ -308,6 +337,8 @@
     if (rf) rf.addEventListener('click', function () { load(true); });
     var nw = $('#hqNew');
     if (nw) nw.addEventListener('click', function () { openEditor(null); });
+    var acl = $('#hqAcl');
+    if (acl) acl.addEventListener('click', function () { openAcl(); });
     var q = $('#hqQ');
     if (q) {
       var t = null;
@@ -471,7 +502,10 @@
     if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
     var changed = orig ? changedFields(orig, item) : ['신규 등록'];
 
-    apiPost({ action: 'admin_save', item: item }).then(function (j) {
+    /* admin 탭을 서버가 실제로 읽어 주고 있을 때만 admin_save를 씁니다.
+       (그렇지 않으면 서버가 알 수 없는 액션으로 조용히 넘겨 저장이 유실될 수 있어 articles 경로만 사용) */
+    var tryAdminSave = (S.src === 'admin');
+    (tryAdminSave ? apiPost({ action: 'admin_save', item: item }) : Promise.resolve(null)).then(function (j) {
       if (j && j.ok) return j;
       /* 서버에 admin_save 가 아직 없을 때 — 기존 articles 경로로 저장(이관 전 호환) */
       return apiPost({
@@ -547,11 +581,131 @@
     });
   }
 
+  /* ───────────────── 접근 명단 (admin_access) ─────────────────
+     운영: 대표가 이름을 말하면 이 명단에 등록한다. 이름은 표시용이고,
+     실제 접근 판정은 명함 이메일(account)로 한다. 등록·해제는 모두 이력으로 남는다. */
+
+  function loadAcl(force) {
+    if (!isAdmin()) return Promise.resolve(false);
+    if (S.aclLoaded && !force) return Promise.resolve(true);
+    return apiGet('type=admin_access').then(function (j) {
+      S.aclLoaded = true;
+      if (j && j.ok && Array.isArray(j.items)) { S.acl = j.items; S.aclErr = ''; return true; }
+      S.acl = []; S.aclErr = 'server';
+      return false;
+    }).catch(function () { S.aclLoaded = true; S.acl = []; S.aclErr = 'net'; return false; });
+  }
+
+  function aclTableHTML() {
+    if (!S.aclLoaded) return '<p class="hs-empty">명단을 불러오는 중…</p>';
+    if (S.aclErr) {
+      return '<div class="hq-empty"><b>명단을 서버에서 읽지 못했습니다.</b>' +
+        '<p>지금은 비공개 시트의 <b>admin_access</b> 탭을 직접 고쳐 주세요. 한 줄에 ' +
+        'id · 이름 · 소속 · 명함 이메일 · 권한(VIEW/EDIT) · 상태(허용/해제) · 부여자 · 부여일 · 해제자 · 해제일 · 메모 순서입니다. ' +
+        '시트를 고친 뒤 ↻ 새로고침을 누르면 반영됩니다.</p></div>';
+    }
+    var live = S.acl.filter(function (r) { return String(r.status || '허용') !== '해제'; });
+    if (!live.length) return '<p class="hs-empty">등록된 사람이 없습니다. 이름·명함 이메일을 넣고 [등록]을 누르면 그 사람에게만 행정 탭이 열립니다.</p>';
+    return '<div class="ad-tablewrap"><table class="ad-table"><thead><tr>' +
+      '<th>이름</th><th>소속</th><th>명함 이메일</th><th>권한</th><th>부여</th><th></th></tr></thead><tbody>' +
+      live.map(function (r) {
+        return '<tr><td><b>' + esc(r.name || '') + '</b></td><td>' + esc(r.org || '') + '</td>' +
+          '<td>' + esc(r.email || '') + '</td>' +
+          '<td>' + esc(r.access || 'VIEW') + '</td>' +
+          '<td class="nowrap">' + esc([r.granted_by, String(r.granted_at || '').slice(0, 10)].filter(Boolean).join(' · ')) + '</td>' +
+          '<td><button type="button" class="mini-btn danger" data-hq-revoke="' + esc(r.id || r.email) + '">해제</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function openAcl() {
+    var body = '<div class="read-meta">행정 탭 접근 명단 · 관리자 전용</div>' +
+      '<p class="hq-meta">이름을 말씀하시면 여기에 등록합니다. <b>실제 접근 판정은 명함 이메일</b>로 하고, 이름은 표시용입니다(동명이인 구분). ' +
+      '등록·해제는 누가·언제 했는지 이력으로 남습니다.</p>' +
+      '<div class="hq-acl-form">' +
+      '<label><span>이름 *</span><input id="aclName" type="text" placeholder="예) 김광연"></label>' +
+      '<label><span>소속</span><input id="aclOrg" type="text" placeholder="예) NAI Korea CM팀"></label>' +
+      '<label><span>명함 이메일 *</span><input id="aclEmail" type="email" placeholder="name@naikorea.com"></label>' +
+      '<label><span>권한</span><select id="aclAccess"><option value="VIEW">열람만</option><option value="EDIT">열람 + 수정</option></select></label>' +
+      '<button type="button" class="btn btn-solid" id="aclAdd">등록</button></div>' +
+      '<div id="aclBody">' + aclTableHTML() + '</div>' +
+      '<div class="fm-err hidden" id="aclErr"></div>';
+    modalOpen('🔐 행정 탭 접근 명단', body);
+    loadAcl(true).then(function () {
+      var host = $('#aclBody');
+      if (host) host.innerHTML = aclTableHTML();
+    });
+    var add = $('#aclAdd');
+    if (add) add.addEventListener('click', function () { saveAcl(); });
+    var box = $('#aclBody');
+    if (box && !box._bound) {
+      box._bound = true;
+      box.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-hq-revoke]');
+        if (!b) return;
+        var key = b.getAttribute('data-hq-revoke');
+        var row = S.acl.filter(function (r) { return (r.id || r.email) === key; })[0];
+        if (!row) return;
+        if (!window.confirm('“' + (row.name || row.email) + '” 님의 행정 탭 접근을 해제할까요?')) return;
+        b.disabled = true;
+        apiPost({ action: 'admin_acl_revoke', id: row.id || '', email: row.email || '' }).then(function (j) {
+          b.disabled = false;
+          if (j && j.ok) {
+            row.status = '해제';
+            logAcl('revoke', row);
+            var host = $('#aclBody'); if (host) host.innerHTML = aclTableHTML();
+            toast('접근을 해제했습니다.');
+          } else toast('해제하지 못했습니다: ' + ((j && j.error) || '서버 응답 없음'), true);
+        }).catch(function () { b.disabled = false; toast('해제하지 못했습니다(네트워크)', true); });
+      });
+    }
+  }
+
+  function aclVal(id) { var el = $('#' + id); return el ? String(el.value || '').trim() : ''; }
+
+  function saveAcl() {
+    var name = aclVal('aclName'), email = aclVal('aclEmail');
+    var err = $('#aclErr');
+    var fail = function (m) { if (err) { err.textContent = m; err.classList.remove('hidden'); } };
+    if (!name) return fail('이름을 입력하세요.');
+    if (!email || email.indexOf('@') < 0) return fail('명함 이메일을 정확히 입력하세요(판정 기준).');
+    var me = (window.naiMap && window.naiMap.state && window.naiMap.state.me && window.naiMap.state.me.name) || '관리자';
+    var item = {
+      id: 'acl-' + Date.now().toString(36),
+      name: name, org: aclVal('aclOrg'), email: email.toLowerCase(),
+      access: aclVal('aclAccess') || 'VIEW', status: '허용',
+      granted_by: me, granted_at: new Date().toISOString(),
+      revoked_by: '', revoked_at: '', note: ''
+    };
+    var btn = $('#aclAdd');
+    if (btn) { btn.disabled = true; btn.textContent = '등록 중…'; }
+    apiPost({ action: 'admin_acl_save', item: item }).then(function (j) {
+      if (btn) { btn.disabled = false; btn.textContent = '등록'; }
+      if (j && j.ok) {
+        S.acl.push(item);
+        logAcl('grant', item);
+        var host = $('#aclBody'); if (host) host.innerHTML = aclTableHTML();
+        ['aclName', 'aclOrg', 'aclEmail'].forEach(function (k) { var el = $('#' + k); if (el) el.value = ''; });
+        toast(item.name + ' 님에게 행정 탭 ' + (item.access === 'EDIT' ? '열람·수정' : '열람') + ' 권한을 등록했습니다.');
+      } else {
+        fail('등록하지 못했습니다: ' + ((j && j.error) || '서버 응답 없음') + ' — 서버 패치(Admin.gs) 전에는 시트 admin_access 탭에 직접 한 줄 추가해 주세요.');
+      }
+    }).catch(function () {
+      if (btn) { btn.disabled = false; btn.textContent = '등록'; }
+      fail('등록하지 못했습니다(네트워크).');
+    });
+  }
+
+  function logAcl(action, row) {
+    var detail = 'id=' + (row.id || '') + '|' + action + '|' + (row.name || '') + '|' + (row.email || '') + '|' + (row.access || 'VIEW');
+    apiPost({ action: 'log_event', kind: action === 'grant' ? 'admin_access_grant' : 'admin_access_revoke', detail: detail })
+      .catch(function () { /* 로그 실패는 화면과 무관 */ });
+  }
+
   /* ───────────────── 공개 인터페이스 ───────────────── */
 
   function show() {
-    if (!isAdmin()) {
-      toast('관리자 전용 화면입니다.', true);
+    if (!canAccess()) {
+      toast('회의록 열람 권한이 없습니다.', true);
       if (window.naiShowView) window.naiShowView('home');
       return;
     }
@@ -562,10 +716,12 @@
     clear();
     if ($('#adminHqView') && !$('#adminHqView').classList.contains('hidden')) { render(); load(false); }
   }
-  function prefetch() { if (isAdmin()) load(false); }
+  function prefetch() { syncTab(); load(false); }
 
   window.NAI_HQ = {
     show: show, reset: reset, prefetch: prefetch, load: load,
+    canAccess: canAccess, acl: function () { return S.acl; },
+    openAcl: openAcl,
     state: S, team: function () { return S.items; }, isReady: function () { return S.loaded; }
   };
 

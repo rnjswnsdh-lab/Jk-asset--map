@@ -650,9 +650,7 @@
         '<td class="nowrap">' + esc(r.phone || '') + '</td>' +
         '<td>' + esc([r.price, r.area_py, r.rent, r.timeline].filter(Boolean).join(' · ')) + '</td>' +
         '<td><span class="hub-st">' + esc(r.status || '접수') + '</span></td>' +
-        '<td class="nowrap">' + (normType(r) === 'TR'
-          ? '<button type="button" class="mini-btn hub-share" data-hub-share="' + esc(r.id || '') + '" title="PR(임차의뢰) 건을 파트너에게 블라인드 기준으로 공유">📧 PR 공유</button>'
-          : '<span class="hub-noshare" title="물건별·다른 유형 공유는 폐지 — PR(임차의뢰)만 파트너 공유">—</span>') + '</td></tr>';
+        '<td class="nowrap">' + shareCellHTML(r) + '</td></tr>';
     });
     h += '</tbody></table></div>';
     return h;
@@ -740,6 +738,21 @@
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 500);
     toast(rows.length + '건을 PR CSV로 저장했습니다. (발송·연동은 하지 않습니다)');
+  }
+
+  /** 공유 셀 — PR(임차의뢰) 이면서 공유 그룹(TFT)에 해당하는 건만 공유 버튼 (2026-11-27) */
+  function shareCellHTML(r) {
+    if (normType(r) !== 'TR') {
+      return '<span class="hub-noshare" title="물건별·다른 유형 공유는 폐지 — PR(임차의뢰)만 공유">—</span>';
+    }
+    var gs = (window.NAI_TFT && window.NAI_TFT.groupsForRequest) ? window.NAI_TFT.groupsForRequest(r) : [];
+    if (!gs.length) {
+      var sec = (window.NAI_TFT && window.NAI_TFT.sectorOfRequest) ? window.NAI_TFT.sectorOfRequest(r) : '';
+      return '<span class="hub-noshare" title="이 PR은 해당 섹터의 공유 그룹이 없습니다' + (sec ? ' (' + esc(sec) + ')' : '') + '">—</span>';
+    }
+    return '<button type="button" class="mini-btn hub-share" data-hub-share="' + esc(r.id || '') + '" ' +
+      'title="' + esc(gs.map(function (g) { return g.name; }).join(', ')) + ' 에게 블라인드 기준으로 공유">📧 ' +
+      esc(gs.map(function (g) { return g.name.replace(/ TFT$/, ' TFT'); }).join(' · ')) + ' 공유</button>';
   }
 
   function renderListBody() {    var body = $('#hubListBody');

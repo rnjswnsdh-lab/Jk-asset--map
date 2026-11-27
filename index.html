@@ -27,7 +27,7 @@
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Open AI Asset Bridge — 상업용 부동산 통합 플랫폼">
 <meta name="twitter:description" content="오피스·물류센터·데이터센터·호텔·리테일·토지·골프장·시니어하우징 물건 지도와 딜 아티클, 업무 의뢰 접수.">
-<link rel="stylesheet" href="style.css?v=20261127i">
+<link rel="stylesheet" href="style.css?v=20261127k">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2a4a'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='system-ui,sans-serif' font-size='11' font-weight='800' fill='%23ffffff'%3EAB%3C/text%3E%3C/svg%3E">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebApplication","name":"Open AI Asset Bridge","applicationCategory":"BusinessApplication","operatingSystem":"Web","inLanguage":"ko-KR","url":"https://rnjswnsdh-lab.github.io/Jk-asset--map/","description":"상업용 부동산 물건 DB·투자자 풀·딜 아티클·공지·임차(TR)·임대(LM)·매각 의뢰 접수 통합 플랫폼","offers":{"@type":"Offer","price":"0","priceCurrency":"KRW"},"about":["오피스","물류센터","데이터센터","호텔","리테일","토지·개발부지","골프장","시니어 하우징","멀티패밀리·임대주택"]}
@@ -75,6 +75,8 @@
   </div>
 </header>
 
+<div id="tftBanner" class="tft-banner hidden"></div>
+
 <div class="app-tabs" role="tablist" aria-label="화면 전환">
   <button class="vt-btn" type="button" data-view="home" role="tab" aria-selected="false">🏠 홈</button>
   <button class="vt-btn is-active" type="button" data-view="map" role="tab" aria-selected="true">🗺️ 물건 지도</button>
@@ -87,6 +89,7 @@
   <button class="vt-btn" type="button" data-view="ship" role="tab" aria-selected="false">🚚 물류센터 화주</button>
   <button class="vt-btn" type="button" data-view="fi" role="tab" aria-selected="false">🏦 FI 풀</button>
   <button class="vt-btn" type="button" data-view="valuation" role="tab" aria-selected="false">📊 밸류에이션</button>
+  <button class="vt-btn hidden" type="button" data-view="adminhq" role="tab" aria-selected="false" id="btnAdminHqTab">🗂️ NAI 행정</button>
   <button class="vt-btn" type="button" data-view="admin" role="tab" aria-selected="false" id="btnAdminTab">🛰️ 관리자</button>
   <span id="poolRole" class="role-chip hidden pool-role"></span>
 </div>
@@ -103,6 +106,8 @@
     </div>
 
     <div class="sidebar-scroll">
+      <div id="tftFilters" class="filter-block hidden"></div>
+
       <section class="filter-block deal-block">
         <div class="filter-title">
           <span>물건 구분</span>
@@ -274,6 +279,9 @@
 <!-- 관리자 · 접속 로그 (관리자 전용 · 2026-11-24) -->
 <section id="adminView" class="admin-view hidden" aria-label="관리자 접속 로그"></section>
 
+<!-- 🗂️ NAI 행정 — 팀장·월간 회의록 (관리자/권한 부여자 전용 · 2026-11-27) -->
+<section id="adminHqView" class="admin-hq-view hidden" aria-label="NAI 행정 · 회의록"></section>
+
 <div id="poolModal" class="modal hidden" aria-live="polite"></div>
 
 <!-- ───────────────────── 접속 게이트 (비인가 상태: 데이터 0건) ───────────────────── -->
@@ -389,23 +397,25 @@ window.addEventListener('error', function (e) { window.__errs.push(String((e && 
 window.addEventListener('unhandledrejection', function (e) { window.__errs.push('rejection: ' + String(e && e.reason)); });
 </script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<script src="config.js?v=20261127i"></script>
-<script src="app.js?v=20261127i"></script>
-<script src="investors_fin.js?v=20261127i"></script>
-<script src="investors.js?v=20261127i"></script>
-<script src="valsec.js?v=20261127i"></script>
-<script src="valuation.js?v=20261127i"></script>
-<script src="home.js?v=20261127i"></script>
-<script src="advisor.js?v=20261127i"></script>
-<script src="nai.js?v=20261127i"></script>
-<script src="market_review_2026q3.js?v=20261127i"></script>
-<script src="report.js?v=20261127i"></script>
-<script src="hub.js?v=20261127i"></script>
-<script src="share.js?v=20261127i"></script>
-<script src="vdr.js?v=20261127i"></script>
-<script src="trmap.js?v=20261127i"></script>
-<script src="crm.js?v=20261127i"></script>
-<script src="match.js?v=20261127i"></script>
-<script src="adminlogs.js?v=20261127i"></script>
+<script src="config.js?v=20261127k"></script>
+<script src="app.js?v=20261127k"></script>
+<script src="investors_fin.js?v=20261127k"></script>
+<script src="investors.js?v=20261127k"></script>
+<script src="valsec.js?v=20261127k"></script>
+<script src="valuation.js?v=20261127k"></script>
+<script src="home.js?v=20261127k"></script>
+<script src="advisor.js?v=20261127k"></script>
+<script src="nai.js?v=20261127k"></script>
+<script src="market_review_2026q3.js?v=20261127k"></script>
+<script src="report.js?v=20261127k"></script>
+<script src="hub.js?v=20261127k"></script>
+<script src="tft.js?v=20261127k"></script>
+<script src="share.js?v=20261127k"></script>
+<script src="vdr.js?v=20261127k"></script>
+<script src="trmap.js?v=20261127k"></script>
+<script src="crm.js?v=20261127k"></script>
+<script src="match.js?v=20261127k"></script>
+<script src="adminlogs.js?v=20261127k"></script>
+<script src="adminhq.js?v=20261127k"></script>
 </body>
 </html>

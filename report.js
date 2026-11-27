@@ -113,7 +113,7 @@
     var t = d.total || {};
     var cap = '<div class="rp-table-wrap"><table class="rp-table"><thead><tr><th>기관</th><th>Cap Rate</th><th>전분기</th><th>비고</th></tr></thead><tbody>' +
       (d.cap || []).map(function (r) {
-        return '<tr><th>' + esc(r.org) + '</th><td class="num b">' + esc(r.value) + '%</td><td class="num">' + esc(r.prev) + '</td><td>' + esc(r.note) + '</td></tr>';
+        return '<tr><th>' + esc(r.org) + '</th><td class="num b">' + esc(r.value) + (/^[\d.]+$/.test(String(r.value)) ? '%' : '') + '</td><td class="num">' + esc(r.prev) + '</td><td>' + esc(r.note) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
 
     var q = '<div class="rp-table-wrap"><table class="rp-table"><thead><tr><th>분기</th><th>건수</th><th>금액</th></tr></thead><tbody>' +
@@ -129,7 +129,8 @@
       }).join('') + '</tbody></table></div>';
 
     var buy = (d.buyers || []).map(function (r) {
-      return '<li><b>' + esc(r.type) + '</b> ' + n(r.count) + '건 · ' + eok(r.eok) + ' (' + n(r.share) + '%)</li>';
+      var amt = (r.eok === null || r.eok === undefined || r.eok === 0) ? '금액 미확인' : eok(r.eok) + ' (' + n(r.share) + '%)';
+      return '<li><b>' + esc(r.type) + '</b> ' + n(r.count) + '건 · ' + amt + '</li>';
     }).join('');
 
     var top = '<div class="rp-table-wrap"><table class="rp-table rp-deals"><thead><tr><th>#</th><th>자산</th><th>권역</th><th>연면적(평)</th><th>금액</th><th>평당(만원)</th><th>매수자</th></tr></thead><tbody>' +

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>RFP 모듈 검증 (임시)</title>
+<link rel="stylesheet" href="style.css?v=20261127o">
+<style>
+  html,body{height:100%;margin:0}
+  body{overflow:auto}
+  .vbar{display:flex;gap:8px;align-items:center;padding:10px 14px;background:#0b2a4a;color:#fff;font-family:var(--font)}
+  .vbar b{font-size:13px}
+  .vbar span{font-size:11px;color:#9dc4e8}
+  .vbar .sp{margin-left:auto}
+  .vwrap{height:calc(100vh - 46px);overflow:hidden}
+</style>
+</head>
+<body>
+<div class="vbar">
+  <b>RFP 모듈 검증</b><span>배포된 실제 모듈(style.css · rfpcore.js · rfp.js · portal.js)을 목업 물건으로 실행합니다.</span>
+  <span class="sp"></span>
+  <button class="btn btn-ghost" type="button" id="vRfp">📑 RFP</button>
+  <button class="btn btn-ghost" type="button" id="vPortal">🤝 자문사 포털</button>
+  <button class="btn btn-ghost" type="button" id="vReset">초기화</button>
+</div>
+<div class="vwrap">
+  <section id="rfpView" class="rfp-view"></section>
+  <section id="portalView" class="portal-view hidden"></section>
+</div>
+<div id="toast" class="toast hidden" role="status"></div>
+
+<script>
+window.NAI_MAP_CONFIG = { STORAGE_PREFIX: 'verify-rfp', SYNC_URL: '', KAKAO_JS_KEY: '' };
+window.naiMap = {
+  role: function () { return 'admin'; },
+  me: function () { return { name: '권준오', company: 'NAI Korea' }; },
+  state: { base: [
+    { id: 'v-a1', name: '테스트 오피스타워', address: '서울특별시 중구 세종대로 110', sector: 'office', price_info: '3,000억' },
+    { id: 'v-a2', name: '테스트 물류센터', address: '경기도 이천시 덕평로 100', sector: 'logistics', price_info: '' },
+    { id: 'v-a3', name: '테스트 리테일빌딩', address: '서울특별시 강남구 테헤란로 152', sector: 'retail', price_info: '800억' }
+  ] }
+};
+window.naiToast = function (m, err) {
+  var el = document.getElementById('toast');
+  el.textContent = m; el.className = 'toast' + (err ? ' err' : '');
+  clearTimeout(window.__tt); window.__tt = setTimeout(function () { el.classList.add('hidden'); }, 3200);
+};
+window.naiShowView = function () {};
+window.__errs = [];
+window.addEventListener('error', function (e) { window.__errs.push(String(e.message || e)); });
+window.addEventListener('unhandledrejection', function (e) { window.__errs.push('rejection: ' + e.reason); });
+</script>
+<script src="rfpcore.js?v=20261127o"></script>
+<script src="rfp.js?v=20261127o"></script>
+<script src="portal.js?v=20261127o"></script>
+<script>
+(function () {
+  function show(which) {
+    var r = document.getElementById('rfpView'), p = document.getElementById('portalView');
+    r.classList.toggle('hidden', which !== 'rfp');
+    p.classList.toggle('hidden', which !== 'portal');
+    if (which === 'rfp' && window.NAI_RFP) window.NAI_RFP.show();
+    if (which === 'portal' && window.NAI_PORTAL) window.NAI_PORTAL.show();
+  }
+  document.getElementById('vRfp').onclick = function () { show('rfp'); };
+  document.getElementById('vPortal').onclick = function () { show('portal'); };
+  document.getElementById('vReset').onclick = function () {
+    try { localStorage.removeItem('verify-rfp:rfp:v1'); localStorage.removeItem('verify-rfp:rfp:portal:v1'); } catch (e) {}
+    document.getElementById('rfpView').dataset.ready = '';
+    document.getElementById('rfpView').dataset.shellKey = '';
+    document.getElementById('portalView').dataset.shellKey = '';
+    show('rfp');
+  };
+  show('rfp');
+})();
+</script>
+</body>
+</html>

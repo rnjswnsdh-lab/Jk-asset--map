@@ -1551,7 +1551,7 @@
     if (rfpView && window.NAI_RFP && window.NAI_RFP.show) window.NAI_RFP.show();
     if (portalView && window.NAI_PORTAL && window.NAI_PORTAL.show) window.NAI_PORTAL.show();
     if (window.naiLog) {
-      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각', lm: 'NAI 임대(LM)', rfp: 'RFP 발주', vdr: '자문사 VDR', advise: '자문사 딜 프로세싱', portal: '자문사 포털', match: 'AI 매물 매칭', pool: 'SI (사옥·전략투자)', ship: '물류센터 화주', fi: 'FI 풀', valuation: '밸류에이션', admin: '관리자', adminhq: 'NAI 행정' };
+      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각', lm: 'NAI 임대(LM)', rfp: 'RFP 발주', vdr: '자문사 VDR', advise: '자문사 딜 현황', portal: '자문사 포털', match: 'AI 매물 매칭', pool: 'SI (사옥·전략투자)', ship: '물류센터 화주', fi: 'FI 풀', valuation: '밸류에이션', admin: '관리자', adminhq: 'NAI 행정' };
       window.naiLog('tab', VIEW_LABEL[view] || view);
     }
     try {

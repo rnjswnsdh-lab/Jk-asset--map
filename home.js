@@ -221,7 +221,7 @@
     html += applyBtn('advisor', '🧾', '자문사 딜 참여', '매각·매입·임대·금융 자문 참여', '자격·실적 확인');
     html += '</div>';
     html += '<div class="hc-foot"><button type="button" class="mini-btn" data-home="hub-list">📥 접수 내역 보기</button> ' +
-      '<button type="button" class="mini-btn" data-home="advise">🧾 자문사 딜 프로세싱 시트</button></div>';
+      '<button type="button" class="mini-btn" data-home="advise">🧾 자문사별 진행현황판</button></div>';
     html += '</section>';
 
     /* ④ 매각중인 물건 · D-Day */

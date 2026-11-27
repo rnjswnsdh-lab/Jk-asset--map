@@ -22,6 +22,9 @@
   <span class="sp"></span>
   <button class="btn btn-ghost" type="button" id="vRfp">📑 RFP</button>
   <button class="btn btn-ghost" type="button" id="vPortal">🤝 자문사 포털</button>
+  <select id="vRole" aria-label="검증 역할"><option value="admin">관리자</option><option value="external">외부(자문사)</option></select>
+  <input id="vCode" placeholder="승인 코드" style="width:120px">
+  <button class="btn btn-ghost" type="button" id="vEnter">코드 입장</button>
   <button class="btn btn-ghost" type="button" id="vReset">초기화</button>
 </div>
 <div class="vwrap">
@@ -33,7 +36,7 @@
 <script>
 window.NAI_MAP_CONFIG = { STORAGE_PREFIX: 'verify-rfp', SYNC_URL: '', KAKAO_JS_KEY: '' };
 window.naiMap = {
-  role: function () { return 'admin'; },
+  role: function () { return window.__vrole || 'admin'; },
   me: function () { return { name: '권준오', company: 'NAI Korea' }; },
   state: { base: [
     { id: 'v-a1', name: '테스트 오피스타워', address: '서울특별시 중구 세종대로 110', sector: 'office', price_info: '3,000억' },
@@ -65,6 +68,20 @@ window.addEventListener('unhandledrejection', function (e) { window.__errs.push(
   }
   document.getElementById('vRfp').onclick = function () { show('rfp'); };
   document.getElementById('vPortal').onclick = function () { show('portal'); };
+  document.getElementById('vRole').onchange = function () {
+    window.__vrole = this.value;
+    var pv = document.getElementById('portalView'); pv.dataset.shellKey = '';
+    var rv = document.getElementById('rfpView'); rv.dataset.ready = ''; rv.dataset.shellKey = '';
+    show('portal');
+  };
+  document.getElementById('vEnter').onclick = function () {
+    var c = document.getElementById('vCode').value;
+    window.__vrole = 'external';
+    document.getElementById('vRole').value = 'external';
+    var pv = document.getElementById('portalView'); pv.dataset.shellKey = '';
+    show('portal');
+    if (c.trim()) window.NAI_PORTAL.enterCode(c.trim());
+  };
   document.getElementById('vReset').onclick = function () {
     try { localStorage.removeItem('verify-rfp:rfp:v1'); localStorage.removeItem('verify-rfp:rfp:portal:v1'); } catch (e) {}
     document.getElementById('rfpView').dataset.ready = '';

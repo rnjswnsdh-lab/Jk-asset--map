@@ -493,7 +493,7 @@
       '</tbody></table></div></details>' +
       '</div><div>' +
       C.field('name', '파일명(표시)', first.name, 'text', { wide: true }) +
-      C.field('month', '기준 월 (PM 리포트)', months[0] || C.parseMonth(first.name) || '', 'month', { hint: '파일명에서 자동 인식. 필요하면 수정하세요.' }) +
+      (kind.k === 'pm' ? C.field('month', '기준 월 (PM 리포트)', months[0] || C.parseMonth(first.name) || '', 'month', { hint: '파일명에서 자동 인식. 필요하면 수정하세요.' }) : '') +
       C.field('note', '메모', '', 'text', { wide: true, ph: '예) 2026-11 임대차 현황, PM사 발송본' }) +
       '</div></div>';
     var m = C.modal('자료 등록 — ' + kind.label, body, {
@@ -665,7 +665,7 @@
         created_at: r.created_at || new Date().toISOString()
       };
       C.commit('rfps', obj);
-      S.rfpId = obj.id; S.evalRfpId = obj.id;
+      S.rfpId = obj.id; S.evalRfpId = obj.id; S.tab = 'rfps';
       C.closeModal(); paint();
       C.toast(isNew ? 'RFP 초안을 저장했습니다. 자문사 배부로 넘어가세요.' : 'RFP를 수정했습니다.');
     });
@@ -696,7 +696,7 @@
       '</div>' +
       '<div class="rfp-formgrid">' +
         C.field('expires_at', '코드 만료일', rfp.due_date ? C.addDays(rfp.due_date, 14) : C.addDays(C.today(), 30), 'date', { hint: '기본: 제출 마감 + 14일' }) +
-        C.field('scope', '자료 공개 범위', '렌트롤, 오펙스, PM, 기타', 'text', { hint: '쉼표로 구분 (rentroll, opex, pm, etc)' }) +
+        C.field('scope', '자료 공개 범위', 'rentroll, opex, pm, etc', 'text', { hint: 'rentroll · opex · pm · etc 중 필요한 것' }) +
       '</div>' +
       '<div class="rfp-addadv-foot"><button type="button" class="mini-btn" data-rfp="adv-add">＋ 자문사 등록</button>' +
       '<span class="rfp-hint">등록과 동시에 위 목록에 추가됩니다.</span></div>';
@@ -718,8 +718,7 @@
     m.querySelector('[data-rfp="dist-go"]').addEventListener('click', function () {
       var picked = Array.prototype.slice.call(m.querySelectorAll('[name="adv"]:checked')).map(function (el) { return el.value; });
       if (!picked.length) { C.toast('초청할 자문사를 선택하세요.', true); return; }
-      var scopeRaw = C.fval(m, 'scope');
-      var scope = scopeRaw ? scopeRaw.split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean) : ['rentroll', 'opex', 'pm', 'etc'];
+      var scope = C.normScope(C.fval(m, 'scope'));
       var exp = C.fval(m, 'expires_at');
       var issued = [];
       picked.forEach(function (aid) {

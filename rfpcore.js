@@ -608,6 +608,21 @@
   }
 
   /* ─────────────────────────── 승인 코드 · 접근 ─────────────────────────── */
+  /* 공개 범위 표기 정규화 — '렌트롤, 오펙스' 처럼 한글·대문자로 들어와도 코드로 바꿉니다. */
+  function normScope(v) {
+    var KO = { '렌트롤': 'rentroll', '렌트롤(rent roll)': 'rentroll', 'rentroll': 'rentroll', 'rent': 'rentroll',
+      '오펙스': 'opex', 'opex': 'opex', '운영비': 'opex',
+      'pm': 'pm', 'pm리포트': 'pm', 'pm 월간 리포트': 'pm', 'pm 리포트': 'pm',
+      '기타': 'etc', 'etc': 'etc', '도면': 'etc', '등기': 'etc', '감정평가': 'etc' };
+    var arr = (Array.isArray(v) ? v : String(v || '').split(',')).map(function (x) { return String(x).trim(); }).filter(Boolean);
+    var out = [];
+    arr.forEach(function (x) {
+      var k = KO[x.toLowerCase()] || KO[x] || (['rentroll', 'opex', 'pm', 'etc'].indexOf(x.toLowerCase()) >= 0 ? x.toLowerCase() : '');
+      if (k && out.indexOf(k) < 0) out.push(k);
+    });
+    return out.length ? out : ['rentroll', 'opex', 'pm', 'etc'];
+  }
+
   function makeCode(prefix) {
     var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     var s = '';
@@ -635,7 +650,7 @@
     var c = {
       id: uid('code'), rfp_id: o.rfp_id || '', holder_type: o.holder_type || '자문사',
       holder: o.holder || '', holder_id: o.holder_id || '', code: o.code || makeCode(o.holder_type === '매수자' ? 'BUY' : (o.holder_type === '금융기관' ? 'FI' : 'ADV')),
-      scope: o.scope || ['rentroll', 'opex', 'pm', 'etc'],
+      scope: normScope(o.scope || ['rentroll', 'opex', 'pm', 'etc']),
       issued_at: new Date().toISOString(), expires_at: o.expires_at || addDays(today(), 30),
       status: '발급', note: o.note || ''
     };
@@ -870,7 +885,7 @@
     defaultCriteria: defaultCriteria, newRfp: newRfp, rfpOf: rfpOf, rfpsOf: rfpsOf, rfpHTML: rfpHTML, criterionWeightTotal: criterionWeightTotal,
     submissionsOf: submissionsOf, submissionOf: submissionOf, scoreOf: scoreOf, autoScores: autoScores,
     totalScore: totalScore, rankedScores: rankedScores,
-    codesOf: codesOf, validCode: validCode, findCode: findCode, issueCode: issueCode, logAccess: logAccess, accessLogOf: accessLogOf, makeCode: makeCode,
+    codesOf: codesOf, validCode: validCode, findCode: findCode, issueCode: issueCode, normScope: normScope, logAccess: logAccess, accessLogOf: accessLogOf, makeCode: makeCode,
     session: session, setSession: setSession, codeLogin: codeLogin, clearApiToken: clearApiToken,
     visibleRfps: visibleRfps, visibleSubmissions: visibleSubmissions, visibleDocs: visibleDocs,
     poolOf: poolOf, loadInvestors: loadInvestors,

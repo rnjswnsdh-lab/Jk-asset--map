@@ -940,7 +940,7 @@
       h += '<div class="rfp-table-wrap"><table class="rfp-table"><thead><tr><th>접수</th><th>매수자</th><th>구분</th><th>금액</th><th>첨부</th><th>버전</th><th>상태</th><th>검증</th><th></th></tr></thead><tbody>' +
         subs.slice().sort(function (a, b) { return String(b.at || '').localeCompare(String(a.at || '')); }).map(function (s) {
           var b = C.byId('buyers', s.buyer_id) || {};
-          return '<tr><td>' + esc(C.when(s.at).slice(5)) + '</td><td><b>' + esc(b.name || s.buyer_name || '-') + '</b></td>' +
+          return '<tr><td>' + esc(whenK(s.at).slice(5)) + '</td><td><b>' + esc(b.name || s.buyer_name || '-') + '</b></td>' +
             '<td>' + esc(s.kind) + '</td><td class="num">' + (s.amount_eok ? n0(s.amount_eok, 0) + '억' : '-') + '</td>' +
             '<td>' + ((s.files || []).length ? esc(s.files.map(function (f) { return f.name; }).join(', ')) : '-') + '</td>' +
             '<td>v' + (s.version || 1) + '</td>' +
@@ -1037,7 +1037,7 @@
           var s = C.byId('bidSubs', c.sub_id) || {};
           var b = C.byId('buyers', s.buyer_id) || {};
           var l = C.byId('lenders', c.lender_id) || {};
-          return '<tr><td>' + esc(C.when(c.at)) + '</td><td>' + esc(l.name || '-') + '</td><td>' + esc(b.name || '-') + '</td>' +
+          return '<tr><td>' + esc(whenK(c.at)) + '</td><td>' + esc(l.name || '-') + '</td><td>' + esc(b.name || '-') + '</td>' +
             '<td>' + esc(s.kind || '-') + '</td><td class="num">' + (c.amount_eok ? n0(c.amount_eok, 0) + '억' : '-') + '</td>' +
             '<td class="num">' + (c.ltv ? n0(c.ltv, 0) + '%' : '-') + '</td>' +
             '<td>' + (c.result === '검증' ? '<span class="rfp-tag ok">검증</span>' : '<span class="rfp-tag off">' + esc(c.result) + '</span>') + '</td>' +
@@ -1253,7 +1253,7 @@
       C.field('s1_ref', '조회 기준일', s1.ref_date || C.today(), 'text', { ph: 'YYYY-MM-DD' }) +
       C.field('s1_url', '근거 URL (조회 결과 링크)', s1.url || '', 'text', { wide: true, ph: 'https://fine.fss.or.kr/…' }) +
       C.field('s1_memo', '메모 (조회 결과·등록번호 등)', s1.memo || '', 'textarea', { wide: true, rows: 2, ph: '예) 파인 제도권 조회 — ○○캐피탈, 금융투자업 등록 확인' }) +
-      '</div>' + (s1.by ? '<p class="rfp-hint">최근 확인: ' + esc(s1.by) + ' · ' + esc(C.when(s1.at)) + '</p>' : '') + '</div>' +
+      '</div>' + (s1.by ? '<p class="rfp-hint">최근 확인: ' + esc(s1.by) + ' · ' + esc(whenK(s1.at)) + '</p>' : '') + '</div>' +
       /* 2단계 */
       '<div class="lv-sec"><div class="lv-sec-head"><span class="lv-n">2</span><b>실체 확인 — 사업자등록·법인등기</b><span class="lv-badge" id="lvB2">미확인</span></div>' +
       '<p class="rfp-hint">기관이 신고한 값과 <b>국세청 진위확인</b>·<b>법인등기부등본</b>을 대조합니다. 번호 체크섬·신고값 불일치는 아래 자동 점검에 표시됩니다.</p>' +
@@ -1272,7 +1272,7 @@
       '<div class="rfp-attach"><div class="rfp-attach-head"><b>법인등기부등본 파일</b><button type="button" class="mini-btn" data-lv="file">＋ 첨부</button></div>' +
       '<ul class="rfp-attach-list" id="lvFiles"></ul>' +
       '<p class="rfp-hint">법인명·등기번호·대표자가 보이는 등기부등본을 첨부하세요(1건 900KB까지 보관, 초과분은 이름만 기록).</p></div>' +
-      (s2.by ? '<p class="rfp-hint">최근 확인: ' + esc(s2.by) + ' · ' + esc(C.when(s2.at)) + '</p>' : '') + '</div>' +
+      (s2.by ? '<p class="rfp-hint">최근 확인: ' + esc(s2.by) + ' · ' + esc(whenK(s2.at)) + '</p>' : '') + '</div>' +
       /* 3단계 */
       '<div class="lv-sec"><div class="lv-sec-head"><span class="lv-n">3</span><b>담당자 신원 확인</b><span class="lv-badge" id="lvB3">미확인</span></div>' +
       '<p class="rfp-hint">업무 이메일 도메인이 기관 공식 도메인과 같은지 자동 표시됩니다(무료 메일은 불일치로 경고). <b>기관 대표번호로 콜백한 기록</b>이 있어야 인증완료가 됩니다.</p>' +

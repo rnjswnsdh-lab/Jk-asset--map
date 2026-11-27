@@ -72,6 +72,7 @@
         '</p>' +
       '</div><div class="rfp-top-actions">' +
         (admin() && !ss() ? '<button type="button" class="btn btn-ghost" data-pt="code-new">🔑 승인 코드 발급</button>' : '') +
+        (admin() && !ss() ? '<button type="button" class="btn btn-ghost" data-pt="code-preview">👁 코드로 미리보기</button>' : '') +
         '<button type="button" class="btn btn-ghost" data-pt="reload">↻</button>' +
       '</div></div>' +
       '<div class="rfp-steps portal-tabs">' + tabs.map(function (t) {
@@ -381,6 +382,29 @@
     }
     h += '</div>';
     return h;
+  }
+
+  /* 관리자가 자문사·매수자·금융기관 코드로 그 사람의 화면을 확인합니다. */
+  function openCodePreview() {
+    var codes = C.list('codes').filter(function (c) { return C.validCode(c); });
+    var body = '<p class="rfp-note">승인 코드로 들어간 화면을 관리자가 확인합니다. 코드 세션을 나가면 관리자 전체 보기로 돌아옵니다.</p>' +
+      '<div class="rfp-formgrid">' + C.field('code', '승인 코드', '', 'text', { req: true, wide: true, ph: '예) FI-XXXXXX' }) + '</div>' +
+      (codes.length ? '<div class="rfp-pickone"><b>유효한 코드</b><div class="rfp-rfpchips">' + codes.map(function (c) {
+        return '<button type="button" class="rfp-chip" data-preview-code="' + esc(c.code) + '">' + esc(c.holder || c.code) + ' <em>' + esc(c.holder_type) + '</em></button>';
+      }).join('') + '</div></div>' : '');
+    var m = C.modal('👁 코드로 미리보기', body, {
+      footer: '<button type="button" class="btn btn-ghost" data-rfp="close">취소</button>' +
+        '<button type="button" class="btn btn-primary" data-preview-go="1">입장</button>'
+    });
+    m.querySelector('.rfp-card').addEventListener('click', function (e) {
+      var chip = e.target.closest('[data-preview-code]');
+      if (chip) { C.closeModal(); enterCode(chip.getAttribute('data-preview-code')); }
+    });
+    m.querySelector('[data-preview-go]').addEventListener('click', function () {
+      var code = C.fval(m, 'code');
+      if (!code) { C.toast('승인 코드를 입력하세요.', true); return; }
+      C.closeModal(); enterCode(code);
+    });
   }
 
   function openCodeEditor() {
@@ -1714,6 +1738,7 @@
       if (act === 'logout') { C.setSession(null); C.clearApiToken(); S.err = ''; paint(); C.toast('승인 코드 세션을 종료했습니다.'); }
       else if (act === 'reload') { C.SYNC.checked = false; C.pullServer().then(paint); }
       else if (act === 'code-new') openCodeEditor();
+      else if (act === 'code-preview') openCodePreview();
       else if (act === 'access-log') openAccessLog(S.rfpId);
       else if (act === 'ca-new') openCA();
       else if (act === 'mk-pool') openMarketingPool();

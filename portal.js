@@ -722,7 +722,7 @@
     var d = (l && l.declared && typeof l.declared === 'object') ? l.declared : {};
     var src = { name: l && l.name, biz_no: l && l.biz_no, ceo: l && l.ceo, opened_at: l && l.opened_at,
       manager: l && l.manager, title: l && l.title, dept: l && l.dept, email: l && l.email,
-      phone: l && l.org_tel || (l && l.phone), domain: l && l.domain };
+      org_tel: (l && l.org_tel) || (l && l.phone), phone: l && l.phone, domain: l && l.domain };
     var out = {};
     Object.keys(src).forEach(function (k) { out[k] = d[k] ? d[k] : (src[k] || ''); });
     return out;
@@ -1214,7 +1214,7 @@
       '<p class="rfp-hint">기관명으로 <b>제도권 금융회사</b>인지 조회합니다. 비제도권(대부업·사모 등)·확인 불가도 선택할 수 있지만 대장에 표시됩니다.</p>' +
       '<div class="lv-links">' + links([OFFICIAL.fss, OFFICIAL.loan, OFFICIAL.api]) + '</div>' +
       '<div class="rfp-formgrid">' +
-      C.field('s1_result', '조회 결과', s1.result || '', 'select', { options: ['', '제도권 금융회사', '비제도권(대부업·사모 등)', '확인 불가'], req: true }) +
+      C.field('s1_result', '조회 결과', s1.result || '', 'select', { options: [{ v: '', l: '— 선택 —' }, '제도권 금융회사', '비제도권(대부업·사모 등)', '확인 불가'], req: true }) +
       C.field('s1_ref', '조회 기준일', s1.ref_date || C.today(), 'text', { ph: 'YYYY-MM-DD' }) +
       C.field('s1_url', '근거 URL (조회 결과 링크)', s1.url || '', 'text', { wide: true, ph: 'https://fine.fss.or.kr/…' }) +
       C.field('s1_memo', '메모 (조회 결과·등록번호 등)', s1.memo || '', 'textarea', { wide: true, rows: 2, ph: '예) 파인 제도권 조회 — ○○캐피탈, 금융투자업 등록 확인' }) +
@@ -1229,8 +1229,8 @@
       C.field('s2_ceo', '대표자명', s2.ceo || dc.ceo || '', 'text', { req: true }) +
       C.field('s2_opened_at', '개업일자', s2.opened_at || dc.opened_at || '', 'text', { req: true, ph: 'YYYY-MM-DD' }) +
       C.field('s2_corp_no', '법인등록번호 (등기부 기준)', s2.corp_no || '', 'text', { ph: '000000-0000000' }) +
-      C.field('s2_tax', '국세청 사업자등록 진위 결과', s2.tax_result || '', 'select', { options: ['', '진위 확인(일치)', '불일치', '확인 불가'], req: true }) +
-      C.field('s2_doc', '법인등기부등본 대조 결과', s2.doc_match || '', 'select', { options: ['', '증빙 일치', '증빙 불일치', '증빙 미확인'], req: true }) +
+      C.field('s2_tax', '국세청 사업자등록 진위 결과', s2.tax_result || '', 'select', { options: [{ v: '', l: '— 선택 —' }, '진위 확인(일치)', '불일치', '확인 불가'], req: true }) +
+      C.field('s2_doc', '법인등기부등본 대조 결과', s2.doc_match || '', 'select', { options: [{ v: '', l: '— 선택 —' }, '증빙 일치', '증빙 불일치', '증빙 미확인'], req: true }) +
       C.field('s2_url', '진위확인 근거 URL·캡처', s2.url || '', 'text', { wide: true, ph: '홈택스/공공데이터 조회 결과 링크 또는 캡처 파일명' }) +
       C.field('s2_memo', '메모', s2.memo || '', 'textarea', { wide: true, rows: 2 }) +
       '</div>' +
@@ -1254,7 +1254,7 @@
       C.field('s3_cb_with', '통화 상대 (이름·직함)', cb.with_name || '', 'text', { req: true }) +
       C.field('s3_cb_tel', '건 전화번호', cb.tel || s3.org_tel || dc.org_tel || '', 'tel', { req: true }) +
       C.field('s3_cb_by', '통화한 담당(우리 쪽)', cb.by || actorName(), 'text', { req: true }) +
-      C.field('s3_result', '신원 확인 결과', s3.person_result || '', 'select', { options: ['', '확인', '확인 불가'], req: true }) +
+      C.field('s3_result', '신원 확인 결과', s3.person_result || '', 'select', { options: [{ v: '', l: '— 선택 —' }, '확인', '확인 불가'], req: true }) +
       C.field('s3_cb_memo', '확인 내용 (콜백에서 확인한 사실)', cb.memo || '', 'textarea', { wide: true, rows: 3, req: true, ph: '예) ○○은행 부동산금융부 대표번호로 콜백 — 김○○ 팀장이 본 건 LOI·LOC 검증 담당임을 확인, 업무 이메일 일치' }) +
       '</div></div>' +
       /* 인증 처리 */

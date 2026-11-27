@@ -311,7 +311,7 @@
       return '<button type="button" class="ad-sub' + (S.sub === s.k ? ' is-active' : '') + '" data-ad-sub="' + s.k + '">' + s.l + '</button>';
     }).join('') + '</div>';
     html += '<div class="ad-filters">';
-    html += '<input id="adQ" type="search" placeholder="검색 — 방문자 · 회사 · 물건명 · 동작" value="' + esc(S.q) + '" autocomplete="off">';
+    html += '<input id="adQ" type="search" data-enter="search" placeholder="검색 — 방문자 · 회사 · 물건명 · 동작" value="' + esc(S.q) + '" autocomplete="off">';
     html += '<select id="adRole">' +
       ['ALL', 'admin', 'internal', 'external'].map(function (r) {
         return '<option value="' + r + '"' + (S.role === r ? ' selected' : '') + '>' + (r === 'ALL' ? '권한 전체' : roleLabel(r)) + '</option>';
@@ -333,7 +333,17 @@
 
     $('#adRefresh').addEventListener('click', function () { load(true); });
     $('#adCsv').addEventListener('click', exportCsv);
-    $('#adQ').addEventListener('input', function (e) { S.q = e.target.value; render(); });
+    var adQ = $('#adQ');
+    adQ.addEventListener('input', function (e) { S.q = e.target.value; render(); });
+    adQ.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      e.stopPropagation();
+      S.q = adQ.value;
+      render();
+      var n = $('#adQ');
+      if (n) { if (window.innerWidth <= 900) n.blur(); else { try { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } catch (e1) { /* noop */ } } }
+    });
     $('#adRole').addEventListener('change', function (e) { S.role = e.target.value; render(); });
     $('#adDays').addEventListener('change', function (e) { S.days = Number(e.target.value) || 0; render(); });
     $('#adSort').addEventListener('change', function (e) { S.sort = e.target.value; render(); });

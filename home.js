@@ -205,7 +205,7 @@
     html += '<section class="home-card hc-search" id="hcSearch">';
     html += '<div class="hc-head"><h2>🔍 물건검색</h2><span class="hc-hint">결과를 누르면 지도·상세로 이동합니다</span></div>';
     html += '<div class="hs-form">';
-    html += '<input id="hsQ" type="search" placeholder="건물명 · 주소 · 운용사 · 임차인 검색" autocomplete="off">';
+    html += '<input id="hsQ" type="search" data-enter="search" placeholder="건물명 · 주소 · 운용사 · 임차인 검색" autocomplete="off">';
     html += '<select id="hsSector"><option value="ALL">전체 섹터</option></select>';
     html += '<select id="hsDeal"><option value="ALL">일반+경공매</option><option value="general">일반 자산</option><option value="auction">경·공매</option></select>';
     html += '<select id="hsRegion"><option value="ALL">전체 권역</option></select>';
@@ -415,7 +415,7 @@
   /* 전체 아티클 — 검색 + 스크롤 (열기는 정렬된 BOOT.articles 인덱스 그대로) */
   function openArticleList() {
     if (!BOOT.loaded) { toast('아티클을 불러오는 중입니다. 잠시 후 다시 눌러주세요.'); return; }
-    var body = '<div class="art-search"><input id="artQ" type="search" autocomplete="off" ' +
+    var body = '<div class="art-search"><input id="artQ" type="search" autocomplete="off" data-enter="search" ' +
       'placeholder="제목 · 요약 · 날짜 · 태그 검색 (예: 물류, 11/26)" value="' + esc(BOOT.artQ || '') + '">' +
       '<span class="art-qcount" id="artQCount"></span></div>' +
       '<div class="art-all-list" id="artAllList"><p class="hs-empty">불러오는 중…</p></div>';
@@ -425,7 +425,12 @@
       var q = m.querySelector('#artQ');
       if (q) {
         q.addEventListener('input', function () { BOOT.artQ = q.value; renderArtAll(); });
-        q.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+        q.addEventListener('keydown', function (e) {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          if (e.isComposing || e.keyCode === 229) return;
+          BOOT.artQ = q.value; renderArtAll();
+        });
         setTimeout(function () { try { q.focus(); } catch (err) { /* noop */ } }, 80);
       }
     } });
@@ -1407,9 +1412,10 @@
       if (act === 'prop-approve') { proposalAction(btn.getAttribute('data-id'), false); return; }
       if (act === 'prop-reject') { proposalAction(btn.getAttribute('data-id'), true); return; }
     });
-    /* Enter 로 검색 */
+    /* Enter 로 검색 — 한글 조합 중 Enter 는 글자 확정용이라 건너뜁니다 (2026-11-27) */
     host.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && e.target && e.target.id === 'hsQ') { e.preventDefault(); doSearch(); }
+      if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+      if (e.target && e.target.id === 'hsQ') { e.preventDefault(); doSearch(); }
     });
   }
 

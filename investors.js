@@ -1570,6 +1570,16 @@
       clearTimeout(t);
       t = setTimeout(function () { state.q = q.value; render(); }, 120);
     });
+    /* Enter 로 즉시 검색 — 한글 조합 중 Enter 는 글자 확정용이라 건너뜁니다 (2026-11-27) */
+    q.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      e.stopPropagation();
+      clearTimeout(t);
+      state.q = q.value;
+      render();
+      if (window.innerWidth <= 900) q.blur();
+    });
     $('#poolOnlyEmail').addEventListener('change', function (e) {
       state.onlyEmail = e.target.checked; savePref(); render();
     });

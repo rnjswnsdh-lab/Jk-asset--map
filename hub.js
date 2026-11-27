@@ -663,7 +663,7 @@
       (isAdmin() ? ' <b>관리자</b> 권한에서는 업체명 원문이 보입니다.' : ' 업체명은 <b>🔒 블라인드</b>로 표시됩니다.') + '</p></div>' +
       '<button type="button" class="tr-x" data-hub="close" aria-label="닫기">×</button></div>' +
       '<div class="hub-list-tools"><div id="hubListChips" class="hub-fchips"></div>' +
-      '<input id="hubListQ" type="search" placeholder="물건 · 회사 · 담당 · 연락처 검색" autocomplete="off">' +
+      '<input id="hubListQ" type="search" data-enter="search" placeholder="물건 · 회사 · 담당 · 연락처 검색" autocomplete="off">' +
       '<span id="hubListCount" class="hub-count">불러오는 중…</span>' +
       '<button type="button" class="mini-btn" data-hub="form">＋ 새 등록</button></div>' +
       '<div class="tr-scroll" id="hubListBody"><p class="hub-empty">불러오는 중…</p></div>';
@@ -685,7 +685,17 @@
       else if (act === 'form') open(HUB.type, HUB.prefill);
     };
     var q = $('#hubListQ');
-    if (q) q.addEventListener('input', function () { LIST.q = q.value; renderListBody(); });
+    if (q) {
+      q.addEventListener('input', function () { LIST.q = q.value; renderListBody(); });
+      q.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        e.stopPropagation();
+        LIST.q = q.value;
+        renderListBody();
+        if (window.innerWidth <= 900) q.blur();   // 모바일: 키보드를 닫아 결과를 보여줍니다
+      });
+    }
     /* 재렌더 후에도 검색어 유지 */
     if (q) q.value = LIST.q;
   }

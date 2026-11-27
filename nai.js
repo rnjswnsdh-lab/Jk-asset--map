@@ -197,7 +197,7 @@
       (isAdmin() ? ' · <b class="team-flag">🔒 팀장회의 ' + team + '건</b>' : '') + '</p></div>' +
       '<div class="nai-tools">' +
       '<button type="button" class="btn btn-ghost" id="naiSwitch">' + (lmMode ? '🏷️ 매각 탭으로' : '🔑 임대(LM) 탭으로') + '</button>' +
-      '<label class="nai-search"><span aria-hidden="true">⌕</span><input id="naiSearch" type="search" placeholder="물건명 · 주소 · 매도인 검색" value="' + esc(S.q) + '"></label>' +
+      '<label class="nai-search"><span aria-hidden="true">⌕</span><input id="naiSearch" type="search" data-enter="search" placeholder="물건명 · 주소 · 매도인 검색" value="' + esc(S.q) + '"></label>' +
       '<button type="button" class="btn btn-ghost" id="naiRefresh">↻ 새로고침</button>' +
       (isAdmin() ? '<button type="button" class="btn btn-ghost" id="naiTeamJump">🔒 팀장회의</button>' : '') +
       '</div></div>';
@@ -368,9 +368,27 @@
     var q = $('#naiSearch');
     if (q) {
       var t = null;
+      /* 검색어 반영 — 입력하면 180ms 뒤, Enter 면 바로 (한글 조합 중 Enter 는 건너뜀) */
+      function commitQuery(blur) {
+        clearTimeout(t);
+        t = null;
+        S.q = q.value;
+        render();
+        var n = $('#naiSearch');
+        if (n) {
+          try { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } catch (e1) { /* noop */ }
+          if (blur) n.blur();
+        }
+      }
       q.addEventListener('input', function () {
         clearTimeout(t);
-        t = setTimeout(function () { S.q = q.value; render(); var n = $('#naiSearch'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 180);
+        t = setTimeout(function () { commitQuery(false); }, 180);
+      });
+      q.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        e.stopPropagation();
+        commitQuery(window.innerWidth <= 900);
       });
     }
     var rf = $('#naiRefresh');

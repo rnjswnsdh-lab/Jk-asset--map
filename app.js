@@ -645,14 +645,23 @@
     indexSearch();
   }
 
+  /* 검색용 색인 문자열 — 섹터·상태 라벨까지 넣어 '물류센터'·'시니어'·'경공매' 같은
+     분류어로도 걸리게 합니다. 색인이 없는 물건도 그 자리에서 만들어
+     (검색에서 통째로 빠지는 일이 없도록) 돌려줍니다. (2026-11-27) */
+  function hayOf(a) {
+    if (!a) return '';
+    if (a._hay != null) return a._hay;
+    var parts = [a.name, a.owner_amc, a.fund_vehicle, a.address, a.tenants, a.notes,
+      a.sub_type, a.status, a.status_group, a.region, a.scale_info, a.price_info, a.source,
+      sectorLabel(a.sector), sectorIcon(a.sector), displayStatus(a), a.coord_precision];
+    if (a.facts) a.facts.forEach(function (f) { parts.push(f.label + ' ' + f.value); });
+    if (a.links) a.links.forEach(function (l) { parts.push((l.label || '') + ' ' + (l.url || '')); });
+    a._hay = parts.join(' ').toLowerCase();
+    return a._hay;
+  }
+
   function indexSearch() {
-    state.assets.forEach(function (a) {
-      if (a._hay) return;
-      var parts = [a.name, a.owner_amc, a.fund_vehicle, a.address, a.tenants, a.notes,
-        a.sub_type, a.status, a.status_group, a.region, a.scale_info, a.price_info, a.source];
-      if (a.facts) a.facts.forEach(function (f) { parts.push(f.label + ' ' + f.value); });
-      a._hay = parts.join(' ').toLowerCase();
-    });
+    state.assets.forEach(function (a) { hayOf(a); });
   }
 
   /* ────────────────────────────── 필터 ────────────────────────────── */
@@ -780,7 +789,7 @@
       if (f.subType !== 'ALL' && a.sub_type !== f.subType) return false;
       if (f.onlyIm && !isHttp(a.im_url)) return false;
       if (tokens.length) {
-        var hay = a._hay || '';
+        var hay = hayOf(a);
         for (var i = 0; i < tokens.length; i++) {
           if (hay.indexOf(tokens[i]) === -1) return false;
         }
@@ -2311,18 +2320,90 @@
     }
   }
 
-  function bindUI() {
-    // 검색
-    var searchTimer = null;
-    $('#searchInput').addEventListener('input', function (e) {
-      var v = e.target.value;
-      $('#btnClearSearch').classList.toggle('hidden', !v);
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(function () {
-        state.filters.query = v;
-        applyFilters();
-      }, 140);
+  /* ─────────────── ⌨️ Enter 키 공통 처리 (2026-11-27) ───────────────
+     화면마다 흩어져 있던 Enter 처리를 한 곳에서 일관되게 맞춥니다.
+     · 검색창(data-enter="search")은 그 화면이 직접 처리하고 여기서는 건드리지 않습니다.
+     · <form> 안 입력은 브라우저 기본 제출(접속코드·외부인증·AI매칭·물건 저장)을 그대로 둡니다.
+     · 그 밖의 입력(딜·참여 등록 허브 등)은 Enter 로 다음 입력칸으로 넘어가고,
+       마지막 칸이면 확인 버튼에 초점만 둡니다 — 원치 않는 자동 제출을 막기 위해 누르지는 않습니다.
+     · 한글 조합 중(e.isComposing / keyCode 229)의 Enter 는 글자 확정용이라 무시합니다. */
+  function isImeEnter(e) {
+    return !!(e && (e.isComposing || e.keyCode === 229 || e.which === 229));
+  }
+
+  function moveToNextField(el) {
+    var scope = el.closest('.hub-card, .tr-card, .home-modal, .modal, .detail-panel, form') || document.body;
+    var fields = $$('input, select, textarea', scope).filter(function (n) {
+      var t = String(n.type || '').toLowerCase();
+      return !n.disabled && t !== 'hidden' && t !== 'file' && n.offsetParent !== null;
     });
+    var i = fields.indexOf(el);
+    var next = (i >= 0 && i + 1 < fields.length) ? fields[i + 1] : null;
+    if (next) { try { next.focus(); } catch (e1) { /* noop */ } return; }
+    var btn = scope.querySelector('[data-hub="submit"], [data-home="do-search"], button[type="submit"], .btn-primary, .btn-solid');
+    if (btn && btn.offsetParent !== null) { try { btn.focus(); } catch (e2) { /* noop */ } }
+  }
+
+  function bindEnterFallback() {
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || isImeEnter(e)) return;
+      var el = e.target;
+      if (!el || el.tagName !== 'INPUT') return;
+      var type = String(el.getAttribute('type') || 'text').toLowerCase();
+      if (/^(checkbox|radio|button|submit|reset|file|image|range|color)$/.test(type)) return;
+      if (el.getAttribute('data-enter') === 'search') return;   // 검색창 — 각 화면이 직접 실행
+      if (el.getAttribute('data-enter') === 'off') return;
+      if (el.hasAttribute('list')) return;                      // datalist 자동완성은 브라우저에 맡김
+      if (el.form) return;                                      // 폼은 브라우저 기본 제출
+      e.preventDefault();
+      moveToNextField(el);
+    });
+  }
+
+  function bindUI() {
+    /* 검색 — 입력하면 140ms 뒤 자동 필터, Enter 로 즉시 검색 + 결과 위치로 지도 이동 (2026-11-27) */
+    var searchTimer = null;
+    var searchComposing = false;
+    var searchEl = $('#searchInput');
+    function searchApplyNow(fromEnter) {
+      clearTimeout(searchTimer);
+      searchTimer = null;
+      if (!searchEl) return;
+      state.filters.query = searchEl.value;
+      $('#btnClearSearch').classList.toggle('hidden', !searchEl.value);
+      applyFilters();
+      if (!fromEnter) return;
+      var n = state.filtered.length;
+      if (!n) { toast('검색 결과가 없습니다. 다른 키워드로 찾아보세요.', true); return; }
+      fitBounds();                                               // 결과가 모두 보이도록 지도 이동
+      if (n === 1) selectAsset(state.filtered[0].id, { pan: false });   // 한 건이면 상세까지 바로 열기
+    }
+    if (searchEl) {
+      searchEl.addEventListener('input', function (e) {
+        var v = e.target.value;
+        $('#btnClearSearch').classList.toggle('hidden', !v);
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+          state.filters.query = v;
+          applyFilters();
+        }, 140);
+      });
+      /* 한글 조합(IME) — 조합 중에는 필터를 미루고, 조합이 끝나면 바로 반영해
+         마지막 글자가 검색어에서 빠지는 일을 막습니다. */
+      searchEl.addEventListener('compositionstart', function () { searchComposing = true; });
+      searchEl.addEventListener('compositionend', function () {
+        searchComposing = false;
+        searchApplyNow(false);
+      });
+      searchEl.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        if (isImeEnter(e) || searchComposing) return;   // 조합 확정용 Enter 는 건드리지 않음
+        e.preventDefault();
+        e.stopPropagation();
+        searchApplyNow(true);
+        if (window.innerWidth <= 900) { try { searchEl.blur(); } catch (e1) { /* noop */ } }   // 모바일: 키보드를 닫아 결과를 보여줌
+      });
+    }
     $('#btnClearSearch').addEventListener('click', function () {
       $('#searchInput').value = '';
       $('#btnClearSearch').classList.add('hidden');
@@ -2436,10 +2517,21 @@
       logAsset(a, isIm ? 'IM' : '링크');
     });
     $('#detailPanel').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.form) {
+      if (e.key !== 'Enter' || isImeEnter(e)) return;
+      if (e.target.tagName !== 'INPUT' || !e.target.form) return;
+      /* 주소 찾기 칸은 Enter 로 '검색' 버튼을 누르는 게 맞습니다 — 폼(물건 저장) 제출이 아닙니다. */
+      if (e.target.id === 'addrSearch' || e.target.getAttribute('data-enter') === 'search') {
         e.preventDefault();
-        e.target.form.requestSubmit ? e.target.form.requestSubmit() : e.target.form.dispatchEvent(new Event('submit', { cancelable: true }));
+        var wrap = e.target.closest('.row-inline') || e.target.parentNode;
+        var b = wrap && wrap.querySelector('[data-act="addrSearch"]');
+        if (b) b.click();
+        return;
       }
+      if (e.target.hasAttribute('list')) return;
+      /* 물건 등록·수정 폼은 Enter 로 저장하지 않습니다(동기화된 물건이 생기거나 덮어써지므로).
+         입력 중 Enter 는 다음 칸으로 넘어가고, 저장은 '저장' 버튼으로만 합니다. (2026-11-27) */
+      e.preventDefault();
+      moveToNextField(e.target);
     });
 
     // 헤더
@@ -2519,6 +2611,9 @@
       var id = decodeURIComponent((location.hash || '').replace('#', ''));
       if (id && state.index[id]) selectAsset(id, { pan: true });
     });
+
+    /* Enter 키 일괄 처리 — 검색창은 각 화면이, 모달 입력은 다음 칸으로 (2026-11-27) */
+    bindEnterFallback();
   }
 
   /* 미리보기 모드용 대한민국 실루엣 (KOSTAT 2013, shapely union·단순화, lng/lat) */

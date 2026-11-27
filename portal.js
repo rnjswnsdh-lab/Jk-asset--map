@@ -661,6 +661,7 @@
     if (restricted && !ssx.rfp_id) {
       return '<div class="rfp-empty big"><b>이 코드에는 입찰 건이 연결되지 않았습니다.</b><p>담당자에게 RFP가 연결된 새 코드를 요청하세요.</p></div>';
     }
+    var canManage = !restricted || isAdv();   /* 입찰·CA 운영은 관리자·자문사만. 매수자·금융기관은 참여자 */
     function inScope(x) { return !restricted || String(x.rfp_id || '') === String(ssx.rfp_id); }
     var notices = C.list('notices').filter(function (n) { return inScope(n) && (!rfp || n.rfp_id === rfp.id || !n.rfp_id); });
     var buyers = C.list('buyers');
@@ -678,13 +679,21 @@
       lenders = myL ? [myL] : [];
     }
     var confs = C.list('loiconf').filter(function (c) { return !restricted || String(c.rfp_id || '') === String(ssx.rfp_id); });
+    if (restricted && isBuyer()) {
+      /* 매수자는 자기 제출을 검증한 기관·기록만 봅니다(다른 매수자·대출기관 정보 비공개). */
+      var mySubIds = subs.map(function (x) { return String(x.id); });
+      confs = confs.filter(function (c) { return mySubIds.indexOf(String(c.sub_id)) >= 0; });
+      var lenderSet = {};
+      confs.forEach(function (c) { lenderSet[String(c.lender_id)] = 1; });
+      lenders = lenders.filter(function (l) { return lenderSet[String(l.id)]; });
+    }
     var h = '<div class="rfp-sec-head"><div><h3>입찰 · 매수자 제출 · 금융기관 인증</h3>' +
       '<p>입찰 공고를 올리고 매수자를 등록·인증한 뒤, 입찰서·증빙·LOI/LOC를 시스템으로 접수합니다. ' +
       '금융기관은 등록·인증 후 LOI/LOC 진위를 확인합니다.</p></div>' +
       '<div class="rfp-sec-tools">' +
-        (isLender() ? '' : '<button type="button" class="btn btn-primary" data-pt="bid-new">＋ 입찰 공고</button>') +
-        (isLender() ? '' : '<button type="button" class="btn btn-ghost" data-pt="buyer-new">＋ 매수자 등록</button>') +
-        (isLender() ? '' : '<button type="button" class="btn btn-ghost" data-pt="lender-new">＋ 금융기관 등록</button>') +
+        (canManage ? '<button type="button" class="btn btn-primary" data-pt="bid-new">＋ 입찰 공고</button>' +
+          '<button type="button" class="btn btn-ghost" data-pt="buyer-new">＋ 매수자 등록</button>' +
+          '<button type="button" class="btn btn-ghost" data-pt="lender-new">＋ 금융기관 등록</button>' : '') +
       '</div></div>';
 
     /* 공고 */
@@ -719,7 +728,7 @@
             '<td class="ctr">' + (has('입찰서') ? '✓' : '·') + '</td><td class="ctr">' + (has('증빙') ? '✓' : '·') + '</td>' +
             '<td class="ctr">' + (has('LOI') ? '✓' : '·') + '</td><td class="ctr">' + (has('LOC') ? '✓' : '·') + '</td>' +
             '<td>' + (loi.length ? '<span class="rfp-tag ' + (verified ? 'ok' : 'wait') + '">' + verified + '/' + loi.length + '</span>' : '-') + '</td>' +
-            '<td class="nowrap">' + (b.status !== '인증' ? '<button type="button" class="mini-btn" data-pt-buyer-ok="' + esc(b.id) + '">인증</button>' : '') +
+            '<td class="nowrap">' + (canManage && b.status !== '인증' ? '<button type="button" class="mini-btn" data-pt-buyer-ok="' + esc(b.id) + '">인증</button>' : '') +
             '<button type="button" class="mini-btn" data-pt-bidsub2="' + esc(b.id) + '">제출</button></td></tr>';
         }).join('') + '</tbody></table></div>';
     }
@@ -738,8 +747,8 @@
             '<td>v' + (s.version || 1) + '</td>' +
             '<td><span class="rfp-tag ' + (s.status === '확인' ? 'ok' : (s.status === '보완요청' ? 'off' : 'wait')) + '">' + esc(s.status || '제출') + '</span></td>' +
             '<td>' + esc(s.verify || '-') + (s.verify_by ? '<br><span class="rfp-muted">' + esc(s.verify_by) + '</span>' : '') + '</td>' +
-            '<td class="nowrap">' + (s.kind === 'LOI' || s.kind === 'LOC' ? '<button type="button" class="mini-btn" data-pt-verify="' + esc(s.id) + '">검증</button>' : '') +
-            '<button type="button" class="mini-btn" data-pt-sub-status="' + esc(s.id) + '">검토</button></td></tr>';
+            '<td class="nowrap">' + (canManage ? ((s.kind === 'LOI' || s.kind === 'LOC' ? '<button type="button" class="mini-btn" data-pt-verify="' + esc(s.id) + '">검증</button>' : '') +
+            '<button type="button" class="mini-btn" data-pt-sub-status="' + esc(s.id) + '">검토</button>') : '') + '</td></tr>';
         }).join('') + '</tbody></table></div>';
     }
     h += '</section>';
@@ -755,8 +764,8 @@
             '<td>' + esc([l.email, l.phone].filter(Boolean).join(' · ') || '-') + '</td>' +
             '<td>' + (l.status === '인증' ? '<span class="rfp-tag ok">인증</span>' : '<span class="rfp-tag wait">' + esc(l.status || '등록') + '</span>') + '</td>' +
             '<td>' + esc(l.verified_at || '-') + '</td><td class="ctr">' + cnt + '</td>' +
-            '<td class="nowrap">' + (l.status !== '인증' ? '<button type="button" class="mini-btn" data-pt-lender-ok="' + esc(l.id) + '">인증</button>' : '') +
-            '<button type="button" class="mini-btn" data-pt-lender-code="' + esc(l.id) + '">코드</button></td></tr>';
+            '<td class="nowrap">' + (canManage && l.status !== '인증' ? '<button type="button" class="mini-btn" data-pt-lender-ok="' + esc(l.id) + '">인증</button>' : '') +
+            (canManage ? '<button type="button" class="mini-btn" data-pt-lender-code="' + esc(l.id) + '">코드</button>' : '') + '</td></tr>';
         }).join('') + '</tbody></table></div>';
     }
     h += '</section>';

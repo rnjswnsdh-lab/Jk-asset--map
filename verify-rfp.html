@@ -50,6 +50,14 @@ window.naiToast = function (m, err) {
   clearTimeout(window.__tt); window.__tt = setTimeout(function () { el.classList.add('hidden'); }, 3200);
 };
 window.naiShowView = function () {};
+/* 투자자 풀 연계 검증용 목업 (실서비스에서는 investors 시트) */
+window.NAI_POOL_ROWS = [
+  { id: 'p1', company: '한빛물산', kind: 'office_si', contact: '김한빛', title: '상무', email: 'hb@example.com' },
+  { id: 'p2', company: '대성그룹', kind: 'office_si', contact: '박대성', email: 'ds@example.com' },
+  { id: 'p3', company: '미래리츠', kind: 'reit_foreign', contact: '이미래', email: 'mr@example.com' },
+  { id: 'p4', company: '국민연금', kind: 'pension_lp', contact: '최연금', email: 'np@example.com' },
+  { id: 'p5', company: '오뚜기물류', kind: 'shipper', contact: '정물류', email: 'ot@example.com' }
+];
 window.__errs = [];
 window.addEventListener('error', function (e) { window.__errs.push(String(e.message || e)); });
 window.addEventListener('unhandledrejection', function (e) { window.__errs.push('rejection: ' + e.reason); });

@@ -28,7 +28,8 @@
     q: '', kind: 'ALL', deal: 'ALL', sort: 'recent',
     open: {}, hist: null, histFor: '', built: false,
     /* 권한 — 관리자이거나, 서버가 admin_access 명단으로 허용한 사용자만 */
-    granted: false, acl: [], aclLoaded: false, aclErr: ''
+    granted: false, acl: [], aclLoaded: false, aclErr: '',
+    dir: null, dirSrc: ''
   };
   var loadedToken = null;
 
@@ -642,6 +643,14 @@
     var body = '<div class="read-meta">행정 탭 접근 명단 · 관리자 전용</div>' +
       '<p class="hq-meta">이름을 말씀하시면 여기에 등록합니다. <b>실제 접근 판정은 명함 이메일</b>로 하고, 이름은 표시용입니다(동명이인 구분). ' +
       '등록·해제는 누가·언제 했는지 이력으로 남습니다.</p>' +
+      '<div class="hq-acl-pick">' +
+      '<label style="display:block;font-size:12px;opacity:.75;margin-bottom:4px">직원 찾기 (네이버웍스 조직도)</label>' +
+      '<input id="aclSearch" type="search" autocomplete="off" placeholder="이름 또는 이메일 — 예) 김광연, noah@" style="width:100%;padding:8px 10px;border:1px solid rgba(11,43,74,.18);border-radius:8px;font-size:13px">' +
+      '<div id="aclHits" class="hq-acl-hits"></div>' +
+      '<div class="hq-acl-dir" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px"><span id="aclDirInfo" class="hq-meta" style="flex:1;min-width:180px"></span>' +
+      '<label class="mini-btn" style="cursor:pointer;display:inline-block">직원 목록 파일<input id="aclDirFile" type="file" accept=".json,.csv,text/csv,application/json" style="display:none"></label>' +
+      '<button type="button" class="mini-btn" id="aclDirSync">서버에서 새로고침</button></div>' +
+      '</div>' +
       '<div class="hq-acl-form">' +
       '<label><span>이름 *</span><input id="aclName" type="text" placeholder="예) 김광연"></label>' +
       '<label><span>소속</span><input id="aclOrg" type="text" placeholder="예) NAI Korea CM팀"></label>' +
@@ -657,6 +666,14 @@
     });
     var add = $('#aclAdd');
     if (add) add.addEventListener('click', function () { saveAcl(); });
+    wireDirPicker();
+    if (!dirGet()) {
+      dirFetch().then(function () {
+        var info2 = $('#aclDirInfo');
+        if (info2) info2.innerHTML = dirInfoHTML();
+        renderHits();
+      });
+    }
     var box = $('#aclBody');
     if (box && !box._bound) {
       box._bound = true;
@@ -679,6 +696,167 @@
         }).catch(function () { b.disabled = false; toast('해제하지 못했습니다(네트워크)', true); });
       });
     }
+  }
+
+  /* ── 직원 목록(후보) — 네이버웍스 조직도 수집본 ─────────────────
+     이 목록은 사내 직원 이름·이메일이라 공개 저장소(GitHub Pages)에 넣지 않습니다.
+     ① 서버가 type=admin_directory 로 내려주면 그것을, ② 아니면 관리자가 한 번
+     불러온 파일(JSON/CSV)을 이 브라우저(localStorage)에 저장해 썼니다. */
+  var DIR_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':admin-dir:v1';
+
+  function dirGet() {
+    if (S.dir) return S.dir;
+    try {
+      var raw = localStorage.getItem(DIR_KEY);
+      if (raw) {
+        var j = JSON.parse(raw);
+        if (j && Array.isArray(j.people) && j.people.length) { S.dir = j; S.dirSrc = 'file'; }
+      }
+    } catch (e) { /* 손상된 캐시는 무시 */ }
+    return S.dir;
+  }
+
+  function dirSave(obj, src) {
+    S.dir = obj; S.dirSrc = src;
+    try { localStorage.setItem(DIR_KEY, JSON.stringify(obj)); } catch (e) { /* 저장 불가는 무시 */ }
+  }
+
+  function dirInfoHTML() {
+    var d = dirGet();
+    if (!d || !d.people || !d.people.length) {
+      return '직원 목록이 아직 없습니다. <b>직원 목록 파일</b>(JSON/CSV)을 한 번 불러오면 이 브라우저에 저장됩니다.';
+    }
+    var when = d.collected_at || d.saved_at || '';
+    return '직원 ' + d.people.length + '명' + (when ? ' · ' + esc(String(when).slice(0, 10)) + ' 수집' : '') +
+      (S.dirSrc === 'server' ? ' · 서버' : ' · 이 브라우저 저장본') +
+      ' <span style="opacity:.7">— 사내 전용, 외부 공개 금지</span>';
+  }
+
+  function dirFilter(q) {
+    var d = dirGet();
+    if (!d || !Array.isArray(d.people)) return [];
+    var k = String(q || '').trim().toLowerCase();
+    var list = d.people.filter(function (p) {
+      if (!k) return true;
+      return (p.name || '').toLowerCase().indexOf(k) >= 0 ||
+        (p.email || '').toLowerCase().indexOf(k) >= 0 ||
+        (p.dept || '').toLowerCase().indexOf(k) >= 0;
+    });
+    return list.slice(0, 8);
+  }
+
+  function renderHits() {
+    var host = $('#aclHits');
+    if (!host) return;
+    var q = aclVal('aclSearch');
+    var d = dirGet();
+    if (!d || !d.people || !d.people.length) {
+      host.innerHTML = '<div class="hq-meta" style="padding:6px 0">직원 목록을 먼저 불러와 주세요. 아래 <b>직원 목록 파일</b>에서 이 대화로 받은 JSON/CSV를 선택하면 됩니다.</div>';
+      return;
+    }
+    if (!q) { host.innerHTML = ''; return; }
+    var hits = dirFilter(q);
+    if (!hits.length) { host.innerHTML = '<div class="hq-meta" style="padding:6px 0">일치하는 직원이 없습니다. 이름 두 글자 이상 또는 이메일 앞부분으로 시도해 보세요.</div>'; return; }
+    host.innerHTML = hits.map(function (p, i) {
+      var sub = [p.dept, p.title].filter(Boolean).join(' · ');
+      return '<button type="button" class="hq-acl-hit" data-dir-hit="' + i + '" style="display:block;width:100%;text-align:left;border:1px solid rgba(11,43,74,.14);background:#fff;border-radius:8px;padding:7px 10px;margin:4px 0;cursor:pointer">' +
+        '<b>' + esc(p.name) + '</b> <span style="opacity:.75;font-size:11.5px">' + esc(sub) + '</span><br>' +
+        '<span style="font-size:11.5px;opacity:.85">' + esc(p.email || '') + '</span></button>';
+    }).join('');
+    Array.prototype.forEach.call(host.querySelectorAll('[data-dir-hit]'), function (b) {
+      b.addEventListener('click', function () {
+        var p = hits[Number(b.getAttribute('data-dir-hit'))];
+        if (!p) return;
+        var n = $('#aclName'), o = $('#aclOrg'), e = $('#aclEmail');
+        if (n) n.value = p.name || '';
+        if (o) o.value = p.dept || p.org || '';
+        if (e) e.value = p.email || '';
+        host.innerHTML = '<div class="hq-meta" style="padding:6px 0">선택: <b>' + esc(p.name) + '</b> · ' + esc([p.dept, p.title].filter(Boolean).join(' · ')) + ' · ' + esc(p.email || '') + ' — 권한을 고르고 [등록]을 누르세요.</div>';
+        var acc = $('#aclAccess');
+        if (acc) acc.focus();
+      });
+    });
+  }
+
+  function dirImportText(text) {
+    var people = [];
+    var t = String(text || '').replace(/^\ufeff/, '').trim();
+    if (!t) return 0;
+    if (t.charAt(0) === '{' || t.charAt(0) === '[') {
+      var j = JSON.parse(t);
+      people = (j && Array.isArray(j.people)) ? j.people : (Array.isArray(j) ? j : []);
+    } else {
+      var lines = t.split(/\r?\n/).filter(function (l) { return l.trim(); });
+      var hdr = lines.shift().split(',').map(function (h) { return h.trim().replace(/^"|"$/g, ''); });
+      lines.forEach(function (ln) {
+        var cells = [], cur = '', q = false, i, c;
+        for (i = 0; i < ln.length; i++) {
+          c = ln.charAt(i);
+          if (c === '"') { if (q && ln.charAt(i + 1) === '"') { cur += '"'; i++; } else q = !q; }
+          else if (c === ',' && !q) { cells.push(cur); cur = ''; }
+          else cur += c;
+        }
+        cells.push(cur);
+        var o = {};
+        hdr.forEach(function (h, k) { o[h] = String(cells[k] || '').trim(); });
+        people.push({ name: o.name, org: o.org, dept: o.dept, title: o.title, email: o.email });
+      });
+    }
+    people = people.filter(function (p) { return p && p.name && p.email; });
+    if (!people.length) return 0;
+    dirSave({ version: 'import', collected_at: new Date().toISOString().slice(0, 10), people: people }, 'file');
+    return people.length;
+  }
+
+  function wireDirPicker() {
+    var info = $('#aclDirInfo');
+    if (info) info.innerHTML = dirInfoHTML();
+    var s = $('#aclSearch');
+    if (s) {
+      s.addEventListener('input', renderHits);
+      s.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          var first = $('#aclHits [data-dir-hit]');
+          if (first) first.click();
+        }
+      });
+    }
+    var f = $('#aclDirFile');
+    if (f) f.addEventListener('change', function () {
+      var file = f.files && f.files[0];
+      if (!file) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        var n = 0;
+        try { n = dirImportText(String(rd.result || '')); } catch (e) { n = 0; }
+        if (!n) { toast('직원 목록을 읽지 못했습니다. JSON(admin_directory.json) 또는 CSV 파일인지 확인해 주세요.', true); return; }
+        if (info) info.innerHTML = dirInfoHTML();
+        toast('직원 ' + n + '명 목록을 불러왔습니다. 이 브라우저에만 저장됩니다.');
+        renderHits();
+      };
+      rd.readAsText(file, 'utf-8');
+    });
+    var sync = $('#aclDirSync');
+    if (sync) sync.addEventListener('click', function () {
+      sync.disabled = true; sync.textContent = '확인 중…';
+      dirFetch().then(function (okd) {
+        sync.disabled = false; sync.textContent = '서버에서 새로고침';
+        if (info) info.innerHTML = dirInfoHTML();
+        renderHits();
+        if (!okd) toast('서버에 직원 목록이 아직 없습니다. 파일로 불러와 주세요.', true);
+      });
+    });
+  }
+
+  function dirFetch() {
+    return apiGet('type=admin_directory').then(function (j) {
+      if (j && j.ok && Array.isArray(j.people) && j.people.length) {
+        dirSave({ people: j.people, version: j.version || '', collected_at: j.collected_at || '', saved_at: j.saved_at || '' }, 'server');
+        return true;
+      }
+      return false;
+    }).catch(function () { return false; });
   }
 
   function aclVal(id) { var el = $('#' + id); return el ? String(el.value || '').trim() : ''; }
@@ -705,7 +883,8 @@
         S.acl.push(item);
         logAcl('grant', item);
         var host = $('#aclBody'); if (host) host.innerHTML = aclTableHTML();
-        ['aclName', 'aclOrg', 'aclEmail'].forEach(function (k) { var el = $('#' + k); if (el) el.value = ''; });
+        ['aclName', 'aclOrg', 'aclEmail', 'aclSearch'].forEach(function (k) { var el = $('#' + k); if (el) el.value = ''; });
+        var hitsHost = $('#aclHits'); if (hitsHost) hitsHost.innerHTML = '';
         toast(item.name + ' 님에게 행정 탭 ' + (item.access === 'EDIT' ? '열람·수정' : '열람') + ' 권한을 등록했습니다.');
       } else {
         fail('등록하지 못했습니다: ' + ((j && j.error) || '서버 응답 없음') + ' — 서버 패치(Admin.gs) 전에는 시트 admin_access 탭에 직접 한 줄 추가해 주세요.');

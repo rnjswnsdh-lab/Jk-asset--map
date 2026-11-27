@@ -410,11 +410,13 @@
     var a = currentArticle();
     if (S.artErr) { host.innerHTML = esc(S.artErr); return; }
     if (!a) { host.innerHTML = S.artLoading ? '아티클을 불러오는 중…' : '배포할 아티클을 고르세요.'; return; }
-    host.innerHTML = '<b>' + esc(String(a.title || '')) + '</b>' +
-      ' · ' + esc(String(a.date || '')) +
-      (a.source ? ' · ' + esc(String(a.source)) : '') +
-      (a.summary ? '<br><span style="opacity:.8">' + esc(String(a.summary).slice(0, 140)) + (String(a.summary).length > 140 ? '…' : '') + '</span>' : '') +
-      '<br><span style="opacity:.7">최근 ' + S.articles.length + '건 중 선택 · 팀장회의·비공개 글은 목록에서 제외</span>';
+    var src = String(a.source || '');
+    var sum = String(a.summary || '');
+    host.innerHTML = '<div class="bc-arttitle">' + esc(String(a.title || '').replace(/^\[[^\]]*\]\s*/, '')) + '</div>' +
+      '<div class="bc-artmeta">' + esc(String(a.date || '')) +
+      (src ? ' · ' + esc(src.length > 60 ? src.slice(0, 60) + '…' : src) : '') + '</div>' +
+      (sum ? '<div class="bc-artsum">' + esc(sum.length > 140 ? sum.slice(0, 140) + '…' : sum) + '</div>' : '') +
+      '<div class="bc-artnote">최근 ' + S.articles.length + '건 중 선택 · 팀장회의·비공개 글은 목록에서 제외</div>';
   }
 
   function renderModes() {

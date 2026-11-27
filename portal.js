@@ -703,6 +703,14 @@
     var p = function (n) { return (n < 10 ? '0' : '') + n; };
     return x.getFullYear() + '-' + p(x.getMonth() + 1) + '-' + p(x.getDate()) + 'T' + p(x.getHours()) + ':' + p(x.getMinutes());
   }
+  /* 사업자등록증의 개업일자 등은 '19950302' 처럼 붙여 입력해도 되게 정규화합니다. */
+  function normDate(v) {
+    var s = String(v == null ? '' : v).trim();
+    if (!s) return '';
+    var m = s.match(/(\d{4})\D*(\d{1,2})\D*(\d{1,2})/);
+    if (!m) return s;
+    return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+  }
   function addMonths(iso, n) {
     var d = iso ? new Date(iso + 'T00:00:00') : new Date();
     d.setMonth(d.getMonth() + n);
@@ -1070,7 +1078,7 @@
       C.field('name', '금융기관 (기관명)', '', 'text', { req: true, wide: true, ph: '예) ○○은행 부동산금융부' }) +
       C.field('biz_no', '사업자등록번호', '', 'text', { ph: '000-00-00000' }) +
       C.field('ceo', '대표자명', '', 'text') +
-      C.field('opened_at', '개업일자', '', 'date') +
+      C.field('opened_at', '개업일자', '', 'text', { ph: 'YYYY-MM-DD (예: 1995-03-02)' }) +
       C.field('domain', '기관 공식 도메인', '', 'text', { ph: '예) kbank.co.kr' }) +
       C.field('dept', '부서', '', 'text') +
       C.field('manager', '담당자', '', 'text') +
@@ -1092,13 +1100,13 @@
       var biz = C.fval(m, 'biz_no');
       if (biz && !brnValid(biz)) { C.toast('사업자등록번호 형식(체크섬)이 올바르지 않습니다. 그래도 저장은 됩니다 — 인증 단계에서 다시 확인하세요.', true); }
       var rec = {
-        id: C.uid('lnd'), name: name, biz_no: biz, ceo: C.fval(m, 'ceo'), opened_at: C.fval(m, 'opened_at'),
+        id: C.uid('lnd'), name: name, biz_no: biz, ceo: C.fval(m, 'ceo'), opened_at: normDate(C.fval(m, 'opened_at')),
         domain: domainOf(C.fval(m, 'domain')), dept: C.fval(m, 'dept'), manager: C.fval(m, 'manager'),
         title: C.fval(m, 'title'), org_tel: C.fval(m, 'org_tel'), phone: C.fval(m, 'org_tel'),
         email: C.fval(m, 'email'), addr: C.fval(m, 'addr'), note: C.fval(m, 'note'),
         status: '미확인', verified_at: '', next_review_at: '', reject_reason: '',
         declared: {
-          name: name, biz_no: biz, ceo: C.fval(m, 'ceo'), opened_at: C.fval(m, 'opened_at'),
+          name: name, biz_no: biz, ceo: C.fval(m, 'ceo'), opened_at: normDate(C.fval(m, 'opened_at')),
           domain: domainOf(C.fval(m, 'domain')), dept: C.fval(m, 'dept'), manager: C.fval(m, 'manager'),
           title: C.fval(m, 'title'), org_tel: C.fval(m, 'org_tel'), email: C.fval(m, 'email')
         },
@@ -1207,7 +1215,7 @@
       '<div class="lv-links">' + links([OFFICIAL.fss, OFFICIAL.loan, OFFICIAL.api]) + '</div>' +
       '<div class="rfp-formgrid">' +
       C.field('s1_result', '조회 결과', s1.result || '', 'select', { options: ['', '제도권 금융회사', '비제도권(대부업·사모 등)', '확인 불가'], req: true }) +
-      C.field('s1_ref', '조회 기준일', s1.ref_date || C.today(), 'date') +
+      C.field('s1_ref', '조회 기준일', s1.ref_date || C.today(), 'text', { ph: 'YYYY-MM-DD' }) +
       C.field('s1_url', '근거 URL (조회 결과 링크)', s1.url || '', 'text', { wide: true, ph: 'https://fine.fss.or.kr/…' }) +
       C.field('s1_memo', '메모 (조회 결과·등록번호 등)', s1.memo || '', 'textarea', { wide: true, rows: 2, ph: '예) 파인 제도권 조회 — ○○캐피탈, 금융투자업 등록 확인' }) +
       '</div>' + (s1.by ? '<p class="rfp-hint">최근 확인: ' + esc(s1.by) + ' · ' + esc(C.when(s1.at)) + '</p>' : '') + '</div>' +
@@ -1219,7 +1227,7 @@
       C.field('s2_name', '기관명(법인명)', s2.legal_name || dc.name || '', 'text', { req: true }) +
       C.field('s2_biz_no', '사업자등록번호', s2.biz_no || dc.biz_no || '', 'text', { req: true, ph: '000-00-00000' }) +
       C.field('s2_ceo', '대표자명', s2.ceo || dc.ceo || '', 'text', { req: true }) +
-      C.field('s2_opened_at', '개업일자', s2.opened_at || dc.opened_at || '', 'date', { req: true }) +
+      C.field('s2_opened_at', '개업일자', s2.opened_at || dc.opened_at || '', 'text', { req: true, ph: 'YYYY-MM-DD' }) +
       C.field('s2_corp_no', '법인등록번호 (등기부 기준)', s2.corp_no || '', 'text', { ph: '000000-0000000' }) +
       C.field('s2_tax', '국세청 사업자등록 진위 결과', s2.tax_result || '', 'select', { options: ['', '진위 확인(일치)', '불일치', '확인 불가'], req: true }) +
       C.field('s2_doc', '법인등기부등본 대조 결과', s2.doc_match || '', 'select', { options: ['', '증빙 일치', '증빙 불일치', '증빙 미확인'], req: true }) +
@@ -1275,8 +1283,8 @@
     function readForm() {
       var g = function (n) { return C.fval(m, n); };
       return {
-        s1: { result: g('s1_result'), ref_date: g('s1_ref'), url: g('s1_url'), memo: g('s1_memo') },
-        s2: { legal_name: g('s2_name'), biz_no: g('s2_biz_no'), ceo: g('s2_ceo'), opened_at: g('s2_opened_at'),
+        s1: { result: g('s1_result'), ref_date: normDate(g('s1_ref')), url: g('s1_url'), memo: g('s1_memo') },
+        s2: { legal_name: g('s2_name'), biz_no: g('s2_biz_no'), ceo: g('s2_ceo'), opened_at: normDate(g('s2_opened_at')),
           corp_no: g('s2_corp_no'), tax_result: g('s2_tax'), doc_match: g('s2_doc'), url: g('s2_url'), memo: g('s2_memo'),
           registry: files[0] || (s2.registry || null) },
         s3: { p_name: g('s3_name'), p_title: g('s3_title'), p_dept: g('s3_dept'), official_domain: domainOf(g('s3_domain')),

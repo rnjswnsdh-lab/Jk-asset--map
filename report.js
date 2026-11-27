@@ -189,8 +189,8 @@
   /* ⑥ 출처·한계 */
   function sourcesHTML(src, lim) {
     var s = (src || []).map(function (r) {
-      return '<li>' + esc(r.org) + ' — ' + esc(r.doc) + ' <span class="rp-note">' + esc(r.date) + '</span>' +
-        (r.url ? ' <a href="' + esc(r.url) + '" target="_blank" rel="noopener">원문</a>' : '') + '</li>';
+      return '<li>' + esc(r.org) + ' — ' + esc(r.doc) + ' <span style="color:#7b8a99;font-size:10.4px;white-space:nowrap">' + esc(r.date) + '</span>' +
+        (r.url ? ' <a href="' + esc(r.url) + '" target="_blank" rel="noopener" style="white-space:nowrap">원문</a>' : '') + '</li>';
     }).join('');
     var l = (lim || []).map(function (r) {
       return '<li><b>' + esc(r.item) + '</b> — ' + esc(r.text) + '</li>';

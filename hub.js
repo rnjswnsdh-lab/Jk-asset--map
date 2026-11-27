@@ -650,7 +650,9 @@
         '<td class="nowrap">' + esc(r.phone || '') + '</td>' +
         '<td>' + esc([r.price, r.area_py, r.rent, r.timeline].filter(Boolean).join(' · ')) + '</td>' +
         '<td><span class="hub-st">' + esc(r.status || '접수') + '</span></td>' +
-        '<td class="nowrap"><button type="button" class="mini-btn hub-share" data-hub-share="' + esc(r.id || '') + '" title="블라인드 기준으로 파트너에게 메일 공유">📧</button></td></tr>';
+        '<td class="nowrap">' + (normType(r) === 'TR'
+          ? '<button type="button" class="mini-btn hub-share" data-hub-share="' + esc(r.id || '') + '" title="PR(임차의뢰) 건을 파트너에게 블라인드 기준으로 공유">📧 PR 공유</button>'
+          : '<span class="hub-noshare" title="물건별·다른 유형 공유는 폐지 — PR(임차의뢰)만 파트너 공유">—</span>') + '</td></tr>';
     });
     h += '</tbody></table></div>';
     return h;
@@ -702,6 +704,44 @@
     toast(data.length + '건을 CSV로 저장했습니다.');
   }
 
+  /** PR(임차의뢰) 접수만 — 파트너·외부 임차현황 시스템 전달용 구조화 CSV (관리자) */
+  function exportPrCsv() {
+    if (!isAdmin()) { toast('PR 내보내기는 관리자만 가능합니다.', true); return; }
+    var rows = LIST.items.filter(function (r) { return normType(r) === 'TR'; });
+    if (!rows.length) { toast('PR(임차의뢰) 접수가 없습니다.', true); return; }
+    var head = ['접수일시', '접수ID', '수요구분', '업체명(블라인드)', '희망권역', '희망면적', '예산·임대료', '입주시기', '상세스펙', '진행상태'];
+    var esc2 = function (v) { var s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    var pick = function (memo, key) {
+      var m = String(memo || '').match(new RegExp(key + '=([^|]+)'));
+      return m ? m[1].trim() : '';
+    };
+    var lines = rows.map(function (r) {
+      return [
+        String(r.timestamp || r.at || '').replace('T', ' ').slice(0, 16),
+        r.id || r.asset_id || '',
+        r.request_type || 'TR',
+        r.blind_name || '비공개 고객사',
+        r.region || pick(r.memo, '희망 권역'),
+        r.area_py || pick(r.memo, '희망 면적'),
+        r.price || r.rent || pick(r.memo, '희망 임대료'),
+        r.timeline || pick(r.memo, '입주 희망 시기'),
+        pick(r.memo, '상세 스펙') || '',
+        r.status || '접수'
+      ].map(esc2).join(',');
+    });
+    var d = new Date();
+    var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    var stamp = d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate());
+    var csv = '\ufeff' + head.join(',') + '\n' + lines.join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'AssetBridge_PR접수_' + stamp + '.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 500);
+    toast(rows.length + '건을 PR CSV로 저장했습니다. (발송·연동은 하지 않습니다)');
+  }
+
   function renderListBody() {    var body = $('#hubListBody');
     if (!body) return;
     $$('[data-hub-filter]', body.parentNode).length; /* noop */
@@ -735,6 +775,7 @@
       '<input id="hubListQ" type="search" data-enter="search" placeholder="물건 · 회사 · 담당 · 연락처 검색" autocomplete="off">' +
       '<span id="hubListCount" class="hub-count">불러오는 중…</span>' +
       (isAdmin() ? '<button type="button" class="mini-btn" data-hub="xlsx" title="현재 유형·검색 조건의 접수 내역을 엑셀로 저장">📥 엑셀 다운로드</button>' : '') +
+      (isAdmin() ? '<button type="button" class="mini-btn" data-hub="pr-csv" title="PR(임차의뢰) 접수만 파트너 전달용 CSV로 저장">📤 PR CSV</button>' : '') +
       '<button type="button" class="mini-btn" data-hub="form">＋ 새 등록</button></div>' +
       '<div class="tr-scroll" id="hubListBody"><p class="hub-empty">불러오는 중…</p></div>';
   }
@@ -754,6 +795,7 @@
       if (act === 'close') close();
       else if (act === 'form') open(HUB.type, HUB.prefill);
       else if (act === 'xlsx') exportListXlsx();
+      else if (act === 'pr-csv') exportPrCsv();
     };
     var q = $('#hubListQ');
     if (q) {

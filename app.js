@@ -1097,7 +1097,7 @@
     html += '<button type="button" class="action-btn sim" data-act="simulate" title="' + (aucInfo ? '최저입찰가를 매입가로 넣고 수익성·민감도 시뮬레이터로 이동' : '렌트롤·OPEX 기준 수익성·민감도 시뮬레이터로 이동') + '">📊 ' + (aucInfo ? '최저입찰가로 수익성 시뮬레이션' : '수익성 시뮬레이션') + '</button>';
     html += '<button type="button" class="action-btn tm" data-act="tm" title="NAI 양식 TM(티저) 브리프 미리보기 + 제작 요청">📄 TM 제작</button>';
     html += '<button type="button" class="action-btn im" data-act="im" title="NAI 양식 IM 브리프 미리보기 + 제작 요청">📘 IM 제작</button>';
-    html += '<button type="button" class="action-btn share" data-act="share" title="에스원·알스퀘어 등 파트너에게 블라인드 기준으로 메일 공유">📧 파트너 메일 공유</button>';
+    /* 물건별 파트너 메일 공유 버튼은 2026-11-27 폐지 — PR(임차의뢰) 접수 건 단위로만 공유합니다. */
     if (canEdit()) {
       html += '<button type="button" class="action-btn primary" data-act="edit">✏️ 수정</button>';
       if (a.lat && a.lng && state.mapReady) html += '<button type="button" class="action-btn" data-act="roadview">🛣 로드뷰</button>';
@@ -2409,8 +2409,8 @@
     }
     if ((act === 'tm' || act === 'im') && a) { logAsset(a, act === 'tm' ? 'TM제작' : 'IM제작'); /* home.js 가 브리프를 엽니다 */ }
     if (act === 'share' && a) {
-      if (window.NAI_SHARE) window.NAI_SHARE.openAsset(a);
-      else toast('메일 공유 모듈을 불러오지 못했습니다. 새로고침해 주세요.', true);
+      /* 물건별 공유 폐지(2026-11-27) — PR 접수 건 단위 공유로 대체 */
+      toast('물건별 공유는 폐지되었습니다. PR(임차의뢰) 접수 건에서만 공유할 수 있습니다.', true);
       return;
     }
     if (act === 'edit' && a) {

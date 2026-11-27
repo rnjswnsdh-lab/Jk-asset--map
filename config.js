@@ -110,5 +110,17 @@ window.NAI_MAP_CONFIG = {
   LIST_PAGE: 200,
 
   /* 🤖 AI 매물 매칭 · 피클 초대 링크 (2026-11-24) */
-  PICKLE_INVITE_URL: "https://pickle.com/i/2X6HQCBL47MN"
+  PICKLE_INVITE_URL: "https://pickle.com/i/2X6HQCBL47MN",
+
+  /* 🤝 PR(임차의뢰) 공유 파트너 — 물건별 공유는 폐지하고 TR 접수만 공유합니다 (2026-11-27)
+     수신자 이메일은 코드에 두지 않습니다. 앱이 실제로 메일을 발송하지도 않습니다.
+     서버 프리셋(GET ?type=partners)이 있으면 그 목록을 우선 사용하고, 없을 때만 아래 이름·역할을
+     화면에 표시합니다. 실제 수신자·주소 지정은 사용자가 정합니다.
+     형식: { org: '기관명', role: '역할', note: '메모' } */
+  PARTNERS: [
+    { org: "아이스케어", role: "임차현황 시스템·SI 임차 파트너", note: "임차 현황 시스템 연동은 방향만 확정(보류)" },
+    { org: "S1", role: "시설·보안 SI 파트너", note: "" },
+    { org: "에스원", role: "시설·보안 SI 파트너", note: "" },
+    { org: "알스퀘어", role: "상업용 부동산 중개 파트너", note: "" }
+  ]
 };

@@ -28,8 +28,12 @@
   var ME = { name: '권준오', title: '상무', phone: '010-7731-4316', email: 'jk@naikorea.com',
     company: 'NAI Korea', addr: '서울시 강남구 테헤란로 516 정헌빌딩 10층' };
 
-  /* 파트너 기관 — 주소는 서버 프리셋(관리자) 또는 직접 입력 */
-  var ORGS = ['에스원', '알스퀘어', '직접 입력'];
+  /* 파트너 기관 — 물건별 공유는 폐지(2026-11-27). PR(임차의뢰) 접수만 관련 파트너에게 공유합니다.
+     목록은 config.js 의 PARTNERS(설정값)에서 읽고, 주소는 서버 프리셋(관리자) 또는 직접 입력. */
+  var ORGS = ((CFG.PARTNERS || []).map(function (p) { return p.org; }).filter(Boolean))
+    .filter(function (v, i, arr) { return arr.indexOf(v) === i; });
+  if (!ORGS.length) ORGS = ['직접 입력'];
+  ORGS.push('직접 입력');
   var PRESETS = null;
 
   var S = { payload: null, org: '에스원', to: '', subject: '', body: '', picked: {} };
@@ -328,28 +332,9 @@
     });
   }
 
-  /** 물건(assets) → 메일. 매도인·운용사 실명은 본문에서 제외합니다. */
-  function openAsset(a) {
-    if (!a) return;
-    var fields = [
-      ['물건명', a.name || ''],
-      ['구분', SECTOR[a.sector] || a.sector || ''],
-      ['소재지', a.address || ''],
-      ['권역', a.region || ''],
-      ['규모', a.scale_info || ''],
-      ['가격', a.price_info || ''],
-      ['진행 상태', a.status || a.status_group || ''],
-      ['임차·운영', a.tenants || '']
-    ];
-    var nm = String(a.name || '');
-    var blind = /^\[(TR|매입)\]/.test(nm) ? true : false;
-    open({
-      badge: blind ? '수요 건 공유' : '매물 공유',
-      headline: (a.address || a.region || nm),
-      intro: '아래 물건을 공유드립니다. 관심 있으시면 회신 부탁드립니다.',
-      fields: fields,
-      ask: '· 관심 여부와 검토 일정, 추가로 필요한 자료(렌트롤·OPEX·실사)를 알려 주세요.'
-    });
+  /** 물건별 공유 — 2026-11-27 폐지. 호출되면 안내만 하고 열지 않습니다. */
+  function openAsset() {
+    if (window.naiToast) window.naiToast('물건별 공유는 폐지했습니다. PR(임차의뢰) 접수 건만 공유합니다.', true);
   }
 
   window.NAI_SHARE = { open: open, openRequest: openRequest, openAsset: openAsset, close: close };

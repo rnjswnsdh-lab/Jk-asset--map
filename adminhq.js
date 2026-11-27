@@ -75,6 +75,26 @@
 
   /* ───────────────── 데이터 정규화 ───────────────── */
 
+  /* 딜 구분 미러 — 시트 `admin` 탭의 deal_tags 열과 같은 값입니다.
+     서버가 admin 탭을 내려주지 않는 동안(articles 폴백) 필터·KPI가 동작하도록 두는 최소 색인이며,
+     회의록 본문은 담지 않습니다. admin 탭을 읽게 되면 시트 값이 우선합니다. */
+  var DEAL_TAGS = {
+    'team-20261124-01': '매입,매각', 'team-20261124-02': 'LM', 'team-20261124-03': 'LM',
+    'team-20261124-04': 'TR', 'team-20261124-05': '매입', 'team-20261124-06': '매각',
+    'team-20261124-07': '매입', 'team-20261124-08': '매입', 'team-20261124-09': '매입',
+    'team-20261124-10': '매각', 'team-20261124-11': '매각', 'team-20261124-12': 'LM,매입',
+    'team-20261124-13': '매각', 'team-20261124-14': 'TR', 'team-20261124-15': '매입,매각',
+    'team-20261124-16': '매각', 'team-20261124-17': '매입', 'team-20261124-18': '매입',
+    'team-20261119-03': 'LM', 'team-20261119-06': '매입', 'team-20261119-07': '매입',
+    'team-20261119-08': '매입', 'team-20261119-09': '매입,TR',
+    'team-20261117': 'TR,LM,매입,매각', 'team-20261112': '매입,매각',
+    'team-20261110': 'TR,LM,매입,매각',
+    'team-20261027': 'TR,LM,매입,매각', 'team-20261022': '매각,TR', 'team-20261020': 'TR,LM,매입,매각',
+    'weekly-261012': 'LM,매각', 'weekly-261019': 'LM,매각', 'weekly-261026': 'LM,매각',
+    'weekly-261102': 'LM,매각', 'weekly-261109': 'LM,매각', 'weekly-261116': 'LM,매각',
+    'weekly-261123': 'LM,매각'
+  };
+
   function isMeeting(it) {
     var t = String((it && it.tags) || '') + ' ' + String((it && it.kind) || '');
     return t.indexOf('팀장회의') >= 0 || t.indexOf('월요회의') >= 0 || t.indexOf('월간회의') >= 0;
@@ -92,7 +112,7 @@
       section: String(it.section || b.section || ''), speaker: String(it.speaker || b.speaker || ''),
       due: String(it.due || b.due || ''), state: String(it.state || b.state || ''),
       asset: String(it.asset || b.asset || ''),
-      dealTags: String(it.deal_tags || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean),
+      dealTags: String(it.deal_tags || DEAL_TAGS[String(it.id || '')] || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean),
       tags: String(it.tags || ''),
       text: String(b.text || ''), raw: raw,
       body: String(it.body || ''),

@@ -109,8 +109,10 @@
     return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes());
   }
   function whenText(iso) {
-    var s = String(iso || '').replace('T', ' ');
-    return s.slice(0, 16);
+    var d = new Date(String(iso || ''));
+    if (isNaN(d.getTime())) return String(iso || '').replace('T', ' ').slice(0, 16);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+      ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
   }
   function download(text, name, mime) {
     var blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
@@ -333,6 +335,7 @@
   function artLabel(a) {
     var d = String(a.date || '').slice(5).replace('-', '/');
     var t = String(a.title || '').replace(/^\[[^\]]*\]\s*/, '');
+    if (d) t = t.replace(new RegExp('^' + d.replace('/', '\\/') + '\\s*[·\-]?\\s*'), '');
     return (d ? d + ' · ' : '') + (t.length > 70 ? t.slice(0, 70) + '…' : t);
   }
 
@@ -410,7 +413,7 @@
     host.innerHTML = '<b>' + esc(String(a.title || '')) + '</b>' +
       ' · ' + esc(String(a.date || '')) +
       (a.source ? ' · ' + esc(String(a.source)) : '') +
-      (a.summary ? '<br><span style="opacity:.85">' + esc(String(a.summary).slice(0, 180)) + '</span>' : '') +
+      (a.summary ? '<br><span style="opacity:.8">' + esc(String(a.summary).slice(0, 140)) + (String(a.summary).length > 140 ? '…' : '') + '</span>' : '') +
       '<br><span style="opacity:.7">최근 ' + S.articles.length + '건 중 선택 · 팀장회의·비공개 글은 목록에서 제외</span>';
   }
 
@@ -502,7 +505,11 @@
   function renderPickChips() {
     var host = $('#bcPickChips');
     if (!host) return;
-    var keys = Object.keys(S.pick).concat(Object.keys(S.extra));
+    var seen = {}, keys = [];
+    Object.keys(S.pick).concat(Object.keys(S.extra)).forEach(function (k) {
+      if (seen[k]) return;
+      seen[k] = 1; keys.push(k);
+    });
     if (!keys.length) { host.innerHTML = '<p class="hq-meta">선택한 사람이 없습니다.</p>'; return; }
     host.innerHTML = keys.map(function (k) {
       var m = S.pick[k] || S.extra[k] || {};
@@ -599,7 +606,7 @@
         var row = '<tr><td class="nowrap">' + esc(whenText(r.at)) + '</td>' +
           '<td><b>' + esc((r.article || {}).title || '—') + '</b>' +
           ((r.article || {}).date ? '<br><span style="opacity:.7;font-size:10.4px">' + esc(r.article.date) + '</span>' : '') + '</td>' +
-          '<td>' + esc(r.target || '') + '</td><td class="nowrap">' + esc(String(r.count || 0)) + '명</td>' +
+          '<td class="nowrap">' + esc(r.target || '') + '</td><td class="nowrap">' + esc(String(r.count || 0)) + '명</td>' +
           '<td class="nowrap">' + esc(r.by || '') + '</td>' +
           '<td class="nowrap"><button type="button" class="mini-btn" data-bc-hview="' + esc(r.id) + '">' + (open ? '접기' : '명단') + '</button> ' +
           '<button type="button" class="mini-btn" data-bc-hcsv="' + esc(r.id) + '">CSV</button> ' +

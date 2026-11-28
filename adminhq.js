@@ -761,9 +761,9 @@
     if (!d || !d.people || !d.people.length) {
       host.innerHTML = '<div class="hq-meta" style="padding:6px 0">' +
         (S.dirChecked
-          ? '서버(<b>admin_directory</b>)에도 직원 목록이 없습니다. 아래 <b>직원 목록 파일</b>에서 JSON/CSV를 한 번 불러오면 이 브라우저에 저장됩니다. '
-          : '직원 목록을 먼저 불러와 주세요. 아래 <b>직원 목록 파일</b>에서 이 대화로 받은 JSON/CSV를 선택하면 됩니다. ') +
-        '파일이 없어도 아래 <b>이름 · 명함 이메일</b>을 직접 입력해 바로 등록할 수 있습니다.</div>';
+          ? '직원 목록이 서버에도 없어 이름·이메일로 찾을 수 없습니다. '
+          : '직원 목록을 아직 불러오지 않았습니다. ') +
+        '아래 <b>이름 · 명함 이메일</b>을 직접 입력해도 바로 등록됩니다.</div>';
       return;
     }
     if (!q) { host.innerHTML = ''; return; }

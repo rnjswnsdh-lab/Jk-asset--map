@@ -37,6 +37,15 @@
       return '<span class="trade-badge mini t-' + k + '">' + ((T[k] && T[k].icon) || '') + ' ' + ((T[k] && T[k].label) || k) + '</span>';
     }).join(' ');
   }
+  function isDualTrade(a) {
+    return !!(window.naiMap && window.naiMap.isDualTrade && window.naiMap.isDualTrade(a));
+  }
+  /* 매각·임대 병행 건은 진행 카드 맨 앞에 — 매각 카드에서 가격 순으로 밀려나지 않게 (2026-11-28) */
+  function dealCardSort(a, b) {
+    var da = isDualTrade(a) ? 1 : 0, db = isDualTrade(b) ? 1 : 0;
+    if (da !== db) return db - da;
+    return (parseEok(b.price_info) || 0) - (parseEok(a.price_info) || 0);
+  }
   /** 출처·본문에 남은 NAI 흔적 정리 — 실제 매각·임대 실행 표기(NAI 매각/임대 탭·딜 데이터)는 그대로 둡니다 */
   function noNai(s) {
     return String(s == null ? '' : s)
@@ -558,10 +567,10 @@
     }).sort(function (x, y) { return x.n - y.n; }).slice(0, 12);
 
     var sale = all.filter(function (a) { return hasTradeState(a, 'sale') && inHomeSector(a); })
-      .sort(function (a, b) { return (parseEok(b.price_info) || 0) - (parseEok(a.price_info) || 0); })
+      .sort(dealCardSort)
       .slice(0, 10);
     var lease = all.filter(function (a) { return hasTradeState(a, 'lease') && inHomeSector(a); })
-      .sort(function (a, b) { return (parseEok(b.price_info) || 0) - (parseEok(a.price_info) || 0); })
+      .sort(dealCardSort)
       .slice(0, 10);
 
     var html = '<div class="strip-chips">' +

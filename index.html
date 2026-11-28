@@ -27,7 +27,7 @@
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Open AI Asset Bridge — 상업용 부동산 통합 플랫폼">
 <meta name="twitter:description" content="오피스·물류센터·데이터센터·호텔·리테일·토지·골프장·시니어하우징 물건 지도와 딜 아티클, 업무 의뢰 접수.">
-<link rel="stylesheet" href="style.css?v=20261128a">
+<link rel="stylesheet" href="style.css?v=20261128r">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2a4a'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='system-ui,sans-serif' font-size='11' font-weight='800' fill='%23ffffff'%3EAB%3C/text%3E%3C/svg%3E">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebApplication","name":"Open AI Asset Bridge","applicationCategory":"BusinessApplication","operatingSystem":"Web","inLanguage":"ko-KR","url":"https://rnjswnsdh-lab.github.io/Jk-asset--map/","description":"상업용 부동산 물건 DB·투자자 풀·딜 아티클·공지·임차(TR)·임대(LM)·매각 의뢰 접수 통합 플랫폼","offers":{"@type":"Offer","price":"0","priceCurrency":"KRW"},"about":["오피스","물류센터","데이터센터","호텔","리테일","토지·개발부지","골프장","시니어 하우징","멀티패밀리·임대주택"]}
@@ -47,7 +47,7 @@
   </div>
 
   <div class="header-actions">
-    <button id="btnReport" class="icon-btn report-btn" type="button" aria-label="2026 3Q 마켓 리포트" title="📊 2026 3Q 마켓 리포트">📊</button>
+    <button id="btnReport" class="icon-btn report-btn" type="button" aria-label="2026 3Q 통합 마켓 리포트" title="📊 2026 3Q 통합 마켓 리포트 (공실률 2계열 · 거래 35건 · 4Q 전망)">📊</button>
     <button id="btnCodeChange" class="icon-btn" type="button" aria-label="접속코드 변경" title="접속코드 변경 (관리자 / 읽기 전용)">🔑</button>
     <span id="roleBadge" class="role-chip hidden">관리자</span>
     <span id="syncStatus" class="sync-chip hidden">동기화</span>
@@ -85,7 +85,7 @@
   <button class="vt-btn" type="button" data-view="lm" role="tab" aria-selected="false">🔑 NAI 임대(LM)</button>
   <button class="vt-btn" type="button" data-view="rfp" role="tab" aria-selected="false" id="btnRfpTab">📑 RFP</button>
   <button class="vt-btn" type="button" data-view="vdr" role="tab" aria-selected="false">🏢 자문사 VDR</button>
-  <button class="vt-btn" type="button" data-view="advise" role="tab" aria-selected="false">🧾 자문사 딜</button>
+  <button class="vt-btn" type="button" data-view="advise" role="tab" aria-selected="false">🧾 자문사 딜 현황</button>
   <button class="vt-btn" type="button" data-view="portal" role="tab" aria-selected="false">🤝 자문사 포털</button>
   <button class="vt-btn" type="button" data-view="finance" role="tab" aria-selected="false">🧩 매칭 마켓</button>
   <button class="vt-btn" type="button" data-view="pool" role="tab" aria-selected="false">🏢 SI (사옥·전략투자)</button>
@@ -270,8 +270,8 @@
 <!-- ───────────────────── 🏢 NAI 매각·LM (별도 탭) ───────────────────── -->
 <section id="naiView" class="nai-view hidden" aria-label="NAI 매각·LM"></section>
 
-<!-- ───────────────────── 🧾 자문사 딜 프로세싱 (별도 시트·탭) ───────────────────── -->
-<section id="adviseView" class="advise-view hidden" aria-label="자문사 딜 프로세싱"></section>
+<!-- ───────────────────── 🧾 자문사 딜 — 자문사별 진행현황판 (2026-11-28 개편) ───────────────────── -->
+<section id="adviseView" class="advise-view hidden" aria-label="자문사별 매각 자문 진행현황판"></section>
 
 <!-- ────────────── 📑 RFP 발주 (의뢰인 · 2026-11-27) ────────────── -->
 <section id="rfpView" class="rfp-view hidden" aria-label="RFP 발주"></section>
@@ -279,11 +279,11 @@
 <!-- ────────────── 🤝 자문사 포털 (자문사·매수자·금융기관 · 2026-11-27) ────────────── -->
 <section id="portalView" class="portal-view hidden" aria-label="자문사 포털"></section>
 
-<!-- ────────────── 💰 대출·금융 연결 (자문사 포털과 분리 · 2026-11-28) ────────────── -->
-<section id="finView" class="rfp-view fin-view hidden" aria-label="대출·금융 연결"></section>
-
 <!-- ───────────────────── 🏢 자문사 VDR · 입찰 워크룸 (별도 탭) ───────────────────── -->
 <section id="vdrView" class="vdr-view hidden" aria-label="자문사 VDR · 입찰 워크룸"></section>
+
+<!-- ────────────── 🧩 매칭 마켓 · 대출·금융 · 용역 진행 (2026-11-28) ────────────── -->
+<section id="finView" class="rfp-view fin-view hidden" aria-label="매칭 마켓 · 금융 연결"></section>
 
 <!-- ───────────────────── 📊 밸류에이션·민감도 (별도 탭) ───────────────────── -->
 <section id="valView" class="val-view hidden" aria-label="물건별 밸류에이션·민감도 시뮬레이터"></section>
@@ -413,34 +413,39 @@ window.addEventListener('unhandledrejection', function (e) { window.__errs.push(
 </script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
 <script src="config.js?v=20261128a"></script>
-<script src="app.js?v=20261128a"></script>
-<script src="investors_fin.js?v=20261128a"></script>
-<script src="investors.js?v=20261128a"></script>
-<script src="valsec.js?v=20261128a"></script>
-<script src="valuation.js?v=20261128a"></script>
-<script src="home.js?v=20261128a"></script>
-<script src="advisor.js?v=20261128a"></script>
-<script src="nai.js?v=20261128a"></script>
-<script src="market_review_2026q3.js?v=20261128a"></script>
-<script src="report.js?v=20261128a"></script>
-<script src="hub.js?v=20261128a"></script>
-<script src="tft.js?v=20261128a"></script>
-<script src="sharelist.js?v=20261128a"></script>
-<script src="share.js?v=20261128a"></script>
-<script src="vdr.js?v=20261128a"></script>
-<script src="trmap.js?v=20261128a"></script>
-<script src="crm.js?v=20261128a"></script>
+<script src="ai.js?v=20261128b"></script>
+<script src="app.js?v=20261128e"></script>
+<script src="investors_fin.js?v=20261127z"></script>
+<script src="investors.js?v=20261127z"></script>
+<script src="valsec.js?v=20261127z"></script>
+<script src="valuation.js?v=20261127z"></script>
+<script src="home.js?v=20261128c"></script>
+<script src="advisordata.js?v=20261128a"></script>
+<script src="advisor.js?v=20261128c"></script>
+<script src="nai.js?v=20261127z"></script>
+<script src="market_review_2026q3.js?v=20261127z"></script>
+<script src="market_report_2026q3.js?v=20261128c"></script>
+<script src="report.js?v=20261128c"></script>
+<script src="hub.js?v=20261127z"></script>
+<script src="tft.js?v=20261127z"></script>
+<script src="sharelist.js?v=20261127z"></script>
+<script src="share.js?v=20261127z"></script>
+<script src="vdr.js?v=20261128r"></script>
+<script src="trmap.js?v=20261127z"></script>
+<script src="crm.js?v=20261127z"></script>
 <script src="rfp_template.js?v=20261128a"></script>
-<script src="rfpcore.js?v=20261128a"></script>
-<script src="rfp.js?v=20261128a"></script>
-<script src="rfpflow.js?v=20261128a"></script>
-<script src="dealroom.js?v=20261128a"></script>
-<script src="deals.js?v=20261128a"></script>
-<script src="finance.js?v=20261128a"></script>
-<script src="services.js?v=20261128a"></script>
-<script src="portal.js?v=20261128a"></script>
+<script src="rfpcore.js?v=20261128b"></script>
+<script src="rfp.js?v=20261128b"></script>
+<script src="rfpflow.js?v=20261128b"></script>
+<script src="dealroom.js?v=20261128b"></script>
+<script src="deals.js?v=20261128b"></script>
+<script src="finance.js?v=20261128b"></script>
+<script src="services.js?v=20261128b"></script>
+<script src="portal.js?v=20261128d"></script>
+<script src="vdr.js?v=20261128s"></script>
 <script src="match.js?v=20261128a"></script>
 <script src="adminlogs.js?v=20261128a"></script>
-<script src="adminhq.js?v=20261128a"></script>
+<script src="adminhq.js?v=20261128b"></script>
+<script src="broadcast.js?v=20261127z"></script>
 </body>
 </html>

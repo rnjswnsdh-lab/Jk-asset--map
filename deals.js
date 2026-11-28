@@ -472,7 +472,21 @@
     });
   }
 
+  /* 🧾 자문사 딜 화면 상단에 딜 보드를 붙입니다(기존 자문사 동향 보드는 그대로). */
+  function mount(host) {
+    if (!host) return;
+    var box = host.querySelector('#advDeals');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'advDeals';
+      box.className = 'adv-deals';
+      host.insertBefore(box, host.firstChild);
+    }
+    paint(box);
+  }
+
   window.NAI_DEALS = {
+    mount: mount,
     paint: paint,
     openPerf: openPerf,
     deals: deals,

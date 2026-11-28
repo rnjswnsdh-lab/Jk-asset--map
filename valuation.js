@@ -349,8 +349,7 @@
 
       var iS = rateAt(inp, 's', y), iM = rateAt(inp, 'm', y);
       var interest = senior * iS + mezz * iM;
-      /* 2026-11-28 수정: 엑시트 갱신비용(exit_capex)은 매각대금(netSale)에서 한 번만 차감합니다.
-         이전에는 N년차 CAPEX 로도 빼서 이중차감되었습니다. */
+      /* 2026-11-28 수정: 엑시트 갱신비용은 매각대금에서 한 번만 차감(이전 이중차감) */
       var capex = capexY;
       var ncf = noiY - interest - capex - otherCost;
 

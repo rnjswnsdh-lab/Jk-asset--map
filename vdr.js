@@ -252,7 +252,7 @@
   function myLoi(roomId) {
     return myBids(roomId).filter(function (b) { return String(b.kind || 'LOI').toUpperCase() !== 'BID'; });
   }
-  function hasDd(roomId) { return operatorView() || myLoi(roomId).length > 0; }
+  function hasDd(roomId) { return operatorView() || (hasAccess(roomId) && myLoi(roomId).length > 0); }
 
   /* ─────────────────────────── 블라인드 산출 ─────────────────────────── */
   function linkedAsset(room) {

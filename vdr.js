@@ -931,7 +931,7 @@
         '<th>제출일시</th><th>구분</th><th>매수 주체</th><th>제안가(억)</th><th>자금조달</th><th>LTV</th><th>인수 조건</th><th>유효기간</th><th>상태</th></tr></thead><tbody>';
       mine.forEach(function (b) {
         h += '<tr class="' + (b._sample ? 'vdr-sample' : '') + '">' +
-          '<td class="nowrap">' + esc(String(b.timestamp || b.submitted_at || '').replace('T', ' ').slice(0, 16)) + '</td>' +
+          '<td class="nowrap">' + esc(fmtDT(b.timestamp || b.submitted_at || '')) + '</td>' +
           '<td>' + esc(b.kind || 'LOI') + (b._sample ? ' <span class="vdr-smp">샘플</span>' : '') + '</td>' +
           '<td><b>' + esc(b.company || '-') + '</b><span class="vdr-sub">' + esc([b.bidder, b.title, b.phone].filter(Boolean).join(' · ')) + '</span></td>' +
           '<td class="num b">' + n0(b.price_eok) + '</td>' +

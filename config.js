@@ -111,8 +111,13 @@ window.NAI_MAP_CONFIG = {
   /* 목록 페이징 단위 — 처음 이 건수만 그리고 '더 보기'로 이만큼씩 추가 (2026-11-24) */
   LIST_PAGE: 200,
 
-  /* 🤖 AI 매물 매칭 · 피클 초대 링크 (2026-11-24) */
+  /* ✨ AI 심층분석(Pickle) 진입 — 물건 상세·AI 매물 매칭 공통 (2026-11-28)
+     PICKLE_MODE: "invite"(준오 님 초대 링크 우선 · 소모될 때까지) | "default"(일반 진입)
+       → 초대권이 다 소모되면 이 한 줄만 "default"로 바꾸면 전체 버튼이 전환됩니다.
+     PICKLE_INVITE_URL: 초대 링크 / PICKLE_DEFAULT_URL: 초대 없이 들어가는 피클 웹앱 주소 */
+  PICKLE_MODE: "invite",
   PICKLE_INVITE_URL: "https://pickle.com/i/2X6HQCBL47MN",
+  PICKLE_DEFAULT_URL: "https://pickle.com/app",
 
   /* 🤝 PR(임차의뢰) 공유 파트너 — 물건별 공유는 폐지하고 TR 접수만 공유합니다 (2026-11-27)
      수신자 이메일은 코드에 두지 않습니다. 앱이 실제로 메일을 발송하지도 않습니다.

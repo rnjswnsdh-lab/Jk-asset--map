@@ -6,7 +6,7 @@
    · 지역·권역 · 섹터 · 거래유형(매각·임차·개발·경공매) · 면적(평) · 가격(억) ·
      온도(상온·냉동·냉장·신선) 를 뽑아 전체 DB(2,429건)를 부합도 순으로 정렬
    · 결과 → 지도·상세 / 밸류에이션 / TR 임차의뢰 로 바로 연결
-   · 하단에 피클(Pickle) 초대 링크 CTA
+   · 하단에 ✨ AI 심층분석(Pickle) + Gemini·Claude 보조 CTA (ai.js)
    ========================================================================= */
 (function () {
   'use strict';
@@ -16,7 +16,9 @@
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
   var S = { built: false, q: '', parsed: null, results: [], shown: 0, page: 20, ranAt: 0, loose: false, total: 0 };
-  var PICKLE_URL = CFG.PICKLE_INVITE_URL || 'https://pickle.com/i/2X6HQCBL47MN';
+  /* ✨ 피클 진입 URL은 ai.js 가 config.js 의 PICKLE_MODE 로 결정합니다(초대 ↔ 일반 진입) */
+  var PICKLE_URL = (window.NAI_AI && window.NAI_AI.pickleUrl) ? window.NAI_AI.pickleUrl()
+    : (CFG.PICKLE_INVITE_URL || 'https://pickle.com/i/2X6HQCBL47MN');
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -377,14 +379,14 @@
     html += '<div class="mt-cta">';
     html += '<div class="mt-cta-l">';
     html += '<strong>더 깊은 AI 분석 · 교차 검토가 필요하신가요?</strong>';
-    html += '<p>본인 <b>피클(Pickle)</b>로 로그인해 직접 물어보세요 — 조건 해석, 후보 비교, 수지·IRR 교차 검토까지 대화로 진행됩니다.</p>';
+    html += '<p><b>✨ AI 심층분석(Pickle)</b>은 이 조건과 상위 후보를 대화로 이어서 검토합니다. <b>Gemini·Claude</b>는 조건·후보 스펙이 정리된 <b>프롬프트가 자동 복사</b>되며 새 창이 열립니다 — 붙여넣기(Ctrl+V)만 하면 됩니다.</p>';
     html += '<ul class="mt-cta-li"><li>“이 후보 3개를 임대료·공실·WALE 기준으로 비교해 줘”</li>' +
       '<li>“용인 물류 후보 중 2027년 입주 가능한 곳만 남겨 줘”</li></ul>';
     html += '</div>';
-    html += '<div class="mt-cta-r">';
-    html += '<a class="mt-pickle" href="' + PICKLE_URL + '" target="_blank" rel="noopener noreferrer" id="mtPickle">🥒 피클(Pickle)로 로그인 · 물어보기 ↗</a>';
-    html += '<span class="mt-cta-note">권준오 상무의 피클 초대 링크 · pickle.com</span>';
-    html += '</div></div>';
+    html += (window.NAI_AI && window.NAI_AI.matchCtaHtml) ? window.NAI_AI.matchCtaHtml() :
+      ('<div class="mt-cta-r"><a class="mt-pickle" href="' + PICKLE_URL + '" target="_blank" rel="noopener noreferrer" id="mtPickle">✨ AI 심층분석 (Pickle) ↗</a>' +
+        '<span class="mt-cta-note">권준오 상무의 피클 초대 링크 · pickle.com</span></div>');
+    html += '</div>';
     html += '</div>';
 
     host.innerHTML = html;
@@ -403,8 +405,7 @@
       if (ex) { $('#mtQ').value = ex.getAttribute('data-mt-ex'); run($('#mtQ').value); return; }
       var tr = e.target.closest('#mtTrBtn');
       if (tr) { openTR({}); return; }
-      var pk = e.target.closest('#mtPickle');
-      if (pk && window.naiMap && window.naiMap.log) window.naiMap.log('pickle_invite', 'ai-match CTA');
+      /* #mtPickle 로그·프롬프트 복사는 ai.js 가 위임 처리합니다 (2026-11-28) */
       var go = e.target.closest('[data-mt-open]');
       if (go) { var id = go.getAttribute('data-mt-open'); window.naiShowView('map'); if (window.naiMap) window.naiMap.select(id); return; }
       var vl = e.target.closest('[data-mt-val]');
@@ -537,7 +538,9 @@
     }
   }
 
-  window.NAI_MATCH = { show: show, run: run, parse: parseQuery, score: scoreAsset, query: runQuery, areaOf: areaOf, priceOf: priceOf };
+  window.NAI_MATCH = { show: show, run: run, parse: parseQuery, score: scoreAsset, query: runQuery, areaOf: areaOf, priceOf: priceOf,
+    /* ai.js 가 프롬프트를 만들 때 쓰는 현재 조건·후보 (2026-11-28) */
+    context: function () { return { q: S.q, parsed: S.parsed, results: S.results || [], total: S.total }; } };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { /* lazy */ });
 })();

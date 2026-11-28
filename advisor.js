@@ -585,7 +585,10 @@
       if (S.intakeOpen) loadIntake(false);
     }
     paintBody();
+<<<<<<< HEAD
     if (window.NAI_DEALS && window.NAI_DEALS.mount) { try { window.NAI_DEALS.mount(document.getElementById('adviseView')); } catch (e) { /* noop */ } }
+=======
+>>>>>>> origin/main
   }
 
   window.NAI_ADVISE = {

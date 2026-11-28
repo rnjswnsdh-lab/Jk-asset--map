@@ -169,7 +169,7 @@
     html += '<h1 class="hh-title">오늘의 <b>딜 브릿지</b></h1>';
     html += '<button type="button" class="hh-report" data-home="report">' +
       '<span class="hr-i">📊</span>' +
-      '<span class="hr-t"><b>2026 3Q 마켓 리포트</b><em>권역별 임대료·공실률 · 주요 거래 20건 · 인사이트</em></span>' +
+      '<span class="hr-t"><b>2026 3Q 통합 마켓 리포트</b><em>공실률 2계열 · NOC 2계열 · 2026 거래 35건 12.59조 · 4Q 전망</em></span>' +
       '<span class="hr-go">바로 보기 →</span></button>';
     html += '<p class="hh-meta">' + (st && st.meta && st.meta.source ? esc(st.meta.source) : '비공개 시트 연동') +
       ' · 기준 ' + esc(todayStr()) + (meNow && meNow.name ? ' · ' + esc(meNow.name) : '') + '</p>';
@@ -221,7 +221,7 @@
     html += applyBtn('advisor', '🧾', '자문사 딜 참여', '매각·매입·임대·금융 자문 참여', '자격·실적 확인');
     html += '</div>';
     html += '<div class="hc-foot"><button type="button" class="mini-btn" data-home="hub-list">📥 접수 내역 보기</button> ' +
-      '<button type="button" class="mini-btn" data-home="advise">🧾 자문사 딜 프로세싱 시트</button></div>';
+      '<button type="button" class="mini-btn" data-home="advise">🧾 자문사별 진행현황판</button></div>';
     html += '</section>';
 
     /* ④ 매각중인 물건 · D-Day */

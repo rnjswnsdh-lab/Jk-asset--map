@@ -29,7 +29,7 @@
     open: {}, hist: null, histFor: '', built: false,
     /* 권한 — 관리자이거나, 서버가 admin_access 명단으로 허용한 사용자만 */
     granted: false, acl: [], aclLoaded: false, aclErr: '',
-    dir: null, dirSrc: ''
+    dir: null, dirSrc: '', dirChecked: false
   };
   var loadedToken = null;
 
@@ -236,6 +236,7 @@
       '<p>팀장회의(화 08:31)·월간회의 기록을 <b>매각·임대(딜) 화면과 분리</b>해 두는 자리입니다. 관리자만 열람·수정할 수 있고, 수정할 때마다 누가·언제·무엇을 고쳤는지 기록이 남습니다.</p></div>' +
       '<div class="ad-tools">' +
       '<button type="button" class="btn btn-ghost" id="hqRefresh">↻ 새로고침</button>' +
+      (isAdmin() ? '<button type="button" class="btn btn-ghost" id="hqBroadcast">📰 아티클 배포</button>' : '') +
       (isAdmin() ? '<button type="button" class="btn btn-ghost" id="hqAcl">🔐 접근 명단</button>' : '') +
       '<button type="button" class="btn btn-outline" id="hqNew">＋ 회의록 등록</button>' +
       '</div></div>' +
@@ -361,6 +362,11 @@
     if (nw) nw.addEventListener('click', function () { openEditor(null); });
     var acl = $('#hqAcl');
     if (acl) acl.addEventListener('click', function () { openAcl(); });
+    var bc = $('#hqBroadcast');
+    if (bc) bc.addEventListener('click', function () {
+      if (window.NAI_BROADCAST) window.NAI_BROADCAST.open();
+      else toast('배포 화면(broadcast.js)을 불러오지 못했습니다. 새로고침해 주세요.', true);
+    });
     var q = $('#hqQ');
     if (q) {
       var t = null;
@@ -640,7 +646,7 @@
   }
 
   function openAcl() {
-    var body = '<div class="read-meta">행정 탭 접근 명단 · 관리자 전용</div>' +
+    var body = '<div class="read-meta">NAI 주소록 · 행정 탭 접근 명단 · 관리자 전용</div>' +
       '<p class="hq-meta">이름을 말씀하시면 여기에 등록합니다. <b>실제 접근 판정은 명함 이메일</b>로 하고, 이름은 표시용입니다(동명이인 구분). ' +
       '등록·해제는 누가·언제 했는지 이력으로 남습니다.</p>' +
       '<div class="hq-acl-pick">' +
@@ -659,7 +665,7 @@
       '<button type="button" class="btn btn-solid" id="aclAdd">등록</button></div>' +
       '<div id="aclBody">' + aclTableHTML() + '</div>' +
       '<div class="fm-err hidden" id="aclErr"></div>';
-    modalOpen('🔐 행정 탭 접근 명단', body);
+    modalOpen('🔐 NAI 주소록 · 권한 명단', body);
     loadAcl(true).then(function () {
       var host = $('#aclBody');
       if (host) host.innerHTML = aclTableHTML();
@@ -724,7 +730,9 @@
   function dirInfoHTML() {
     var d = dirGet();
     if (!d || !d.people || !d.people.length) {
-      return '직원 목록이 아직 없습니다. <b>직원 목록 파일</b>(JSON/CSV)을 한 번 불러오면 이 브라우저에 저장됩니다.';
+      return '직원 목록이 아직 없습니다.' +
+        (S.dirChecked ? ' (서버 <b>admin_directory</b>에도 없음)' : '') +
+        ' <b>직원 목록 파일</b>(JSON/CSV)을 한 번 불러오면 이 브라우저에 저장됩니다.';
     }
     var when = d.collected_at || d.saved_at || '';
     return '직원 ' + d.people.length + '명' + (when ? ' · ' + esc(String(when).slice(0, 10)) + ' 수집' : '') +
@@ -751,7 +759,11 @@
     var q = aclVal('aclSearch');
     var d = dirGet();
     if (!d || !d.people || !d.people.length) {
-      host.innerHTML = '<div class="hq-meta" style="padding:6px 0">직원 목록을 먼저 불러와 주세요. 아래 <b>직원 목록 파일</b>에서 이 대화로 받은 JSON/CSV를 선택하면 됩니다.</div>';
+      host.innerHTML = '<div class="hq-meta" style="padding:6px 0">' +
+        (S.dirChecked
+          ? '직원 목록이 서버에도 없어 이름·이메일로 찾을 수 없습니다. '
+          : '직원 목록을 아직 불러오지 않았습니다. ') +
+        '아래 <b>이름 · 명함 이메일</b>을 직접 입력해도 바로 등록됩니다.</div>';
       return;
     }
     if (!q) { host.innerHTML = ''; return; }
@@ -851,6 +863,7 @@
 
   function dirFetch() {
     return apiGet('type=admin_directory').then(function (j) {
+      S.dirChecked = true;
       if (j && j.ok && Array.isArray(j.people) && j.people.length) {
         dirSave({ people: j.people, version: j.version || '', collected_at: j.collected_at || '', saved_at: j.saved_at || '' }, 'server');
         return true;

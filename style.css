@@ -4234,9 +4234,12 @@ html.mg-panel-lock { overflow: hidden; }
 .mkt-body b small { font-size: 9.6px; color: var(--muted); font-weight: 600; margin-left: 1px; }
 .mkt-tile .mkt-d { font-size: 9.6px; color: #0b6bcb; font-weight: 700; line-height: 1.35; }
 .mkt-src { font-size: 8.8px; color: var(--muted); line-height: 1.3; margin-top: auto; padding-top: 3px; }
-.mkt-dots { display: flex; gap: 3px; margin-top: 5px; }
-.mkt-dot { width: 5px; height: 5px; border-radius: 50%; background: #cfdae6; transition: background .2s, width .2s; }
-.mkt-dot.on { background: #0b6bcb; width: 12px; border-radius: 3px; }
+.mkt-dots { display: flex; gap: 0; margin-top: 1px; margin-left: -6px; }
+/* 점은 16px 터치 영역, 보이는 원은 6px — 모바일에서 손가락으로 누를 수 있게 */
+.mkt-dot { position: relative; width: 16px; height: 16px; display: inline-block; }
+.mkt-dot::before { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 6px; height: 6px; border-radius: 50%; background: #cfdae6; transition: background .2s, width .2s; }
+.mkt-dot.on::before { background: #0b6bcb; width: 14px; border-radius: 3px; }
 @keyframes mktSwap { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 .mkt-body.swap { animation: mktSwap .34s ease-out; }
 @media (prefers-reduced-motion: reduce) { .mkt-body.swap { animation: none; } }
@@ -4254,7 +4257,7 @@ html.mg-panel-lock { overflow: hidden; }
   .mg-max table th, .mg-max table td { padding: 9px 10px !important; }
   .mg-max .hm-body, .mg-max .rp-body, .mg-max .tr-scroll { padding: 12px; }
   .mkt-grid { grid-template-columns: 1fr 1fr; }
-  .mkt-tile { min-height: 116px; padding: 9px 10px 8px; }
+  .mkt-tile { min-height: 122px; padding: 9px 10px 6px; }
   .mkt-body b { font-size: 16.5px; }
   .mkt-src { font-size: 8.4px; }
 }

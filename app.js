@@ -876,6 +876,8 @@
       if (a.region) regions[a.region] = (regions[a.region] || 0) + 1;
       if (a.sub_type) subTypes[a.sub_type] = (subTypes[a.sub_type] || 0) + 1;
       tradeStatesOf(a).forEach(function (ts) { tradeCount[ts]++; });
+      /* 매각·임대 병행 건은 NAI 매각 집계에도 한 건 잡히게(상태에 '임대'가 있어 임대 트랙으로만 세지도록 보정) */
+      if (isDualTrade(a)) dealCount.naiSale++;
       /* TR·매입 수요 핀은 '자산(일반 자산)'이 아니라 실수요자 집계로 잡습니다 (2026-11-27) */
       if (a._tr) {
         dealCount.demand++;
@@ -1108,7 +1110,7 @@
         '<button type="button" class="asset-row' + (a.id === state.selectedId ? ' is-selected' : '') + (auc ? ' is-auction' : '') + '" data-id="' + esc(a.id) + '" role="listitem">' +
         '<span class="bar" style="background:' + color + '"></span>' +
         '<span class="row-main">' +
-        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + (isNaiDeal(a) ? '<span class="nai-tag">' + (isNaiLm(a) ? '🔑 LM' : '🏷️ NAI') + '</span> ' : '') + tradeBadgeHTML(a, true) + esc(a.name) + (hasDiscFact(a) ? ' <span class="disc-mini" title="공시자료 연동됨">📋</span>' : '') + (teamCount(a.id) ? ' <span class="team-mini" title="팀장회의 안건 있음(관리자)">🔒</span>' : '') + '</span>' +
+        '<span class="row-name">' + (auc ? '<span class="auc-tag">🏛️ 경공매</span> ' : '') + (isNaiDeal(a) ? '<span class="nai-tag">' + (isDualTrade(a) ? '🏷️ NAI' : (isNaiLm(a) ? '🔑 LM' : '🏷️ NAI')) + '</span> ' : '') + tradeBadgeHTML(a, true) + esc(a.name) + (hasDiscFact(a) ? ' <span class="disc-mini" title="공시자료 연동됨">📋</span>' : '') + (teamCount(a.id) ? ' <span class="team-mini" title="팀장회의 안건 있음(관리자)">🔒</span>' : '') + '</span>' +
         '<span class="row-sub">' + esc(rowSub) + '</span>' +
         '</span>' +
         '<span class="row-right">' +
@@ -1193,7 +1195,7 @@
     var rows = [
       ['섹터', sectorLabel(a.sector)],
       ['구분', a.sub_type],
-      ['진행상태', (isNaiLm(a) ? lmStatusOf(a) + ' (' + (a.status || 'LM') + ')' : (a.status || a.status_group))],
+      ['진행상태', (isDualTrade(a) ? (a.status || '임대 중 · 매각 중') : (isNaiLm(a) ? lmStatusOf(a) + ' (' + (a.status || 'LM') + ')' : (a.status || a.status_group)))],
       [aucInfo ? '진행기관(신탁사)' : '운용사/소유주', aucInfo ? aucInfo.institution : a.owner_amc],
       ['펀드/리츠', a.fund_vehicle],
       ['규모', a.scale_info],
@@ -2009,6 +2011,7 @@
       '<span class="legend-sep"></span><span class="legend-item"><span class="dot ring" style="border-color:#b45309"></span><b>금색 테두리</b> = 경·공매</span>' +
       '<span class="legend-item"><span class="dot ring" style="border-color:#dc2626"></span><b>빨간 테두리</b> = 매각중</span>' +
       '<span class="legend-item"><span class="dot ring" style="border-color:#0f766e"></span><b>청록 테두리</b> = 임대중</span>' +
+      '<span class="legend-item"><span class="dot ring" style="border-color:#7c3aed"></span><b>보라 테두리</b> = 매각중·임대중 병행</span>' +
       '<span class="legend-sep"></span><span class="legend-item"><b>숫자</b> = 같은 위치 중첩</span>';
   }
 

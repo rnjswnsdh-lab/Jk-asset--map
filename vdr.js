@@ -953,6 +953,8 @@
         '<span><b>' + esc(room.loi_deadline || '-') + '</b>LOI 마감</span>' +
         '<span><b>' + esc(room.bid_deadline || '-') + '</b>입찰 마감</span>' +
         '<span><b>' + (ok ? bidsOf(room.id).length + '건' : '—') + '</b>접수</span></div></div>';
+      if (isAdmin()) h += '<div class="jkv-room-tools"><button type="button" class="mini-btn" data-vdr="room-edit">✏️ 딜룸·블라인드 정보</button>' +
+        '<span>섹터·규모·임대율·권역 등 블라인드 표기 항목을 채우면 Pre-CA 화면이 완성됩니다.</span></div>';
       if (ok && room.description) h += '<p class="vdr-desc">' + esc(room.description) + '</p>';
       h += '<div class="vdr-tabs" role="tablist">' +
         tabList(room).map(function (t) {
@@ -1336,6 +1338,7 @@
       if (!b) return;
       var act = b.getAttribute('data-vdr');
       if (act === 'room-new') openRoomEditor(null);
+      else if (act === 'room-edit') openRoomEditor(selectedRoom());
       else if (act === 'reload') { S.loaded = false; loadRooms(true).then(function () { return loadRoomData(S.roomId, true); }).then(render); }
       else if (act === 'bid-new' || act === 'loi-new') openLoiForm();
       else if (act === 'bid-seed') seedBids();

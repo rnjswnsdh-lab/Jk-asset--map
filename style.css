@@ -3769,3 +3769,5 @@ label.rfp-pick span { flex: 1; }
   .jkv-code { text-align: left; }
   .jkv-wm-badge span { margin-left: 0; }
 }
+.jkv-room-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 4px;
+  font-size: 10.4px; color: var(--muted); }

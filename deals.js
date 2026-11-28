@@ -312,8 +312,16 @@
   /* ═══════════ 자문사 진위 현황 (금융기관 대장과 같은 구조·운영자 판정) ═══════════ */
   var CK_STATUS = ['미등록', '진행', '인증완료', '반려', '재확인 필요'];
   var CK_TYPES = ['회계', '감정', '기술', '법률', 'AMC', '중개·자문', '기타'];
-  var ADD_LIST = ['부동산플랜', '에이커트리', '뉴마크'];
-  var ALIAS = { 'newmark': '뉴마크', '뉴마크코리아': '뉴마크', '부동산플랜': '부동산플랜', '에이커트리': '에이커트리' };
+  var ADD_LIST = [
+    { company: '부동산플래닛', aliases: ['부동산플랜', 'realtyplanet', '부동산플래닛'], type: '중개·자문',
+      ceo: '정수민·엄현포(각자대표)', biz_no: '', address: '', note: '㈜부동산플래닛 · 영문 RealtyPlanet · 종합 부동산 데이터 플랫폼 + 상업용 자문(주유소·개발부지·물류·DC·리테일·메디컬). 사업자번호·주소 미확인', source: '준오님 확인(2026-11-28)' },
+    { company: '에이커트리', aliases: ['에이커트리', 'acretree'], type: '중개·자문',
+      ceo: '조상민·고형준', biz_no: '218-88-00818', address: '서울 영등포구 국제금융로 10, 14층(여의도동, 투아이에프씨)',
+      note: '주식회사 에이커트리(ACRETree Co., Ltd.) · 법인번호 110111-6460747 · 부동산 투자자문업(68222) · 설립 2017-07-13 · PM·LM·리테일·매입매각 컨설팅', source: '준오님 제공(2026-11-28)' },
+    { company: '뉴마크', aliases: ['뉴마크', 'newmark'], type: '중개·자문',
+      ceo: '', biz_no: '', address: '', note: '뉴마크(Newmark) — 글로벌 자문사 국내 법인. 국내 법인명·사업자번호 미확인(추측 입력 금지)', source: '준오님 지시(2026-11-28)' }
+  ];
+  var ALIAS = { 'newmark': '뉴마크', '뉴마크코리아': '뉴마크', '부동산플랜': '부동산플래닛', '부동산플래닛': '부동산플래닛', 'realtyplanet': '부동산플래닛', '에이커트리': '에이커트리', 'acretree': '에이커트리' };
   function normCo(n) {
     var t = String(n || '').toLowerCase().replace(/\s+/g, '').replace(/㈜|\(주\)|주식회사|유한회사/g, '');
     return ALIAS[t] || t;
@@ -328,11 +336,11 @@
   function seedFive() {
     var n = 0, skipped = [];
     ADD_LIST.forEach(function (co) {
-      if (inLedger(co)) { skipped.push(co); return; }
+      if (inLedger(co.company) || (co.aliases || []).some(function (a) { return inLedger(a); })) { skipped.push(co.company); return; }
       C.commit('advisor_checks', {
-        id: C.uid('ck'), company: co, type: '', ceo: '', biz_no: '', address: '', manager: '', email: '',
-        status: '미등록', step1: '', step2: '', step3: '',
-        note: '대장에 미등록 — 검증 정보(사업자등록번호·대표자 등) 미확인', source: '준오님 지시(2026-11-28)', at: new Date().toISOString()
+        id: C.uid('ck'), company: co.company, type: co.type || '', ceo: co.ceo || '', biz_no: co.biz_no || '',
+        address: co.address || '', manager: '', email: '', status: '미등록',
+        step1: '', step2: '', step3: '', note: co.note || '', source: co.source || '', at: new Date().toISOString()
       });
       n++;
     });

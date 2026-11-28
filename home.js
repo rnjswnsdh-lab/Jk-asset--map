@@ -21,6 +21,22 @@
     if (window.naiMap && window.naiMap.tradeState) return window.naiMap.tradeState(a);
     return '';
   }
+  /* 매각·임대 병행 건(수연타워)은 두 단계를 함께 봅니다 (2026-11-28) */
+  function tradeStatesOf(a) {
+    if (window.naiMap && window.naiMap.tradeStates) return window.naiMap.tradeStates(a);
+    var one = tradeStateOf(a);
+    return one ? [one] : [];
+  }
+  function hasTradeState(a, k) {
+    if (window.naiMap && window.naiMap.hasTradeState) return window.naiMap.hasTradeState(a, k);
+    return tradeStatesOf(a).indexOf(k) >= 0;
+  }
+  function tradeBadgeList(a) {
+    var T = CFG.TRADE_STATES || {};
+    return tradeStatesOf(a).map(function (k) {
+      return '<span class="trade-badge mini t-' + k + '">' + ((T[k] && T[k].icon) || '') + ' ' + ((T[k] && T[k].label) || k) + '</span>';
+    }).join(' ');
+  }
   /** 출처·본문에 남은 NAI 흔적 정리 — 실제 매각·임대 실행 표기(NAI 매각/임대 탭·딜 데이터)는 그대로 둡니다 */
   function noNai(s) {
     return String(s == null ? '' : s)
@@ -151,8 +167,8 @@
     var raw = String((a && a.price_info) || '').trim();
     var forced = a && a.price_type ? String(a.price_type) : '';
     if (!raw) return { label: '미공개', value: '가격 비공개', full: '가격 정보 없음' };
-    if (/(가격|매각가|입찰가)\s*미공개/.test(raw) && raw.indexOf('확정금액') < 0)
-      return { label: '미공개', value: '가격 비공개', full: raw };
+    if (/(가격|매각가|입찰가)\s*미공개|(가격|매각가|입찰가)\s*미확인/.test(raw) && raw.indexOf('확정금액') < 0)
+      return { label: '미공개', value: /미확인/.test(raw) ? '가격 미확인' : '가격 비공개', full: raw };
     var amt = amountInText(raw);
     if (!amt) {
       var pp = raw.match(/^평당\s*([\d,]+\s*만원대?)/);
@@ -266,6 +282,7 @@
 
   /* 단계 라벨 — 기존 status·facts 문구를 짧게 (파이프라인 진행 순서로 판정) */
   var STAGE_SALE = [
+    [/매각\s*중/, '매각 중'],
     [/매매\s*계약|양도\s*계약|계약\s*체결/, '매매계약'],
     [/클로징/, '클로징'],
     [/우협|우선협상/, '우협 선정'],
@@ -280,6 +297,7 @@
     [/협의/, '조건 협의']
   ];
   var STAGE_LEASE = [
+    [/임대\s*중/, '임대 중'],
     [/계약\s*체결|계약\s*완료/, '계약 체결'],
     [/LOI|오퍼/, 'LOI 접수'],
     [/(가격|조건|임대료)\s*협의/, '조건 협의'],
@@ -376,8 +394,8 @@
     var auc = all.filter(isAuction);
     var liveAuc = auc.filter(function (a) { var d = daysUntil(fact(a, '입찰일')); return d !== null && d >= 0; });
     var nego = auc.filter(function (a) { return /수의계약/.test(fact(a, '입찰일') + String(a.status || '')); });
-    var saleN = all.filter(function (a) { return tradeStateOf(a) === 'sale'; }).length;
-    var leaseN = all.filter(function (a) { return tradeStateOf(a) === 'lease'; }).length;
+    var saleN = all.filter(function (a) { return hasTradeState(a, 'sale'); }).length;
+    var leaseN = all.filter(function (a) { return hasTradeState(a, 'lease'); }).length;
     var meNow = me();
 
     var html = '';
@@ -539,10 +557,10 @@
       return { a: a, n: (n === null ? 9999 : (n < 0 ? 10000 - Math.abs(n) : n)) };
     }).sort(function (x, y) { return x.n - y.n; }).slice(0, 12);
 
-    var sale = all.filter(function (a) { return tradeStateOf(a) === 'sale' && inHomeSector(a); })
+    var sale = all.filter(function (a) { return hasTradeState(a, 'sale') && inHomeSector(a); })
       .sort(function (a, b) { return (parseEok(b.price_info) || 0) - (parseEok(a.price_info) || 0); })
       .slice(0, 10);
-    var lease = all.filter(function (a) { return tradeStateOf(a) === 'lease' && inHomeSector(a); })
+    var lease = all.filter(function (a) { return hasTradeState(a, 'lease') && inHomeSector(a); })
       .sort(function (a, b) { return (parseEok(b.price_info) || 0) - (parseEok(a.price_info) || 0); })
       .slice(0, 10);
 
@@ -768,8 +786,8 @@
   function kpiListItems(noSector) {
     var all = assets();
     var list;
-    if (KPL.kind === 'sale') list = all.filter(function (a) { return tradeStateOf(a) === 'sale'; });
-    else if (KPL.kind === 'lease') list = all.filter(function (a) { return tradeStateOf(a) === 'lease'; });
+    if (KPL.kind === 'sale') list = all.filter(function (a) { return hasTradeState(a, 'sale'); });
+    else if (KPL.kind === 'lease') list = all.filter(function (a) { return hasTradeState(a, 'lease'); });
     else if (KPL.kind === 'auc') list = all.filter(isAuction);
     else list = all.slice();
     if (!noSector && KPL.sector !== 'ALL') list = list.filter(function (a) { return a.sector === KPL.sector; });
@@ -787,13 +805,14 @@
     var CAP = 120;
     var rows = list.slice(0, CAP).map(function (a) {
       var b = isAuction(a) ? ddayBadge(a) : null;
-      var ts = tradeStateOf(a);
+      /* 매각·임대를 함께 하는 물건은 목록 종류(매각중/임대중)에 맞는 금액을 보여 줍니다 */
+      var ts = (KPL.kind === 'sale' || KPL.kind === 'lease') ? KPL.kind : (tradeStatesOf(a)[0] || '');
       var st = ts ? stageOf(a, ts) : null;
       var meta = (ts === 'sale') ? salePriceMeta(a) : (ts === 'lease' ? leaseRentMeta(a) : null);
       return '<button type="button" class="hs-item" data-home="open-asset" data-id="' + esc(a.id) + '" title="' + esc(cardTitle(a, ts || 'sale', st, meta)) + '">' +
         '<span class="hsi-sector" style="background:' + sectorColor(a.sector) + '"></span>' +
         '<span class="hsi-main"><strong>' + esc(a.name) +
-        (ts ? ' <span class="trade-badge mini t-' + ts + '">' + (ts === 'sale' ? '🏷️ 매각중' : '🔑 임대중') + (st && st.label ? ' · ' + esc(st.label) : '') + '</span>' : '') + '</strong>' +
+        (ts ? ' ' + tradeBadgeList(a) + (st && st.label ? ' <span class="dc-stage">' + esc(st.label) + '</span>' : '') : '') + '</strong>' +
         '<span class="hsi-sub">' + esc([sectorLabel(a.sector), a.region, a.status || ''].filter(Boolean).join(' · ')) + '</span></span>' +
         '<span class="hsi-right">' + (meta ? priceTagHTML(meta.label) + esc(meta.value) : esc(eokText(a) || a.price_info || '')) +
         (b ? ' <span class="dc-badge ' + b.cls + ' mini">' + esc(b.label) + '</span>' : '') + '</span></button>';
@@ -828,12 +847,12 @@
     var stamp = todayStr().replace(/-/g, '');
     var base = 'AssetBridge_' + kindLabel + '_' + secLabel + '_' + stamp;
     var rows = list.map(function (a) {
-      var ts = tradeStateOf(a);
+      var tss = tradeStatesOf(a);
       return {
         'ID': a.id || '', '물건명': a.name || '', '섹터': sectorLabel(a.sector), '구분': a.sub_type || '',
         '지역': a.region || '', '주소': a.address || '', '규모': a.scale_info || '', '가격·규모(억)': a.price_info || '',
         '진행상태': displayStatusOf(a), '상태그룹': a.status_group || '',
-        '거래상태': ts === 'sale' ? '매각중' : (ts === 'lease' ? '임대중' : ''),
+        '거래상태': tss.map(function (k) { return k === 'sale' ? '매각중' : '임대중'; }).join('·'),
         '운용사/소유주': a.owner_amc || '', '임차인': a.tenants || '', '만기·일정': a.maturity_schedule || '',
         '출처': a.source || '', '기준일': a.updated_at || ''
       };
@@ -1708,8 +1727,8 @@
       if (sector !== 'ALL' && a.sector !== sector) return false;
       if (deal === 'auction' && !isAuction(a)) return false;
       if (deal === 'general' && isAuction(a)) return false;
-      if (deal === 'sale' && tradeStateOf(a) !== 'sale') return false;
-      if (deal === 'lease' && tradeStateOf(a) !== 'lease') return false;
+      if (deal === 'sale' && !hasTradeState(a, 'sale')) return false;
+      if (deal === 'lease' && !hasTradeState(a, 'lease')) return false;
       if (region !== 'ALL' && a.region !== region) return false;
       if (price !== 'ALL') {
         var v = parseEok(a.price_info);

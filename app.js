@@ -146,11 +146,14 @@
   function displayStatus(a) {
     if (!a) return '';
     if (a._tr) return (a.sector === 'si') ? '매입수요' : '임차수요';
+    /* 매각·임대 병행 건은 한쪽 단계로 줄이지 않고 상태 문구 그대로 (2026-11-28) */
+    if (isDualTrade(a)) return a.status || '임대 중 · 매각 중';
     if (isNaiLm(a) || (a.sector === 'tr')) return (a.sector === 'tr') ? '임차수요' : lmStatusOf(a);
     return a.status_group || a.status || '';
   }
   function displayStatusColor(a) {
     if (a && a._tr) return STATUS_COLORS[(a.sector === 'si') ? '매입수요' : '임차수요'] || '#0ea5e9';
+    if (a && isDualTrade(a)) return '#475569';
     if (a && (isNaiLm(a) || a.sector === 'tr')) {
       var st = displayStatus(a);
       return STATUS_COLORS[st] || '#0f766e';
@@ -170,7 +173,7 @@
     if (a.status_group) a.status_group = normStatus(a.status_group);
     if (a.status) a.status = normStatus(a.status);
     /* 임대 트랙은 진행 상태를 임대 전용 그룹으로 정리 (거래진행중/운영중에 섞이지 않도록) */
-    if (!a._tr && a.sector !== 'tr' && a.sector !== 'si' && isLeaseTrack(a)) {
+    if (!a._tr && a.sector !== 'tr' && a.sector !== 'si' && isLeaseTrack(a) && !isDualTrade(a)) {
       a.status_group = lmStatusOf(a);
     }
     return a;
@@ -198,12 +201,34 @@
     if (g === '거래진행중') return 'sale';
     return '';
   }
+  /* ─────────── 매각·임대 병행 물건 (2026-11-28) ───────────
+     NAI 구분이 '매각·LM' 이고 상태에 임대·매각이 함께 적힌 건(예: 수연타워)은
+     한 물건이지만 매각중·임대중 두 단계를 함께 표시합니다. 상태 한 칸만으로는
+     한쪽만 잡히므로, 단계 배열(tradeStatesOf)로 판단합니다. */
+  function isDualTrade(a) {
+    if (!a || a._tr || a.sector === 'tr' || a.sector === 'si' || isAuction(a)) return false;
+    var st = String(a.status || '');
+    if (TRADE_BAD.test(st)) return false;
+    var k = String(factValue(a, 'NAI 구분') || '');
+    if (!(/매각|매도/.test(k) && /LM|임대|임차/.test(k))) return false;
+    var s = st + ' ' + String(a.status_group || '') + ' ' + factValue(a, 'NAI 상태');
+    return /임대/.test(s) && /매각/.test(s);
+  }
+  /** 거래 단계 배열 — 보통 1개, 매각·임대 병행 건은 ['sale','lease'] */
+  function tradeStatesOf(a) {
+    if (isDualTrade(a)) return ['sale', 'lease'];
+    var one = tradeStateOf(a);
+    return one ? [one] : [];
+  }
+  function hasTradeState(a, k) {
+    return tradeStatesOf(a).indexOf(k) >= 0;
+  }
   function tradeBadgeHTML(a, mini) {
-    var k = tradeStateOf(a);
-    if (!k) return '';
-    var T = (CFG.TRADE_STATES || {})[k] || {};
-    return '<span class="trade-badge' + (mini ? ' mini' : '') + ' t-' + k + '" title="' + (k === 'sale' ? '매각 진행 중인 자산' : '임대(임차인 모집) 진행 중인 자산') + '">' +
-      (T.icon || '') + ' ' + esc(T.label || k) + '</span>';
+    return tradeStatesOf(a).map(function (k) {
+      var T = (CFG.TRADE_STATES || {})[k] || {};
+      return '<span class="trade-badge' + (mini ? ' mini' : '') + ' t-' + k + '" title="' + (k === 'sale' ? '매각 진행 중인 자산' : '임대(임차인 모집) 진행 중인 자산') + '">' +
+        (T.icon || '') + ' ' + esc(T.label || k) + '</span>';
+    }).join(' ');
   }
   /** 관리자 응답에만 존재하는 팀장회의 색인 — 없으면 배지도 표시하지 않음 */
   function teamCount(id) {
@@ -850,8 +875,7 @@
       if (a.status_group) gc[a.status_group] = (gc[a.status_group] || 0) + 1;
       if (a.region) regions[a.region] = (regions[a.region] || 0) + 1;
       if (a.sub_type) subTypes[a.sub_type] = (subTypes[a.sub_type] || 0) + 1;
-      var ts = tradeStateOf(a);
-      if (ts) tradeCount[ts]++;
+      tradeStatesOf(a).forEach(function (ts) { tradeCount[ts]++; });
       /* TR·매입 수요 핀은 '자산(일반 자산)'이 아니라 실수요자 집계로 잡습니다 (2026-11-27) */
       if (a._tr) {
         dealCount.demand++;
@@ -1012,13 +1036,13 @@
 
     state.filtered = state.assets.filter(function (a) {
       if (isNaiRef(a)) return false;   /* 📎 참고자료는 물건 지도에서 제외 (2026-11-27) */
-      if (f.trade && tradeStateOf(a) !== f.trade) return false;
+      if (f.trade && !hasTradeState(a, f.trade)) return false;
       if (f.dealType && f.dealType !== 'ALL') {
         var au = isAuction(a);
         var nai = isNaiDeal(a);
         if (f.dealType === 'auction' && !au) return false;
         if (f.dealType === 'nai' && !nai) return false;
-        if (f.dealType === 'naiSale' && !(nai && !isLeaseTrack(a))) return false;
+        if (f.dealType === 'naiSale' && !(nai && (naiKindOf(a) === '매각·LM' || !isLeaseTrack(a)))) return false;
         if (f.dealType === 'naiLm' && !isLeaseTrack(a)) return false;
         if (f.dealType === 'general' && (au || nai || isLeaseTrack(a) || a._tr)) return false;      }
       if (f.sectors[a.sector] === false) return false;
@@ -1191,9 +1215,15 @@
     if (a.sub_type && a.sub_type !== a.status_group) badges.push('<span class="badge type">' + esc(a.sub_type) + '</span>');
     var disc = discGroups(a);
     if (disc.length) badges.push('<span class="badge disc">📋 공시 ' + disc.length + '</span>');
-    if (isNaiDeal(a)) badges.push('<span class="badge nai">' + (isNaiLm(a) ? '🔑 NAI 임대(LM)' : '🏷️ NAI 매각') + '</span>');
-    var tst = tradeStateOf(a);
-    if (tst) badges.push('<span class="badge trade t-' + tst + '">' + ((CFG.TRADE_STATES || {})[tst] || {}).icon + ' ' + (((CFG.TRADE_STATES || {})[tst] || {}).label || tst) + '</span>');
+    if (isNaiDeal(a)) {
+      var nk = naiKindOf(a);
+      if (nk === '매각·LM') badges.push('<span class="badge nai">🏷️ NAI 매각</span> <span class="badge nai">🔑 NAI 임대(LM)</span>');
+      else badges.push('<span class="badge nai">' + (isNaiLm(a) ? '🔑 NAI 임대(LM)' : '🏷️ NAI 매각') + '</span>');
+    }
+    tradeStatesOf(a).forEach(function (tst) {
+      var TT = (CFG.TRADE_STATES || {})[tst] || {};
+      badges.push('<span class="badge trade t-' + tst + '">' + (TT.icon || '') + ' ' + (TT.label || tst) + '</span>');
+    });
     if (teamCount(a.id)) badges.push('<span class="badge team">🔒 팀장회의 ' + teamCount(a.id) + '</span>');
     if (a._added) badges.push('<span class="badge added">신규 추가됨</span>');
     else if (a._edited) badges.push('<span class="badge edited">수정됨</span>');
@@ -1835,7 +1865,7 @@
     var size = count > 1 ? 34 : 27;
     var r = size / 2 - 2;
     /* 테두리: 경·공매(금색) > 매각중(빨강) > 임대중(청록) > 기본(흰색) — 2026-11-27 */
-    var ring = auction ? '#b45309' : (trade === 'sale' ? '#dc2626' : (trade === 'lease' ? '#0f766e' : '#ffffff'));
+    var ring = auction ? '#b45309' : (trade === 'sale' ? '#dc2626' : (trade === 'lease' ? '#0f766e' : (trade === 'both' ? '#7c3aed' : '#ffffff')));
     var ringW = (auction || trade) ? 3.6 : 2.5;
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
       '<circle cx="' + (size / 2) + '" cy="' + (size / 2) + '" r="' + r + '" fill="' + color + '" stroke="' + ring + '" stroke-width="' + ringW + '"/>' +
@@ -1884,7 +1914,7 @@
       var selected = g.some(function (x) { return x.id === state.selectedId; });
       var marker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(a.lat, a.lng),
-        image: markerImage(a.sector, g.length, selected, isAuction(a), a.sector === 'tr' || a.sector === 'si' ? '' : tradeStateOf(a)),
+        image: markerImage(a.sector, g.length, selected, isAuction(a), a.sector === 'tr' || a.sector === 'si' ? '' : (isDualTrade(a) ? 'both' : tradeStateOf(a))),
         title: a.name + (g.length > 1 ? ' 외 ' + (g.length - 1) + '건' : ''),
         zIndex: selected ? 10 : 1
       });
@@ -1915,7 +1945,7 @@
     var a = g[0];
     if (!a) return;
     try {
-      m.setImage(markerImage(a.sector, g.length, selected, isAuction(a), a.sector === 'tr' || a.sector === 'si' ? '' : tradeStateOf(a)));
+      m.setImage(markerImage(a.sector, g.length, selected, isAuction(a), a.sector === 'tr' || a.sector === 'si' ? '' : (isDualTrade(a) ? 'both' : tradeStateOf(a))));
       m.setZIndex(selected ? 10 : 1);
     } catch (e) { /* noop */ }
   }
@@ -2213,8 +2243,8 @@
         c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', g.length > 1 ? r * 1.25 : r);
         c.setAttribute('fill', sectorColor(a.sector));
         /* 매각중·임대중 자산은 테두리 색으로 따로 표시 (2026-11-27) */
-        var tst0 = (a.sector === 'tr' || a.sector === 'si' || isAuction(a)) ? '' : tradeStateOf(a);
-        var strokeCol = tst0 === 'sale' ? '#dc2626' : (tst0 === 'lease' ? '#0f766e' : (isAuction(a) ? '#b45309' : '#fff'));
+        var tst0 = (a.sector === 'tr' || a.sector === 'si' || isAuction(a)) ? '' : (isDualTrade(a) ? 'both' : tradeStateOf(a));
+        var strokeCol = tst0 === 'sale' ? '#dc2626' : (tst0 === 'lease' ? '#0f766e' : (tst0 === 'both' ? '#7c3aed' : (isAuction(a) ? '#b45309' : '#fff')));
         c.setAttribute('stroke', strokeCol); c.setAttribute('stroke-width', Math.max(1, r * (tst0 || isAuction(a) ? 0.42 : 0.2)));
         c.style.cursor = 'pointer';
         var title = document.createElementNS(NS, 'title');
@@ -3298,6 +3328,9 @@
     isNaiLm: isNaiLm,
     isAuction: isAuction,
     tradeState: tradeStateOf,
+    tradeStates: tradeStatesOf,
+    hasTradeState: hasTradeState,
+    isDualTrade: isDualTrade,
     normStatus: normStatus,
     canIm: canOpenImDoc,
     setDealType: function (k) {

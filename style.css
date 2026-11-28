@@ -3624,3 +3624,148 @@ label.rfp-pick span { flex: 1; }
   .adx-head h2 { font-size: 16px; }
   .adx-kv { grid-template-columns: 40px 1fr; }
 }
+
+/* ── 🔐 JK Value CA · 블라인드 · VDR · LOI (2026-11-28) ───────────────── */
+.jkv-logo { display: inline-block; font-size: 10.5px; font-weight: 900; letter-spacing: .12em;
+  color: #fff; background: linear-gradient(135deg, #0b2a4a, #174d7d); border-radius: 5px;
+  padding: 3px 7px; margin-right: 6px; vertical-align: 2px; }
+.jkv-chip { display: inline-block; font-size: 10px; font-weight: 800; border-radius: 20px;
+  padding: 3px 9px; margin-left: 6px; vertical-align: 2px; }
+.jkv-chip-ok { background: #e7f7ef; color: #0b7a50; border: 1px solid #b6e0c9; }
+.jkv-chip-wait { background: #fff7ed; color: #b45309; border: 1px solid #fed7aa; }
+.jkv-chip-none { background: #f1f5fa; color: #64748b; border: 1px solid #d7e0ea; }
+.jkv-op-note { margin: 0 0 10px; padding: 9px 12px; font-size: 11px; line-height: 1.6;
+  color: #1e4a72; background: #eef5fd; border: 1px solid #cfe0f2; border-radius: 9px; }
+.jkv-btn-primary { background: var(--navy) !important; color: #fff !important; border-color: var(--navy) !important; font-weight: 800; }
+.jkv-btn-primary:hover { background: #123f6b !important; }
+
+/* 워터마크 배지 · 오버레이 */
+.jkv-wm-badge { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px;
+  padding: 7px 11px; font-size: 10.6px; color: #1e4a72; background: #f3f8fe;
+  border: 1px dashed #b9d3ea; border-radius: 8px; }
+.jkv-wm-badge b { color: var(--navy); }
+.jkv-wm-badge span { color: var(--muted); margin-left: auto; }
+.jkv-wm { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;
+  display: flex; flex-wrap: wrap; align-content: space-around; justify-content: space-around; gap: 20px; }
+.jkv-wm span { font-size: 13px; font-weight: 800; letter-spacing: .04em; color: #0b2a4a;
+  opacity: .055; transform: rotate(-22deg); white-space: nowrap; }
+
+/* 블라인드 자산소개서 */
+.jkv-teaser-wrap { position: relative; }
+.jkv-teaser { position: relative; border: 1px solid #d5e3f2; border-radius: 14px; overflow: hidden;
+  background: linear-gradient(180deg, #fbfdff, #fff); }
+.jkv-teaser-head { position: relative; z-index: 1; display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 14px; padding: 16px 18px 12px;
+  background: linear-gradient(135deg, #0b2a4a, #174d7d); color: #fff; }
+.jkv-brand { display: inline-block; font-size: 10px; font-weight: 900; letter-spacing: .18em;
+  color: #d9b25c; border: 1px solid rgba(217,178,92,.5); border-radius: 4px; padding: 2px 6px; }
+.jkv-teaser-head h4 { margin: 7px 0 3px; font-size: 17px; color: #fff; }
+.jkv-teaser-head h4 span { font-size: 10.5px; font-weight: 600; color: #b9d0e6; margin-left: 6px; }
+.jkv-teaser-head p { margin: 0; font-size: 11px; color: #cfe0f0; line-height: 1.6; }
+.jkv-code { text-align: right; flex: none; }
+.jkv-code b { display: block; font-size: 15px; letter-spacing: .08em; color: #f6c667; }
+.jkv-code span { font-size: 9.4px; color: #a9c3da; letter-spacing: .1em; }
+.jkv-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.jkv-cell { padding: 11px 14px; border-right: 1px solid #edf3fa; border-bottom: 1px solid #edf3fa; }
+.jkv-cell span { display: block; font-size: 9.8px; color: var(--muted); margin-bottom: 3px; }
+.jkv-cell b { font-size: 12.2px; color: var(--navy); line-height: 1.45; }
+.jkv-locked { position: relative; z-index: 1; margin: 14px; padding: 14px 16px; border-radius: 11px;
+  background: #fbfcfe; border: 1px dashed #c7d6e6; }
+.jkv-locked-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.jkv-locked-head b { font-size: 12.4px; color: var(--navy); }
+.jkv-locked-head span { font-size: 10.2px; color: var(--muted); }
+.jkv-locked ul { margin: 0 0 12px; padding-left: 18px; font-size: 11.2px; color: var(--text-2); line-height: 1.85; }
+.jkv-cta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.jkv-note { margin: 8px 0 0; font-size: 10.2px; color: var(--muted); line-height: 1.65; }
+.jkv-source { position: relative; z-index: 1; margin: 0; padding: 9px 16px 13px; font-size: 9.8px; color: #94a3b8; }
+.jkv-open { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin: 14px; padding: 12px 14px;
+  border-radius: 11px; background: #f2fbf7; border: 1px solid #b6e0c9; font-size: 11.4px; color: #0b5c40; }
+.jkv-open span { color: #2f6b53; }
+.jkv-open .btn { margin-left: auto; }
+
+/* 자료 잠금 */
+.jkv-banner-lock { margin-bottom: 10px; padding: 9px 12px; font-size: 11px; color: #92400e;
+  background: #fff8ed; border: 1px solid #fde3bd; border-radius: 8px; }
+.jkv-docs-wrap { position: relative; display: flex; flex-direction: column; gap: 10px; }
+.jkv-locked-doc .jkv-doc-lock { position: relative; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 16px 14px; font-size: 11.2px; color: var(--muted); background:
+  repeating-linear-gradient(135deg, #fbfcfe, #fbfcfe 8px, #f5f8fc 8px, #f5f8fc 16px); }
+.jkv-locked-doc .jkv-doc-lock b { font-size: 12px; color: var(--navy); }
+.jkv-im-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; }
+.jkv-im-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.jkv-file { display: inline-block; font-size: 11.6px; font-weight: 700; color: #0b5c9a;
+  background: #f2f8fe; border: 1px solid #cfe3f4; border-radius: 8px; padding: 8px 12px; text-decoration: none; }
+.jkv-file:hover { background: #e7f2fd; }
+.jkv-dd-body { padding: 12px 14px; font-size: 11.2px; color: var(--text-2); }
+.jkv-dd-body p { margin: 0 0 8px; line-height: 1.7; }
+
+/* CA·열람 */
+.jkv-ca { display: flex; flex-direction: column; gap: 12px; }
+.jkv-status { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding: 13px 16px; border-radius: 11px; background: #f7fafd; border: 1px solid var(--line); }
+.jkv-status-k { display: block; font-size: 9.8px; color: var(--muted); margin-bottom: 3px; }
+.jkv-status b { font-size: 15px; color: var(--navy); }
+.jkv-status-meta { display: flex; flex-direction: column; gap: 2px; font-size: 10.4px; color: var(--text-2); text-align: right; }
+.jkv-st-ok { background: #f2fbf7; border-color: #b6e0c9; }
+.jkv-st-ok b { color: #0b7a50; }
+.jkv-st-wait { background: #fff9f0; border-color: #fde3bd; }
+.jkv-st-wait b { color: #b45309; }
+.jkv-st-no { background: #fdf4f4; border-color: #f3c9c9; }
+.jkv-st-no b { color: #b3262c; }
+.jkv-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; }
+.jkv-step { display: flex; gap: 8px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+.jkv-step-no { flex: none; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 50%;
+  font-size: 10.4px; font-weight: 800; background: #eef2f7; color: #64748b; }
+.jkv-step b { display: block; font-size: 11px; color: var(--navy); margin-bottom: 2px; }
+.jkv-step span span, .jkv-step div span { font-size: 9.8px; color: var(--muted); line-height: 1.5; display: block; }
+.jkv-step.done { background: #f6fbf8; border-color: #cfeadd; }
+.jkv-step.done .jkv-step-no { background: #0b7a50; color: #fff; }
+.jkv-step.now { border-color: #0b6bcb; box-shadow: inset 0 0 0 1px #0b6bcb; }
+.jkv-step.now .jkv-step-no { background: #0b6bcb; color: #fff; }
+.jkv-ca-cta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.jkv-wait { padding: 11px 13px; font-size: 11.4px; color: #92400e; background: #fff9f0; border: 1px solid #fde3bd; border-radius: 9px; }
+.jkv-approved { padding: 11px 13px; font-size: 11.6px; color: #0b5c40; background: #f2fbf7; border: 1px solid #b6e0c9; border-radius: 9px; }
+.jkv-approved .jkv-wm-badge { margin: 9px 0 0; background: #fff; }
+.jkv-reject { margin: 0; font-size: 11px; color: #b3262c; }
+.jkv-terms { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: #fbfcfe; }
+.jkv-terms h4 { margin: 0 0 8px; font-size: 12.4px; color: var(--navy); }
+.jkv-terms ol { margin: 0 0 9px; padding-left: 18px; font-size: 11px; color: var(--text-2); line-height: 1.85; }
+.jkv-admin { border: 1px solid #d7e0ea; border-radius: 11px; padding: 12px 14px; background: #fff; }
+.jkv-admin-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.jkv-admin-head h4 { margin: 0; font-size: 12.4px; color: var(--navy); }
+.jkv-admin-head h4 span { font-size: 9.6px; font-weight: 600; color: var(--muted); margin-left: 5px; }
+.jkv-count { font-size: 10.6px; font-weight: 800; color: var(--navy); }
+.jkv-ok { font-size: 10.6px; font-weight: 800; color: #0b7a50; }
+.jkv-reqs { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-2); }
+.jkv-reqs h5 { margin: 0 0 6px; font-size: 11.2px; color: var(--navy); }
+.jkv-reqs ul { margin: 0; padding-left: 16px; font-size: 10.8px; color: var(--text-2); line-height: 1.8; }
+.jkv-reqs li span { color: var(--muted); }
+.jkv-logs h4 { margin: 0 0 7px; font-size: 12.2px; color: var(--navy); }
+.jkv-logs h4 span { font-size: 9.8px; font-weight: 600; color: var(--muted); margin-left: 5px; }
+
+/* LOI */
+.jkv-loi { display: flex; flex-direction: column; gap: 11px; }
+.jkv-gate-box { padding: 16px; border: 1px dashed #c7d6e6; border-radius: 11px; background: #fbfcfe; }
+.jkv-gate-box b { font-size: 12.6px; color: var(--navy); }
+.jkv-gate-box p { margin: 6px 0 11px; font-size: 11.2px; color: var(--text-2); line-height: 1.7; }
+.jkv-scope { display: flex; flex-direction: column; gap: 5px; margin: 11px 0; padding: 11px 13px;
+  border: 1px solid var(--line); border-radius: 9px; background: #fbfcfe; font-size: 11.2px; color: var(--text-2); }
+.jkv-scope b { color: var(--navy); font-size: 11.6px; margin-bottom: 2px; }
+.jkv-scope label { display: flex; align-items: center; gap: 6px; }
+.jkv-agree { display: flex; align-items: flex-start; gap: 7px; margin: 9px 0; font-size: 11.2px;
+  color: var(--text-2); line-height: 1.6; }
+.jkv-agree b { color: #b3262c; }
+.jkv-terms-full h4 { margin: 12px 0 4px; font-size: 11.8px; color: var(--navy); }
+.jkv-terms-full p { margin: 0 0 5px; font-size: 11.2px; color: var(--text-2); line-height: 1.75; }
+
+@media (max-width: 900px) {
+  .jkv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .jkv-steps { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .jkv-grid { grid-template-columns: 1fr; }
+  .jkv-steps { grid-template-columns: 1fr; }
+  .jkv-teaser-head { flex-direction: column; }
+  .jkv-code { text-align: left; }
+  .jkv-wm-badge span { margin-left: 0; }
+}

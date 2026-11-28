@@ -100,7 +100,7 @@ NAI Korea의 상업용 부동산 물건 DB(호텔 · 물류센터 · 오피스 �
 | --- | --- | --- |
 | **📊 2026 3Q 통합 마켓 리포트** | 헤더 `📊` 버튼·홈 배너로 팝업 뷰어. **공실률 2계열(프라임 3.1~5.8% / 전체 5.7~6.9%)·NOC 2계열(전용 290,534 / GLA 164,808)**·거시·금리, 2026년 거래 35건 12.59조 권역별 평당가·상위 10건, 섹터(물류·호텔·DC·리테일), 4Q 전망, 출처 12종·한계 | `report.js` `market_report_2026q3.js` (구 `market_review_2026q3.js`는 원본 보존) |
 | **📝 딜·참여 등록 허브** | 기존 TR 모달을 6종으로 확장 — ①매각 ②매입/투자 ③임대·LM ④TR 임차의뢰 ⑤호텔 운영 ⑥대출/금융 PR. `lois` 시트에 `request_type` 컬럼 추가(기존 TR 데이터는 'TR'로 자동 인식) | `hub.js` `Hub.gs` |
-| **🏢 자문사 VDR** | 딜룸별 RFP·렌트롤·OPEX·CAPEX 등록·열람, LOI/최종입찰 접수·조회, **🤖 AI 쇼트리스트**(가격 40·자금조달 30·조건 30 가중 채점, 브라우저 내 계산 → 외부 API·키 없음) | `vdr.js` `Hub.gs` |
+| **🏢 자문사 VDR · JK Value CA** | 딜룸별 **블라인드 자산소개서(Pre-CA) → 전자 CA 제출·JK Value 승인 → 렌트롤·OPEX·CAPEX·IM 열람(워터마크·로그) → LOI 제출** 게이트, **🤖 AI 쇼트리스트**(가격 40·자금조달 30·조건 30 가중 채점, 브라우저 내 계산 → 외부 API·키 없음) | `vdr.js` `Hub.gs` `Jkv.gs` |
 | **🏗️ 밸류애드 시뮬레이터** | 임대료 상향률·공실 해소(%p)·CAPEX·Exit Cap 변동·성장률을 직접 조절해 As-Is vs Value-Add의 NOI·Exit 가치·IRR·EM·가치/CAPEX를 실시간 비교(프리셋 4종 포함) | `valuation.js` |
 | **📘 IM 프리뷰 개편** | 표지·Deal Summary·입지·건축·임대운영·수지·매각포인트·일정·Contact 9장. 원문 IM 보유 건은 `원문 열람 요청` 배너, 없으면 `제작 요청`(접수 → NAI 양식 PPTX/PDF 1~2영업일) | `home.js` |
 | **🚚 SI/화주/FI 3분리 + CRM** | `🏢 SI (사옥·전략투자)` · `🚚 물류센터 화주` · `🏦 FI 풀` 분리, 화주·SI 상세에 **미팅·의향 타임라인**과 기록 입력(→ `crm_logs`) | `investors.js` `crm.js` |
@@ -121,8 +121,9 @@ NAI Korea의 상업용 부동산 물건 DB(호텔 · 물류센터 · 오피스 �
 
 ### VDR / 허브 API (Apps Script v7 · `Hub.gs`)
 
-- `GET ?type=requests|vdr_rooms|vdr_docs&room=|vdr_bids&room=|crm`
-- `POST {action:'submit_request'|'vdr_room_save'|'vdr_doc_save'|'vdr_doc_delete'|'vdr_bid_submit'|'vdr_bid_status'|'crm_save'}`
+- `GET ?type=requests|vdr_rooms|vdr_docs&room=|vdr_bids&room=|vdr_cas&room=|crm`
+- `POST {action:'submit_request'|'vdr_room_save'|'vdr_doc_save'|'vdr_doc_delete'|'vdr_bid_submit'|'vdr_bid_status'|'vdr_ca_submit'|'vdr_ca_status'|'jkv_log'|'jkv_req_save'|'crm_save'}`
+- JK Value CA·블라인드·VDR·LOI 게이트의 서버 패치 명세는 `docs/JKV_서버_패치.md` 참고 (미배포 시 로컬 모드 자동 전환)
 - 최초 1회 편집기에서 `hubSetup` 실행 → `vdr_rooms`·`vdr_docs`·`vdr_bids`·`crm_logs` 시트 생성 + `lois` 헤더 확장
 
 ## 🏠 홈 — 딜 브릿지 대시보드 (2026-11-23 추가)

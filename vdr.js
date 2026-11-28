@@ -934,13 +934,12 @@
         h += '<tr class="' + (b._sample ? 'vdr-sample' : '') + '">' +
           '<td class="nowrap">' + esc(fmtDT(b.timestamp || b.submitted_at || '')) + '</td>' +
           '<td>' + esc(b.kind || 'LOI') + (b._sample ? ' <span class="vdr-smp">샘플</span>' : '') + '</td>' +
-          '<td><b>' + esc(b.company || '-') + '</b><span class="vdr-sub">' + esc([b.bidder, b.title, b.phone].filter(Boolean).join(' · ')) + '</span></td>' +
+          '<td><b>' + esc(b.company || '-') + '</b><span class="vdr-sub">' + esc([b.bidder, b.title].filter(Boolean).join(' · ')) + '</span></td>' +
           '<td class="num b">' + n0(b.price_eok) + '</td>' +
           '<td>' + esc(b.funding || '-') + '</td>' +
           '<td class="num">' + (b.ltv_pct ? n0(b.ltv_pct) + '%' : '-') + '</td>' +
-          '<td class="vdr-terms">' + esc([b.accept, (b.dd_days ? '실사 ' + b.dd_days + '일' : ''), (b.close_months ? b.close_months + '개월' : '')].filter(Boolean).join(' · ')) +
-          (b.conditions ? '<span class="vdr-sub">' + esc(b.conditions) + '</span>' : '') +
-          (b.memo ? '<span class="vdr-sub">' + esc(String(b.memo).slice(0, 46)) + (String(b.memo).length > 46 ? '…' : '') + '</span>' : '') + '</td>' +
+          '<td class="vdr-terms" title="' + esc([b.conditions, b.memo].filter(Boolean).join(' / ')) + '">' +
+          esc([b.accept, (b.dd_days ? '실사 ' + b.dd_days + '일' : ''), (b.close_months ? b.close_months + '개월' : '')].filter(Boolean).join(' · ')) + '</td>' +
           '<td>' + esc(b.valid_until || '-') + '</td>' +
           '<td>' + esc(b.status || '접수') + '</td></tr>';
       });

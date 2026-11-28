@@ -935,8 +935,14 @@
   }
 
   /* ── 수정 폼 ── */
-  var STATUS_OPTS = ['접수', '검토중', '진행', '완료', '보류'];
+  var STATUS_OPTS = ['접수', '검토중', '진행', '종결', '완료', '보류'];
   var TYPE_OPTS = ['매각', '매입', '임대', 'TR', '호텔운영', '금융', '자문사딜'];
+  /** 현재 값이 목록에 없으면 맨 앞에 넣어 저장 시 값이 바뀌지 않게 합니다 */
+  function optsWith(list, cur) {
+    var v = String(cur == null ? '' : cur).trim();
+    if (!v) return list.slice();
+    return list.indexOf(v) >= 0 ? list.slice() : [v].concat(list);
+  }
 
   function optHTML(list, sel) {
     return list.map(function (v) {
@@ -964,8 +970,8 @@
       '<button type="button" class="tr-x" data-hub="close" aria-label="닫기">×</button></div>';
     h += '<div class="tr-scroll">';
     h += '<div class="tr-sec"><h4>접수 내용</h4><div class="tr-grid">';
-    h += editField('유형', 'e_type', normType(row), { type: 'select', list: TYPE_OPTS });
-    h += editField('진행 상태', 'e_status', row.status || '접수', { type: 'select', list: STATUS_OPTS });
+    h += editField('유형', 'e_type', normType(row), { type: 'select', list: optsWith(TYPE_OPTS, normType(row)) });
+    h += editField('진행 상태', 'e_status', row.status || '접수', { type: 'select', list: optsWith(STATUS_OPTS, row.status || '접수') });
     h += editField('물건 · 대상', 'e_name', row.asset_name || '', { wide: true });
     h += editField('지역 · 권역', 'e_region', row.region || '');
     h += editField('면적(평)', 'e_area', row.area_py || '', { numeric: true });

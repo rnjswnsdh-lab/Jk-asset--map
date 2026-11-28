@@ -990,7 +990,7 @@
       '<button type="button" class="btn btn-outline" data-hub="list">목록</button>' +
       '<button type="button" class="btn btn-primary" data-hub-save="' + esc(id) + '" id="hubEditSave">저장</button></div>';
     var host = ensureHost();
-    host.classList.remove('is-full');
+    host.classList.remove('is-full', 'mg-host');
     host.innerHTML = '<div class="tr-card hub-card" role="dialog" aria-modal="true" aria-label="접수 건 수정">' + h + '</div>';
     host.classList.remove('hidden');
     bindEdit(host);
@@ -1148,7 +1148,7 @@
   function openList() {
     var host = ensureHost();
     DET.full = false;
-    host.classList.remove('is-full');
+    host.classList.remove('is-full', 'mg-host', 'mg-max');
     document.body.classList.remove('hub-full');
     if (!host || host.classList.contains('hidden')) {
       host.innerHTML = '<div class="tr-card hub-card hub-list-card" role="dialog" aria-modal="true" aria-label="접수 목록">' + listShellHTML() + '</div>';

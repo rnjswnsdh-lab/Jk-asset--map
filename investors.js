@@ -1467,8 +1467,10 @@
     }
     row = row || {
       id: '',
-      kind: (state.role === 'logi' ? 'shipper' : (state.mode === 'fi' ? 'blind_fund' : 'office')),
-      region: (state.mode === 'fi' ? '전국' : 'CBD'),
+      /* 화주 탭에서 새로 추가할 때는 구분·권역 기본값도 화주에 맞춤 */
+      kind: (state.role === 'logi' ? 'shipper'
+        : (state.mode === 'fi' ? 'blind_fund' : (state.mode === 'ship' ? 'shipper' : 'office'))),
+      region: (state.mode === 'fi' ? '전국' : (state.mode === 'ship' ? '전국·미확인' : 'CBD')),
       company: '', industry: '', role: '', case_info: '', amount: '', year: '', contact: '', title: '',
       email: '', phone: '', temp: '', centers: '', expansion: '', notes: '', source: '',
       owner: ''

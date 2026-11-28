@@ -152,6 +152,7 @@
       '<button type="button" class="btn btn-ghost" data-adv="csv">📥 목록 CSV</button></div>';
     h += '</div>';
 
+    h += '<div id="advDeals" class="adv-deals"></div>';
     h += '<div class="adv-stages">';
     h += '<button type="button" class="adv-stage' + (S.stage === 'ALL' ? ' is-on' : '') + '" data-adv-stage="ALL">' +
       '<b>전체</b><span>' + total + '</span></button>';
@@ -302,6 +303,8 @@
     } else {
       renderStageChips();
     }
+    var board = $('#advDeals');
+    if (board && window.NAI_DEALS && window.NAI_DEALS.paint) { try { window.NAI_DEALS.paint(board); } catch (e) { /* noop */ } }
     load(false);
   }
 

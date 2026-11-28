@@ -408,9 +408,42 @@
     return h;
   }
 
+  function SS() { return (window.NAI_RFPC && window.NAI_RFPC.session) ? window.NAI_RFPC.session() : null; }
+  function isParty() { var s = SS(); return !!(s && s.holder_type); }
+
+  /* 참여자 모드 — 자기가 초청·선정된 딜의 VDR만. 딜 룸(dealroom)이 본문입니다. */
+  function renderParty() {
+    var host = $('#vdrView');
+    if (!host) return;
+    var C = window.NAI_RFPC;
+    var list = C.visibleRfps(SS());
+    if (!list.length) {
+      host.innerHTML = '<div class="vdr-shell"><div class="dr-empty"><b>열람할 딜이 없습니다.</b><p>담당자에게 초청·승인 코드를 요청하세요.</p></div></div>';
+      return;
+    }
+    var cur = list.filter(function (r) { return String(r.id) === String(S.roomId).replace('rfp:', '') || String(r.id) === String(S.roomId); })[0] || list[0];
+    S.roomId = 'rfp:' + cur.id;
+    var room = { id: S.roomId, rfp_id: cur.id, name: cur.title, asset_name: cur.asset_name, asset_id: cur.asset_id };
+    var h = '<div class="vdr-shell dr-shell"><div class="dr-mytop"><div class="dr-mytop-title"><b>🏢 내 딜 룸</b><span>' + esc(SS().holder || '') + ' · ' + esc(SS().holder_type) + '</span></div>' +
+      '<div class="dr-mydeals">' + list.map(function (r) {
+        return '<button type="button" class="dr-mydeal' + (r.id === cur.id ? ' on' : '') + '" data-vdr-room="rfp:' + esc(r.id) + '">' +
+          '<b>' + esc(r.title) + '</b><em>' + esc([r.asset_name, C.flowOf(r)].filter(Boolean).join(' · ')) + '</em></button>';
+      }).join('') + '</div></div>';
+    if (window.NAI_DEALROOM) {
+      h += window.NAI_DEALROOM.render(room, { mode: 'party' });
+    } else {
+      h += '<div class="dr-empty">딜 룸 모듈을 불러오지 못했습니다.</div>';
+    }
+    h += '</div>';
+    host.innerHTML = h;
+    bind();
+    if (window.NAI_DEALROOM) window.NAI_DEALROOM.bind(host, room, function () { render(); });
+  }
+
   function render() {
     var host = $('#vdrView');
     if (!host) return;
+    if (isParty()) { renderParty(); return; }
     var room = selectedRoom();
     if (room && !S.roomId) S.roomId = room.id;
     var h = '<div class="vdr-shell">';
@@ -436,16 +469,21 @@
         '<span><b>' + bidsOf(room.id).length + '건</b>접수</span></div></div>';
       if (room.description) h += '<p class="vdr-desc">' + esc(room.description) + '</p>';
       h += '<div class="vdr-tabs" role="tablist">' +
-        [['docs', '📁 자료 관리'], ['bids', '📝 접수·입찰'], ['ai', '🤖 AI 쇼트리스트']].map(function (t) {
+        [['deal', '📑 딜·VDR'], ['docs', '📁 자료 관리'], ['bids', '📝 접수·입찰'], ['ai', '🤖 AI 쇼트리스트']].map(function (t) {
           return '<button type="button" class="vdr-tab' + (S.tab === t[0] ? ' on' : '') + '" data-vdr-tab="' + t[0] + '">' + t[1] + '</button>';
         }).join('') + '</div>';
-      if (S.tab === 'docs') h += docsTabHTML();
+      if (S.tab === 'deal') {
+        if (window.NAI_DEALROOM) h += window.NAI_DEALROOM.render(room, { mode: 'staff' });
+        else h += '<div class="dr-empty">딜 룸 모듈을 불러오지 못했습니다.</div>';
+      }
+      else if (S.tab === 'docs') h += docsTabHTML();
       else if (S.tab === 'bids') h += bidsTabHTML();
       else h += shortlistHTML(room.id);
     }
     h += '</main></div></div>';
     host.innerHTML = h;
     bind();
+    if (S.tab === 'deal' && window.NAI_DEALROOM && room) window.NAI_DEALROOM.bind(host, room, function () { render(); });
   }
 
   /* ─────────────────────────── 모달 ─────────────────────────── */
@@ -491,7 +529,7 @@
         id: r.id || ('vdr-' + Date.now().toString(36)),
         name: nm, asset_name: v('asset_name'), stage: v('stage') || '자료 배포',
         price_guide_eok: v('price_guide_eok'), loi_deadline: v('loi_deadline'), bid_deadline: v('bid_deadline'),
-        description: v('description'), created_at: r.created_at || new Date().toISOString(),
+        description: v('description'), rfp_id: r.rfp_id || '', asset_id: r.asset_id || '', created_at: r.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
       persistRoom(obj).then(function (j) {
@@ -675,7 +713,26 @@
     });
   }
 
-  window.NAI_VDR = { show: show, openForAsset: openForAsset, state: S, scoreBids: function () { return scoreBids(S.roomId); } };
+  /* RFP(딜) → 그 물건의 VDR 룸을 열거나, 없으면 연결해 만듭니다. */
+  function openForRfp(rfpId) {
+    var C = window.NAI_RFPC;
+    var rfp = C && C.rfpOf ? C.rfpOf(rfpId) : null;
+    if (!rfp) return;
+    if (isParty()) { S.roomId = 'rfp:' + rfpId; S.loaded = true; render(); return; }
+    loadRooms(true).then(function (rooms) {
+      var hit = rooms.filter(function (r) { return String(r.rfp_id) === String(rfpId); })[0];
+      if (hit) { S.roomId = hit.id; S.tab = 'deal'; S.loaded = true; return loadRoomData(hit.id, true).then(render); }
+      if (isAdmin()) {
+        var obj = { id: 'vdr-' + Date.now().toString(36), name: rfp.title, asset_name: rfp.asset_name, asset_id: rfp.asset_id, rfp_id: rfpId, stage: '자료 배포', price_guide_eok: rfp.guide_eok || '' };
+        return persistRoom(obj).then(function () {
+          S.roomId = obj.id; S.tab = 'deal'; S.loaded = true; mergeRoomLocal(obj); render();
+        }).catch(function () { render(); });
+      }
+      S.roomId = 'rfp:' + rfpId; S.tab = 'deal'; render();
+    }).catch(function () { S.roomId = 'rfp:' + rfpId; S.tab = 'deal'; render(); });
+  }
+
+  window.NAI_VDR = { show: show, openForAsset: openForAsset, openForRfp: openForRfp, state: S, scoreBids: function () { return scoreBids(S.roomId); } };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { /* show() 는 탭 진입 시 */ });
 })();

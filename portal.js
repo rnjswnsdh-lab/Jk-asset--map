@@ -80,10 +80,28 @@
       '<div id="ptBody" class="portal-body"></div></div>';
   }
 
+  function entryCard() {
+    var C = window.NAI_RFPC;
+    var list = C.visibleRfps(ss());
+    return '<div class="rfp-shell"><div class="portal-gate"><div class="portal-gate-card">' +
+      '<span class="rfp-beta">참여자 모드 → 딜 룸(VDR)</span>' +
+      '<h2>🤝 자문사·투자자 화면은 딜 룸으로 통합되었습니다</h2>' +
+      '<p>승인 코드로 입장하면 <b>내 딜 룸(VDR)</b>에서 자료 열람(CA 게이트)·제출물(CA/LOI/LOC/자금계획)·산출물·일정·문의를 한 화면에서 처리합니다. ' +
+      '금융기관 등록·실체 진위확인은 운영자(NAI) 전용입니다.</p>' +
+      '<div class="rfp-rfpchips">' + (list.length ? list.map(function (r) {
+        return '<button type="button" class="rfp-chip" data-pt-open-room="' + esc(r.id) + '">🏢 ' + esc(r.title) + '</button>';
+      }).join('') : '<span class="rfp-hint">연결된 딜이 없습니다. 담당자에게 문의하세요.</span>') + '</div>' +
+      '<p class="rfp-hint">로그인: <b>' + esc((ss() && ss().holder) || '') + ' · ' + esc((ss() && ss().holder_type) || '') + '</b>' +
+      ' · 만료 ' + esc((ss().rec || {}).expires_at || '-') +
+      ' <button type="button" class="mini-btn" data-pt="logout">나가기</button></p>' +
+      '</div></div></div>';
+  }
+
   function paint() {
     var h = host();
     if (!h) return;
     if (!h.dataset.bound) { bind(); h.dataset.bound = '1'; }
+    if (ss()) { h.dataset.shellKey = ''; h.innerHTML = entryCard(); return; }
     if (!ss() && !admin()) {
       h.dataset.shellKey = '';
       h.innerHTML = gateHTML();
@@ -1108,6 +1126,12 @@
       }
       var act = (e.target.closest('[data-pt]') || {}).getAttribute && (e.target.closest('[data-pt]') || {}).getAttribute('data-pt');
       if (!act) return;
+      if (b.getAttribute('data-pt-open-room')) {
+        var rid = b.getAttribute('data-pt-open-room');
+        if (window.naiShowView) window.naiShowView('vdr');
+        setTimeout(function () { if (window.NAI_VDR && window.NAI_VDR.openForRfp) window.NAI_VDR.openForRfp(rid); }, 80);
+        return;
+      }
       if (act === 'logout') { C.setSession(null); C.clearApiToken(); S.err = ''; paint(); C.toast('승인 코드 세션을 종료했습니다.'); }
       else if (act === 'reload') { C.SYNC.checked = false; C.pullServer().then(paint); }
       else if (act === 'code-new') openCodeEditor();

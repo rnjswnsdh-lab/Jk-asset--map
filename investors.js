@@ -1462,7 +1462,7 @@
   }
 
   /* ─────────────── 탭 전환 (홈 / 지도 / SI·화주 / FI / 밸류에이션) ─────────────── */
-  var VIEWS = ['home', 'map', 'nai', 'lm', 'rfp', 'vdr', 'advise', 'portal', 'match', 'pool', 'ship', 'fi', 'valuation', 'admin', 'adminhq'];
+  var VIEWS = ['home', 'map', 'nai', 'lm', 'rfp', 'vdr', 'advise', 'portal', 'finance', 'match', 'pool', 'ship', 'fi', 'valuation', 'admin', 'adminhq'];
   function showView(view) {
     if (VIEWS.indexOf(view) < 0) view = 'home';
     var home = view === 'home';
@@ -1472,6 +1472,7 @@
     var adv = view === 'advise';
     var rfpView = view === 'rfp';       /* 📑 RFP 발주 — 의뢰인(관리자·내부 CM) 전용 */
     var portalView = view === 'portal'; /* 🤝 자문사 포털 — 승인 코드로 범위 제한 */
+    var finView = view === 'finance';   /* 💰 대출·금융 연결 — 자문사 포털과 분리 */
     var pool = view === 'pool';
     var fi = view === 'fi';
     var poolLike = pool || fi || view === 'ship';
@@ -1503,6 +1504,7 @@
     document.body.classList.toggle('view-advise', adv);
     document.body.classList.toggle('view-rfp', rfpView);
     document.body.classList.toggle('view-portal', portalView);
+    document.body.classList.toggle('view-fin', finView);
     document.body.classList.toggle('view-match', match);
     document.body.classList.toggle('view-admin', adminView);
     document.body.classList.toggle('view-adminhq', hqView);
@@ -1527,6 +1529,8 @@
     if (rv) rv.classList.toggle('hidden', !rfpView);
     var ptv = $('#portalView');
     if (ptv) ptv.classList.toggle('hidden', !portalView);
+    var fv = $('#finView');
+    if (fv) fv.classList.toggle('hidden', !finView);
     $$('.vt-btn').forEach(function (b) {
       var on = b.getAttribute('data-view') === view;
       b.classList.toggle('is-active', on);
@@ -1550,12 +1554,13 @@
     if (adv && window.NAI_ADVISE && window.NAI_ADVISE.show) window.NAI_ADVISE.show();
     if (rfpView && window.NAI_RFP && window.NAI_RFP.show) window.NAI_RFP.show();
     if (portalView && window.NAI_PORTAL && window.NAI_PORTAL.show) window.NAI_PORTAL.show();
+    if (finView && window.NAI_FIN && window.NAI_FIN.show) window.NAI_FIN.show();
     if (window.naiLog) {
-      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각', lm: 'NAI 임대(LM)', rfp: 'RFP 발주', vdr: '자문사 VDR', advise: '자문사 딜 프로세싱', portal: '자문사 포털', match: 'AI 매물 매칭', pool: 'SI (사옥·전략투자)', ship: '물류센터 화주', fi: 'FI 풀', valuation: '밸류에이션', admin: '관리자', adminhq: 'NAI 행정' };
+      var VIEW_LABEL = { home: '홈', map: '물건 지도', nai: 'NAI 매각', lm: 'NAI 임대(LM)', rfp: 'RFP 발주', vdr: '자문사 VDR', advise: '자문사 딜 프로세싱', portal: '자문사 포털', finance: '대출·금융', match: 'AI 매물 매칭', pool: 'SI (사옥·전략투자)', ship: '물류센터 화주', fi: 'FI 풀', valuation: '밸류에이션', admin: '관리자', adminhq: 'NAI 행정' };
       window.naiLog('tab', VIEW_LABEL[view] || view);
     }
     try {
-      var HASHES = { home: '#home', nai: '#nai', lm: '#lm', rfp: '#rfp', vdr: '#vdr', advise: '#advise', portal: '#portal', match: '#match', admin: '#admin', adminhq: '#adminhq', ship: '#ship', pool: '#pool', fi: '#fi', valuation: '#valuation' };
+      var HASHES = { home: '#home', nai: '#nai', lm: '#lm', rfp: '#rfp', vdr: '#vdr', advise: '#advise', portal: '#portal', finance: '#finance', match: '#match', admin: '#admin', adminhq: '#adminhq', ship: '#ship', pool: '#pool', fi: '#fi', valuation: '#valuation' };
       history.replaceState(null, '', HASHES[view] || (location.pathname + location.search));
     } catch (e) { /* noop */ }
   }

@@ -47,7 +47,7 @@
       '<div class="rfp-steps">' +
         step('docs', '1', '물건 자료', '업로드 · 정규화') +
         step('rfps', '2', 'RFP 작성·배포', '양식 · 자문사 배부') +
-        step('eval', '3', '비교·평가·선정', '가중치 점수 · 순위') +
+        step('folder', '3', '📁 제출 폴더', '접수 · CA · 평가 · 선정') +
       '</div>' +
       '<div class="rfp-grid"><aside class="rfp-aside" id="rfpAside"></aside><main class="rfp-main" id="rfpMain"></main></div>' +
       '</div>';
@@ -102,8 +102,26 @@
       return;
     }
     if (S.tab === 'rfps') el.innerHTML = rfpTab();
-    else if (S.tab === 'eval') el.innerHTML = evalTab();
+    else if (S.tab === 'folder') { paintFolder(el); return; }
     else el.innerHTML = docsTab();
+  }
+
+  function paintFolder(el) {
+    if (!S.folderRfpId) {
+      var rfps = C.rfpsOf(S.assetId);
+      S.folderRfpId = rfps.length ? rfps[0].id : '';
+    }
+    var rfp = S.folderRfpId ? C.rfpOf(S.folderRfpId) : null;
+    if (!rfp) {
+      el.innerHTML = '<div class="rfp-empty"><b>제출 폴더를 열 RFP가 없습니다.</b>' +
+        '<p><b>RFP 작성·배포</b>에서 RFP를 만든 뒤 제출 폴더로 넘어가세요.</p>' +
+        '<button type="button" class="btn btn-ghost" data-rfp-tab="rfps">RFP 단계로</button></div>';
+      return;
+    }
+    el.innerHTML = '<div class="rfp-folderbar">' + C.rfpsOf(S.assetId).map(function (r) {
+      return '<button type="button" class="rfp-chip' + (r.id === S.folderRfpId ? ' on' : '') + '" data-rfp-folder="' + esc(r.id) + '">' + esc(r.title) + '</button>';
+    }).join('') + '</div>' + (window.NAI_RFPFLOW ? window.NAI_RFPFLOW.html(rfp.id) : '<p class="rfp-hint">제출 폴더 모듈을 불러오지 못했습니다.</p>');
+    if (window.NAI_RFPFLOW) window.NAI_RFPFLOW.bind(el, rfp.id, function () { paint(); });
   }
 
   /* ─────────────────────────── A. 자료 ─────────────────────────── */
@@ -227,13 +245,14 @@
         '<span class="rfp-due' + (dleft !== null && dleft < 0 ? ' over' : (dleft !== null && dleft <= 3 ? ' soon' : '')) + '">' +
           (dleft === null ? '마감 미정' : (dleft < 0 ? '마감 지남(D' + dleft + ')' : 'D-' + dleft)) + '</span>' +
         '<button type="button" class="btn btn-ghost" data-rfp-edit="' + esc(sel.id) + '">✏️ 수정</button>' +
-        '<button type="button" class="btn btn-primary" data-rfp-dist="' + esc(sel.id) + '">📤 자문사 배부</button>' +
+        '<button type="button" class="btn btn-primary" data-rfp-folder="' + esc(sel.id) + '">📁 제출 폴더</button>' +
+        '<button type="button" class="btn btn-ghost" data-rfp-dist="' + esc(sel.id) + '">📤 자문사 배부</button>' +
         '<button type="button" class="btn btn-ghost" data-rfp-print="' + esc(sel.id) + '">🖨 인쇄/PDF</button>' +
         '<button type="button" class="btn btn-ghost" data-rfp-word="' + esc(sel.id) + '">⬇ Word</button>' +
         '<button type="button" class="btn btn-ghost" data-rfp-copy="' + esc(sel.id) + '">🔗 배포 문구</button>' +
         '<button type="button" class="btn btn-ghost" data-rfp-delrfp="' + esc(sel.id) + '">🗑</button>' +
       '</div>' +
-      C.rfpHTML(sel, { invites: true }) + '</div>';
+      C.rfpHTML(sel, { invites: true, weights: true }) + '</div>';
     return h;
   }
 
@@ -618,16 +637,25 @@
     var body = '<div class="rfp-formgrid">' +
       C.field('title', 'RFP 제목', r.title, 'text', { wide: true, req: true }) +
       C.field('client', '의뢰인', r.client || '', 'text') +
-      C.field('status', '상태', r.status || '작성', 'select', { options: ['작성', '배포', '제안 접수', '평가', '선정', '종결'] }) +
+      C.field('status', '상태', C.flowOf(r), 'select', { options: C.FLOW }) +
       C.field('issue_date', '발주일', r.issue_date || C.today(), 'date') +
-      C.field('due_date', '제출 마감', r.due_date || C.addDays(C.today(), 14), 'date') +
+      C.field('due_date', '제안서 마감', r.due_date || C.addDays(C.today(), 14), 'date') +
+      C.field('loi_due', 'LOI·LOC 마감', r.loi_due || C.addDays(C.today(), 49), 'date') +
       C.field('guide_eok', '가격 가이던스(억원)', r.guide_eok || '', 'number', { step: '0.1' }) +
+      C.field('owner', '담당(운영자)', r.owner || '', 'text') +
       C.field('asset_name', '대상 물건', r.asset_name || '', 'text') +
+      C.field('submit_mode', '제출 방식', r.submit_mode || 'Soft copy(PDF)', 'select', { options: (window.NAI_RFP_TEMPLATE && window.NAI_RFP_TEMPLATE.options.submit_mode) || ['Hard copy', 'Soft copy(PDF)', 'Hard + Soft'] }) +
+      C.field('language', '언어', r.language || '국·영문 택1', 'select', { options: (window.NAI_RFP_TEMPLATE && window.NAI_RFP_TEMPLATE.options.language) || ['국문', '영문', '국·영문 택1'] }) +
+      C.field('fee_sealed', '보수 제출', r.fee_sealed || '제안서에 포함', 'select', { options: (window.NAI_RFP_TEMPLATE && window.NAI_RFP_TEMPLATE.options.fee_sealed) || ['제안서에 포함', '보수 별도 봉인 제출'] }) +
+      C.field('consortium', '컨소시엄', r.consortium || '불가', 'select', { options: (window.NAI_RFP_TEMPLATE && window.NAI_RFP_TEMPLATE.options.consortium) || ['불가', '허용(사전 협의)'] }) +
+      C.field('signature_doc', '비밀유지 서류', r.signature_doc || 'CA(비밀유지약정서)', 'select', { options: (window.NAI_RFP_TEMPLATE && window.NAI_RFP_TEMPLATE.options.signature_doc) || ['CA(비밀유지약정서)', '서약서', 'CA + 서약서(통합 가능)'] }) +
+      C.field('ca_form_name', 'CA 양식 파일', r.ca_form_name || '미연결', 'text', { disabled: true, hint: '📁 제출 폴더 → CA 양식 연결에서 발주처 원 양식을 올립니다.' }) +
       '<div class="rfp-f wide"><span>물건 개요 <em>렌트롤·오펙스·PM 리포트에서 자동 채움</em></span>' +
         '<textarea name="overview" rows="6">' + esc(r.overview || '') + '</textarea>' +
         '<button type="button" class="mini-btn" data-rfp="refill">↻ 자료에서 다시 채우기</button></div>' +
       C.field('scope', '업무 범위', r.scope || '', 'textarea', { wide: true, rows: 5 }) +
       C.field('schedule', '일정', r.schedule || '', 'textarea', { wide: true, rows: 3 }) +
+      C.field('proposal', '제안서 목차·작성 방법', r.proposal || '', 'textarea', { wide: true, rows: 4 }) +
       C.field('docs', '제출 요구 서류 (한 줄에 하나)', (r.docs || []).join('\n'), 'textarea', { wide: true, rows: 6 }) +
       C.field('criteria', '평가 항목 | 가중치 (한 줄에 하나)', criteriaText, 'textarea', { wide: true, rows: 8 }) +
       C.field('nda', 'NDA·CA 조건', r.nda || '', 'textarea', { wide: true, rows: 3 }) +
@@ -656,9 +684,13 @@
       var obj = {
         id: r.id || C.uid('rfp'), asset_id: S.assetId, asset_name: C.fval(m, 'asset_name') || current().name,
         client: C.fval(m, 'client'), title: title, issue_date: C.fval(m, 'issue_date'),
-        due_date: C.fval(m, 'due_date'), status: C.fval(m, 'status') || '작성',
+        due_date: C.fval(m, 'due_date'), status: C.normStatus(C.fval(m, 'status')),
         guide_eok: C.fval(m, 'guide_eok'), overview: C.fval(m, 'overview'), scope: C.fval(m, 'scope'),
-        schedule: C.fval(m, 'schedule'),
+        schedule: C.fval(m, 'schedule'), proposal: C.fval(m, 'proposal'),
+        loi_due: C.fval(m, 'loi_due'), owner: C.fval(m, 'owner'),
+        submit_mode: C.fval(m, 'submit_mode'), language: C.fval(m, 'language'),
+        fee_sealed: C.fval(m, 'fee_sealed'), consortium: C.fval(m, 'consortium'),
+        signature_doc: C.fval(m, 'signature_doc'),
         docs: C.fval(m, 'docs').split('\n').map(function (x) { return x.trim(); }).filter(Boolean),
         criteria: crit, nda: C.fval(m, 'nda'), note: C.fval(m, 'note'),
         invites: r.invites || [], selected_advisor_id: r.selected_advisor_id || '',
@@ -680,63 +712,178 @@
 
   /* ─────────────────────────── 모달: 배부 ─────────────────────────── */
   function openDistribute(rfp) {
-    var advs = C.list('advisors');
-    var body = '<p class="rfp-note">초청할 자문사를 선택하면 자문사별 <b>승인 코드</b>가 발급되고, 배포 기록이 남습니다. ' +
-      '코드를 받은 자문사는 <b>🤝 자문사 포털</b>에서 해당 RFP만 열람·제출할 수 있습니다.</p>' +
-      '<div class="rfp-advpick">' + (advs.length ? advs.map(function (a) {
-        return '<label class="rfp-advrow"><input type="checkbox" name="adv" value="' + esc(a.id) + '"' +
-          ((rfp.invites || []).some(function (i) { return i.advisor_id === a.id; }) ? ' checked' : '') + '>' +
-          '<span><b>' + esc(a.company) + '</b><em>' + esc([a.name, a.email, a.phone].filter(Boolean).join(' · ')) + '</em></span></label>';
-      }).join('') : '<p class="rfp-hint">등록된 자문사가 없습니다. 아래에서 추가하세요.</p>') + '</div>' +
-      '<div class="rfp-addadv">' +
-        C.field('adv_company', '자문사(회사)', '', 'text', { req: true, ph: '예) ○○부동산자문' }) +
-        C.field('adv_name', '담당자', '', 'text') +
-        C.field('adv_email', '이메일', '', 'email') +
-        C.field('adv_phone', '연락처', '', 'tel') +
+    var cs = C.contacts();
+    var sel = {};
+    (rfp.invites || []).forEach(function (i) { if (i.advisor_id) sel[i.advisor_id] = true; });
+    var filt = { q: '', spec: 'ALL' };
+    var body = '<p class="rfp-note">자문사 <b>컨택포인트</b>를 선택해 배포 대상을 확정합니다. 선택하면 자문사별 <b>승인 코드</b>가 발급되고 배포 기록이 남습니다. ' +
+      '메일 자동 발송은 하지 않습니다(수신자 CSV·메일 초안 복사까지만).</p>' +
+      '<div class="rfp-distbar"><input id="rfpDistQ" type="search" placeholder="회사 · 담당자 · 전문분야 검색" autocomplete="off">' +
+      '<span id="rfpDistSpec" class="rfp-specchips"></span>' +
+      '<span id="rfpDistCount" class="rfp-selcount">선택 0명</span>' +
+      '<button type="button" class="mini-btn" data-dist="all">전체</button>' +
+      '<button type="button" class="mini-btn" data-dist="none">해제</button>' +
+      '<button type="button" class="mini-btn" data-dist="csv">수신자 CSV</button>' +
+      '<button type="button" class="mini-btn" data-dist="mail">메일 초안 복사</button>' +
+      '<button type="button" class="mini-btn" data-dist="add">＋ 컨택 등록</button>' +
+      (C.list('advisor_contacts').length ? '' : '<button type="button" class="mini-btn" data-dist="seed">＋ 샘플 8명(검증)</button>') +
       '</div>' +
-      '<div class="rfp-formgrid">' +
-        C.field('expires_at', '코드 만료일', rfp.due_date ? C.addDays(rfp.due_date, 14) : C.addDays(C.today(), 30), 'date', { hint: '기본: 제출 마감 + 14일' }) +
-        C.field('scope', '자료 공개 범위', 'rentroll, opex, pm, etc', 'text', { hint: 'rentroll · opex · pm · etc 중 필요한 것' }) +
-      '</div>' +
-      '<div class="rfp-addadv-foot"><button type="button" class="mini-btn" data-rfp="adv-add">＋ 자문사 등록</button>' +
-      '<span class="rfp-hint">등록과 동시에 위 목록에 추가됩니다.</span></div>';
-    var m = C.modal('📤 자문사 배부 — ' + rfp.title, body, {
+      '<div id="rfpDistList" class="rfp-advpick"></div>' +
+      '<div class="rfp-formgrid"><label class="rfp-f"><span>코드 만료일</span><input name="expires_at" type="date" value="' +
+      esc(rfp.due_date ? C.addDays(rfp.due_date, 14) : C.addDays(C.today(), 30)) + '"><em>기본: 제출 마감 + 14일</em></label>' +
+      '<label class="rfp-f"><span>자료 공개 범위</span><input name="scope" value="rentroll, opex, im, etc"><em>rentroll · opex · im · etc</em></label></div>';
+    var m = C.modal('📤 자문사 배포 — ' + rfp.title, body, {
       wide: true,
       footer: '<button type="button" class="btn btn-ghost" data-rfp="close">취소</button>' +
-        '<button type="button" class="btn btn-primary" data-rfp="dist-go">배부하고 코드 발급</button>'
+        '<button type="button" class="btn btn-primary" data-rfp="dist-go">선택한 자문사에 배부 · 코드 발급</button>'
     });
-    m.querySelector('[data-rfp="adv-add"]').addEventListener('click', function () {
-      var company = C.fval(m, 'adv_company');
-      if (!company) { C.toast('자문사 이름을 입력하세요.', true); return; }
-      var a = C.commit('advisors', {
-        id: C.uid('adv'), company: company, name: C.fval(m, 'adv_name'), email: C.fval(m, 'adv_email'),
-        phone: C.fval(m, 'adv_phone'), at: new Date().toISOString()
+
+    function specs() {
+      var set = {};
+      cs.forEach(function (c) { (c.specialty || []).forEach(function (x) { set[x] = 1; }); });
+      return Object.keys(set);
+    }
+    function renderSpec() {
+      var el = m.querySelector('#rfpDistSpec');
+      el.innerHTML = ['ALL'].concat(specs()).map(function (sp) {
+        return '<button type="button" class="rfp-chip' + (filt.spec === sp ? ' on' : '') + '" data-dist-spec="' + esc(sp) + '">' + (sp === 'ALL' ? '전체 분야' : esc(sp)) + '</button>';
+      }).join('');
+    }
+    function visible() {
+      var q = filt.q.toLowerCase();
+      return cs.filter(function (c) {
+        if (filt.spec !== 'ALL' && (c.specialty || []).indexOf(filt.spec) < 0) return false;
+        if (!q) return true;
+        return [c.company, c.name, c.title, c.email, (c.specialty || []).join(' '), c.deals].join(' ').toLowerCase().indexOf(q) >= 0;
       });
-      C.toast('자문사를 등록했습니다. 위 목록에서 선택하세요.');
-      openDistribute(C.rfpOf(rfp.id));
+    }
+    function countSel() {
+      var n = 0, seen = {};
+      Object.keys(sel).forEach(function (id) {
+        if (!sel[id]) return;
+        var c = C.contactOf(id);
+        if (!c) return;
+        var key = (c.email || (c.company + '|' + c.name)).toLowerCase();
+        if (seen[key]) return;
+        seen[key] = 1; n++;
+      });
+      var el = m.querySelector('#rfpDistCount');
+      if (el) el.textContent = '선택 ' + n + '명';
+      return n;
+    }
+    function renderList() {
+      var box = m.querySelector('#rfpDistList');
+      var rows = visible();
+      box.innerHTML = rows.length ? rows.map(function (c) {
+        return '<label class="rfp-advrow"><input type="checkbox" name="adv" value="' + esc(c.id) + '"' + (sel[c.id] ? ' checked' : '') + '>' +
+          '<span><b>' + esc(c.company) + '</b><em>' + esc([c.name, c.title, c.email, (c.specialty || []).join('·')].filter(Boolean).join(' · ')) + '</em>' +
+          (c.deals ? '<em class="rfp-sub">최근: ' + esc(c.deals) + '</em>' : '') + '</span></label>';
+      }).join('') : '<p class="rfp-hint">조건에 맞는 컨택이 없습니다. 「＋ 컨택 등록」으로 추가하세요.</p>';
+      countSel();
+    }
+    m.addEventListener('click', function (e) {
+      var sp = e.target.closest('[data-dist-spec]');
+      if (sp) { filt.spec = sp.getAttribute('data-dist-spec'); renderSpec(); renderList(); return; }
+      var b = e.target.closest('[data-dist]');
+      if (!b) return;
+      var act = b.getAttribute('data-dist');
+      if (act === 'all') { visible().forEach(function (c) { sel[c.id] = true; }); renderList(); return; }
+      if (act === 'none') { sel = {}; renderList(); return; }
+      if (act === 'seed') { var n = C.seedContacts(); cs = C.contacts(); renderSpec(); renderList(); C.toast(n + '명 샘플 컨택을 넣었습니다(가상 데이터).'); return; }
+      if (act === 'add') { addContactModal(function () { cs = C.contacts(); renderSpec(); renderList(); }); return; }
+      if (act === 'csv') {
+        var picked = pickedContacts();
+        if (!picked.length) { C.toast('선택한 자문사가 없습니다.', true); return; }
+        C.csv('RFP_배포대상_' + C.safeName(rfp.asset_name) + '_' + C.today().replace(/-/g, '') + '.csv',
+          ['회사', '담당자', '직함', '이메일', '전화', '전문분야', '최근 협업 딜', '비고'],
+          picked.map(function (c) { return [c.company, c.name, c.title, c.email, c.phone, (c.specialty || []).join('·'), c.deals, c.note]; }));
+        return;
+      }
+      if (act === 'mail') {
+        var picked2 = pickedContacts();
+        if (!picked2.length) { C.toast('선택한 자문사가 없습니다.', true); return; }
+        var text = '[매각 자문 RFP] ' + rfp.title + '\n' +
+          '대상: ' + (rfp.asset_name || '-') + '\n' +
+          '제출 마감: ' + (rfp.due_date || '-') + '\n\n' +
+          '아래 승인 코드로 Open AI Asset Bridge → 🤝 자문사 포털에 접속해 RFP를 열람하고 제안서를 제출해 주세요.\n' +
+          '제안서 작성에 필요한 자료는 ' + (rfp.signature_doc || 'CA(비밀유지약정서)') + ' 날인·회신 후 VDR에서 제공됩니다.\n\n' +
+          '수신: ' + picked2.map(function (c) { return c.company + ' ' + (c.name || ''); }).join(', ') + '\n' +
+          '(코드는 배부 후 별도 안내)\n\n문의: ' + (rfp.client || 'NAI Korea');
+        try { navigator.clipboard.writeText(text); C.toast('메일 초안을 복사했습니다(발송은 직접).'); } catch (er) { C.toast('복사하지 못했습니다.', true); }
+        return;
+      }
     });
+    m.addEventListener('change', function (e) {
+      if (e.target.matches('[name="adv"]')) { sel[e.target.value] = e.target.checked; countSel(); }
+    });
+    m.addEventListener('input', function (e) {
+      if (e.target.id === 'rfpDistQ') { filt.q = e.target.value; renderList(); }
+    });
+    function pickedContacts() {
+      var out = [], seen = {};
+      Object.keys(sel).forEach(function (id) {
+        if (!sel[id]) return;
+        var c = C.contactOf(id);
+        if (!c) return;
+        var key = (c.email || (c.company + '|' + c.name)).toLowerCase();
+        if (seen[key]) return;
+        seen[key] = 1; out.push(c);
+      });
+      return out;
+    }
+    renderSpec(); renderList();
+
     m.querySelector('[data-rfp="dist-go"]').addEventListener('click', function () {
-      var picked = Array.prototype.slice.call(m.querySelectorAll('[name="adv"]:checked')).map(function (el) { return el.value; });
+      var picked = pickedContacts();
       if (!picked.length) { C.toast('초청할 자문사를 선택하세요.', true); return; }
       var scope = C.normScope(C.fval(m, 'scope'));
       var exp = C.fval(m, 'expires_at');
       var issued = [];
-      picked.forEach(function (aid) {
-        var adv = C.byId('advisors', aid);
-        if (!adv) return;
-        var exist = (rfp.invites || []).filter(function (i) { return i.advisor_id === aid; })[0];
-        var rec = C.issueCode({ rfp_id: rfp.id, holder_type: '자문사', holder: adv.company, holder_id: aid, scope: scope, expires_at: exp });
-        var inv = { advisor_id: aid, company: adv.company, code: rec.code, at: new Date().toISOString(), expires_at: exp, viewed_at: exist ? exist.viewed_at : '' };
-        rfp.invites = (rfp.invites || []).filter(function (i) { return i.advisor_id !== aid; });
+      picked.forEach(function (c) {
+        var adv = C.list('advisors').filter(function (a) { return a.company === c.company && (a.name || '') === (c.name || ''); })[0];
+        if (!adv) adv = C.commit('advisors', { id: C.uid('adv'), company: c.company, name: c.name, title: c.title, email: c.email, phone: c.phone, contact_id: c.id, at: new Date().toISOString() });
+        var rec = C.issueCode({ rfp_id: rfp.id, holder_type: '자문사', holder: adv.company, holder_id: adv.id, scope: scope, expires_at: exp });
+        var inv = { advisor_id: adv.id, contact_id: c.id, company: adv.company, name: adv.name || '', email: adv.email || '', code: rec.code, at: new Date().toISOString(), expires_at: exp, viewed_at: '' };
+        rfp.invites = (rfp.invites || []).filter(function (i) { return i.advisor_id !== adv.id; });
         rfp.invites.push(inv);
+        C.ensureParticipant(rfp.id, '자문사', { ref_id: adv.id, company: adv.company, name: adv.name, email: adv.email });
         issued.push(inv);
       });
-      rfp.status = rfp.status === '작성' ? '배포' : rfp.status;
+      if (C.flowIndex(C.flowOf(rfp)) < C.flowIndex('배포')) C.setStatus(rfp, '배포', '자문사 ' + issued.length + '명 배포');
       C.commit('rfps', rfp);
       C.closeModal(); paint();
       showIssued(rfp, issued);
     });
   }
+
+  function addContactModal(done) {
+    var body = '<div class="rfp-formgrid">' +
+      C.field('company', '회사', '', 'text', { req: true }) +
+      C.field('name', '담당자', '', 'text') +
+      C.field('title', '직함', '', 'text') +
+      C.field('email', '이메일', '', 'email') +
+      C.field('phone', '연락처', '', 'tel') +
+      C.field('specialty', '전문분야 (쉼표)', '', 'text', { wide: true, hint: '감정평가 · 회계·세무 · 법률 · 기술사 · 건축·CM · PM · 부동산 자문 · 금융 자문' }) +
+      C.field('deals', '최근 협업 딜', '', 'text', { wide: true }) +
+      C.field('note', '비고', '', 'text', { wide: true }) + '</div>';
+    var m = C.modal('＋ 자문사 컨택 등록', body, {
+      wide: true,
+      footer: '<button type="button" class="btn btn-ghost" data-rfp="close">취소</button>' +
+        '<button type="button" class="btn btn-primary" data-rfp="ctc-save">저장</button>'
+    });
+    m.querySelector('[data-rfp="ctc-save"]').addEventListener('click', function () {
+      var co = C.fval(m, 'company');
+      if (!co) { C.toast('회사를 입력하세요.', true); return; }
+      C.commit('advisor_contacts', {
+        id: C.uid('ctc'), company: co, name: C.fval(m, 'name'), title: C.fval(m, 'title'),
+        email: C.fval(m, 'email'), phone: C.fval(m, 'phone'),
+        specialty: C.fval(m, 'specialty').split(',').map(function (x) { return x.trim(); }).filter(Boolean),
+        deals: C.fval(m, 'deals'), note: C.fval(m, 'note'), active: true, at: new Date().toISOString()
+      });
+      C.closeModal(); if (done) done(); C.toast('컨택을 등록했습니다.');
+    });
+  }
+
   function showIssued(rfp, issued) {
     if (!issued.length) return;
     var body = '<p class="rfp-note">아래 코드를 자문사에 전달하세요. 코드를 입력하면 그 자문사만 해당 RFP와 자기 제안서를 볼 수 있습니다.</p>' +
@@ -861,12 +1008,12 @@
   function printRfp(id) {
     var r = C.rfpOf(id);
     if (!r) return;
-    C.printDoc(r.title, C.rfpHTML(r, { invites: true }));
+    C.printDoc(r.title, C.rfpHTML(r, { invites: true, weights: true }));
   }
   function wordRfp(id) {
     var r = C.rfpOf(id);
     if (!r) return;
-    C.exportWord(r.title, C.rfpHTML(r, { invites: true }));
+    C.exportWord(r.title, C.rfpHTML(r, { invites: true, weights: true }));
   }
   function distributionText(rfp) {
     var inv = rfp.invites || [];
@@ -943,6 +1090,7 @@
       if ((b = e.target.closest('[data-rfp-tab]'))) { S.tab = b.getAttribute('data-rfp-tab'); paint(); return; }
       if ((b = e.target.closest('[data-rfp-work]'))) { S.assetId = b.getAttribute('data-rfp-work'); S.rfpId = ''; S.evalRfpId = ''; paint(); return; }
       if ((b = e.target.closest('[data-rfp-open]'))) { S.rfpId = b.getAttribute('data-rfp-open'); S.tab = 'rfps'; paint(); return; }
+      if ((b = e.target.closest('[data-rfp-folder]'))) { S.rfpId = b.getAttribute('data-rfp-folder'); S.folderRfpId = b.getAttribute('data-rfp-folder'); S.tab = 'folder'; paint(); return; }
       if ((b = e.target.closest('[data-rfp-eval]'))) { S.evalRfpId = b.getAttribute('data-rfp-eval'); paint(); return; }
       if ((b = e.target.closest('[data-rfp-upload]'))) { uploadDoc(b.getAttribute('data-rfp-upload')); return; }
       if ((b = e.target.closest('[data-rfp-paste]'))) { pasteDoc(b.getAttribute('data-rfp-paste')); return; }
@@ -1053,9 +1201,13 @@
   window.NAI_RFP = { show: show, state: S, openAssetPicker: openAssetPicker };
 
   /* 탭 전환 시 다른 화면에서 RFP로 바로 보내기 */
-  window.NAI_RFP_OPEN = function (assetId, tab) {
+  window.NAI_RFP_OPEN = function (assetId, tab, rfpId) {
+    var rfp = rfpId ? C.rfpOf(rfpId) : null;
+    if (!assetId && rfp) assetId = rfp.asset_id;
+    if (rfpId) { S.rfpId = rfpId; S.folderRfpId = rfpId; }
     if (assetId) { C.pinAsset(assetId); S.assetId = assetId; }
     if (tab) S.tab = tab;
     if (window.naiShowView) window.naiShowView('rfp');
+    else paint();
   };
 })();

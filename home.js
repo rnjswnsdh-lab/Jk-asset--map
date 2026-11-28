@@ -13,7 +13,7 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
-  var BOOT = { homeOpened: false, articles: [], notices: [], loaded: false, subs: {}, artShown: 0, artQ: '', homeSector: 'office' };
+  var BOOT = { homeOpened: false, articles: [], notices: [], loaded: false, subs: {}, artShown: 0, artQ: '', homeSector: 'ALL' };
   var ART_INIT = 20, ART_STEP = 30;   /* 아티클: 첫 표시 20건 · 더 보기 +30건 */
 
   /* ─── 거래 상태 · 표기 정리 (2026-11-27) ─── */
@@ -75,6 +75,58 @@
     el.className = 'toast' + (err ? ' err' : '');
     clearTimeout(toast._t);
     toast._t = setTimeout(function () { el.classList.add('hidden'); }, 3000);
+  }
+
+  /* ── 홈 새로고침 — 서버 pull 후 홈 카드·KPI 다시 그리기 (2026-11-28) ── */
+  var REFRESH_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':home:refreshed_at:v1';
+  var refreshing = false;
+  function lastRefreshText() {
+    var t = 0;
+    try { t = Number(localStorage.getItem(REFRESH_KEY) || 0) || 0; } catch (e) { t = 0; }
+    if (!t) return '아직 갱신 전';
+    var diff = Date.now() - t;
+    if (diff < 60000) return '방금 갱신';
+    var d = new Date(t);
+    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ' 갱신';
+  }
+  function paintRefreshState() {
+    var el = $('#homeRefreshedAt');
+    if (el) el.textContent = lastRefreshText();
+  }
+  function refreshHome() {
+    if (refreshing) return;
+    refreshing = true;
+    var btn = $('#homeRefreshBtn');
+    var lab = $('#homeRefreshLabel');
+    var at = $('#homeRefreshedAt');
+    if (btn) { btn.disabled = true; btn.classList.add('is-busy'); }
+    if (lab) lab.textContent = '불러오는 중…';
+    if (at) at.textContent = '서버에서 받아오는 중…';
+    function done(ok, why) {
+      refreshing = false;
+      if (btn) { btn.disabled = false; btn.classList.remove('is-busy'); }
+      if (lab) lab.textContent = '새로고침';
+      if (!ok) {
+        paintRefreshState();
+        toast('새로고침 실패 — 이전 데이터 표시 중' + (why ? ' (' + why + ')' : ''), true);
+        return;
+      }
+      try { localStorage.setItem(REFRESH_KEY, String(Date.now())); } catch (e) { /* noop */ }
+      paintRefreshState();
+      toast('최신 데이터로 갱신했습니다.');
+    }
+    var pulled = (window.naiMap && window.naiMap.sync && window.naiMap.sync.connect)
+      ? window.naiMap.sync.connect(getToken())
+      : Promise.reject(new Error('서버 연결 모듈 없음'));
+    pulled.then(function () {
+      return loadContent(true).catch(function () { /* 아티클 실패는 홈 카드와 무관 */ });
+    }).then(function () {
+      renderShell();
+      if (isAdmin()) renderSubs();
+      done(true);
+    }).catch(function (e) {
+      done(false, (e && e.message) ? String(e.message) : '');
+    });
   }
 
   function apiGet(type) {
@@ -408,6 +460,12 @@
     var meNow = me();
 
     var html = '';
+    /* ── 홈 맨 앞 — 새로고침 (서버에서 최신 데이터 다시 받기) 2026-11-28 ── */
+    html += '<div class="hh-refresh" id="homeRefreshBar">' +
+      '<button type="button" class="hh-rf-btn" data-home="refresh" id="homeRefreshBtn" title="서버(비공개 시트)에서 최신 데이터를 다시 받아옵니다">' +
+      '<span class="hh-rf-i" aria-hidden="true">↻</span><span class="hh-rf-t" id="homeRefreshLabel">새로고침</span></button>' +
+      '<span class="hh-rf-at" id="homeRefreshedAt">' + esc(lastRefreshText()) + '</span>' +
+      '<span class="hh-rf-hint">업데이트된 물건·아티클·접수를 다시 받아옵니다 (지금 보던 화면·필터는 그대로)</span></div>';
     html += '<div class="home-hero">';
     html += '<div class="hh-left">';
     html += '<p class="hh-kicker">딜 브릿지</p>';
@@ -544,7 +602,7 @@
   }
 
   /* ── 매각중·임대중 물건 스트립 — 홈은 '진행 중'만, 섹터는 오피스·데이터센터 중심 (2026-11-27) ── */
-  function homeSector() { return BOOT.homeSector || 'office'; }
+  function homeSector() { return BOOT.homeSector || 'ALL'; }
   function inHomeSector(a) {
     /* 공유 그룹(TFT)이 켜져 있으면 그 그룹의 섹터만 (예: 물류센터 TFT → logistics) */
     if (window.NAI_TFT && window.NAI_TFT.isActive && window.NAI_TFT.isActive()) {
@@ -552,9 +610,30 @@
     }
     var k = homeSector();
     if (k === 'ALL') return true;
-    if (k === 'office') return a.sector === 'office';
-    if (k === 'datacenter') return a.sector === 'datacenter';
-    return true;
+    if (k === '_none') return !String(a.sector || '').trim();
+    return String(a.sector || '') === k;
+  }
+  /** 홈 진행 카드의 섹터 칩 — 실제로 매각·임대·경공매가 있는 섹터만 (2026-11-28) */
+  function homeSectorChips() {
+    var pool = assets().filter(function (a) {
+      return hasTradeState(a, 'sale') || hasTradeState(a, 'lease') || isAuction(a);
+    });
+    var counts = {};
+    pool.forEach(function (a) { var k = String(a.sector || '').trim() || '_none'; counts[k] = (counts[k] || 0) + 1; });
+    var S = CFG.SECTORS || {};
+    var keys = Object.keys(counts).sort(function (x, y) {
+      if (x === '_none') return 1;
+      if (y === '_none') return -1;
+      return counts[y] - counts[x];
+    });
+    var h = '<button type="button" class="mini-btn' + (homeSector() === 'ALL' ? ' is-on' : '') + '" data-home="home-sector" data-sector="ALL">전체 <b>' + pool.length + '</b></button>';
+    keys.forEach(function (k) {
+      var label = k === '_none' ? '섹터 미분류' : ((S[k] && S[k].label) || k);
+      var icon = k === '_none' ? '❔' : (SECTOR_ICON[k] || '');
+      h += '<button type="button" class="mini-btn' + (homeSector() === k ? ' is-on' : '') + '" data-home="home-sector" data-sector="' + esc(k) + '">' +
+        (icon ? '<span class="kpl-ic">' + icon + '</span>' : '') + esc(label) + ' <b>' + counts[k] + '</b></button>';
+    });
+    return h;
   }
   function renderDealStrip() {
     var host = $('#dealStrip');
@@ -576,9 +655,7 @@
     var html = '<div class="strip-chips">' +
       (window.NAI_TFT && window.NAI_TFT.isActive()
         ? '<span class="strip-tft">🤝 ' + esc((window.NAI_TFT.group() || {}).name || 'TFT') + ' 적용 중</span>'
-        : [['office', '🏢 오피스'], ['datacenter', '🖥️ 데이터센터'], ['ALL', '전체 섹터']].map(function (it) {
-          return '<button type="button" class="mini-btn' + (homeSector() === it[0] ? ' is-on' : '') + '" data-home="home-sector" data-sector="' + it[0] + '">' + it[1] + '</button>';
-        }).join('')) +
+        : homeSectorChips()) +
       '<span class="strip-note">진행 중인 매각·임대·경공매만 표시 (검토·예정·종결 제외)</span></div>';
     if (scored.length) {
       html += '<h3 class="strip-h">🏛️ 경·공매 · 입찰임박</h3><div class="cards-row">';
@@ -791,16 +868,49 @@
   }
 
   /* ── KPI 박스 → 해당 조건 물건 리스트 모달 + 엑셀 다운로드 (2026-11-27) ── */
-  var KPL = { kind: 'all', sector: 'office' };
-  function kpiListItems(noSector) {
+  var KPL = { kind: 'all', sector: 'ALL' };
+  /* 섹터 칩 아이콘 — 라벨·색은 config.SECTORS 를 그대로 쓰고 아이콘만 붙입니다 (2026-11-28) */
+  var SECTOR_ICON = {
+    office: '🏢', datacenter: '🖥️', logistics: '📦', hotel: '🏨', retail: '🛍️',
+    living: '🏘️', land: '🏞️', senior: '👴', golf: '⛳', shipper: '🚚', tr: '📋', si: '🏢'
+  };
+  function kpiSectorKey(a) { return String((a && a.sector) || '').trim(); }
+  /** KPI 종류별 기본 목록 — 섹터 필터를 적용하지 않은 전체 건수 */
+  function kpiBaseItems() {
     var all = assets();
-    var list;
-    if (KPL.kind === 'sale') list = all.filter(function (a) { return hasTradeState(a, 'sale'); });
-    else if (KPL.kind === 'lease') list = all.filter(function (a) { return hasTradeState(a, 'lease'); });
-    else if (KPL.kind === 'auc') list = all.filter(isAuction);
-    else list = all.slice();
-    if (!noSector && KPL.sector !== 'ALL') list = list.filter(function (a) { return a.sector === KPL.sector; });
+    if (KPL.kind === 'sale') return all.filter(function (a) { return hasTradeState(a, 'sale'); });
+    if (KPL.kind === 'lease') return all.filter(function (a) { return hasTradeState(a, 'lease'); });
+    if (KPL.kind === 'auc') return all.filter(isAuction);
+    return all.slice();
+  }
+  function kpiListItems(noSector) {
+    var list = kpiBaseItems();
+    if (!noSector && KPL.sector !== 'ALL') {
+      if (KPL.sector === '_none') list = list.filter(function (a) { return !kpiSectorKey(a); });
+      else list = list.filter(function (a) { return kpiSectorKey(a) === KPL.sector; });
+    }
     return list.sort(function (a, b) { return (parseEok(b.price_info) || 0) - (parseEok(a.price_info) || 0); });
+  }
+  /** 섹터 칩 — 그 목록에 실제로 있는 섹터 전부 + 건수, 마지막에 전체 */
+  function kpiSectorChips() {
+    var base = kpiBaseItems();
+    var counts = {};
+    base.forEach(function (a) { var k = kpiSectorKey(a) || '_none'; counts[k] = (counts[k] || 0) + 1; });
+    var S = CFG.SECTORS || {};
+    var keys = Object.keys(counts).sort(function (x, y) {
+      if (x === '_none') return 1;
+      if (y === '_none') return -1;
+      return counts[y] - counts[x];
+    });
+    var h = '<button type="button" class="mini-btn' + (KPL.sector === 'ALL' ? ' is-on' : '') + '" data-home="kpi-sector" data-sector="ALL">전체 <b>' + base.length + '</b></button>';
+    keys.forEach(function (k) {
+      var label = k === '_none' ? '섹터 미분류' : ((S[k] && S[k].label) || k);
+      var icon = k === '_none' ? '❔' : (SECTOR_ICON[k] || '');
+      h += '<button type="button" class="mini-btn kpl-chip' + (KPL.sector === k ? ' is-on' : '') + '" data-home="kpi-sector" data-sector="' + esc(k) + '"' +
+        (k === '_none' ? ' title="섹터 값이 비어 있는 물건"' : '') + '>' +
+        (icon ? '<span class="kpl-ic">' + icon + '</span>' : '') + esc(label) + ' <b>' + counts[k] + '</b></button>';
+    });
+    return h;
   }
   function kpiListTitle() {
     if (KPL.kind === 'sale') return '🏷️ 매각중인 물건';
@@ -826,16 +936,16 @@
         '<span class="hsi-right">' + (meta ? priceTagHTML(meta.label) + esc(meta.value) : esc(eokText(a) || a.price_info || '')) +
         (b ? ' <span class="dc-badge ' + b.cls + ' mini">' + esc(b.label) + '</span>' : '') + '</span></button>';
     }).join('');
-    var sec = [['office', '🏢 오피스'], ['datacenter', '🖥️ 데이터센터'], ['ALL', '전체 섹터']];
-    var head = '<div class="kp-list-head">' + sec.map(function (it) {
-      return '<button type="button" class="mini-btn' + (KPL.sector === it[0] ? ' is-on' : '') + '" data-home="kpi-sector" data-sector="' + it[0] + '">' + it[1] + '</button>';
-    }).join('') +
+    var head = '<div class="kp-list-head">' +
+      '<div class="kpl-chips">' + kpiSectorChips() + '</div>' +
+      '<div class="kpl-bar">' +
       '<span class="kpl-count"><b>' + total.toLocaleString('ko-KR') + '건</b>' +
       (total > CAP ? ' · 상위 ' + CAP + '건 표시' : '') +
-      (KPL.sector === 'ALL' ? '' : ' <em class="kpl-all">(전체 섹터 ' + kpiListItems(true).length.toLocaleString('ko-KR') + '건)</em>') + '</span>' +
+      (KPL.sector === 'ALL' ? ' <em class="kpl-all">(섹터 칩 건수 합계 = ' + kpiBaseItems().length.toLocaleString('ko-KR') + '건)</em>'
+        : ' <em class="kpl-all">(전체 ' + kpiBaseItems().length.toLocaleString('ko-KR') + '건)</em>') + '</span>' +
       '<span class="kpl-spacer"></span>' +
       '<button type="button" class="btn btn-ghost mini" data-home="kpi-xlsx">📥 엑셀 다운로드</button>' +
-      '<button type="button" class="btn btn-solid mini" data-home="kpi-map" data-kpi-deal="' + esc(KPL.kind === 'all' ? '' : KPL.kind) + '">🗺️ 지도에서 보기</button></div>';
+      '<button type="button" class="btn btn-solid mini" data-home="kpi-map" data-kpi-deal="' + esc(KPL.kind === 'all' ? '' : KPL.kind) + '">🗺️ 지도에서 보기</button></div></div>';
     return head + '<div class="hs-list">' + (rows || '<p class="hs-empty">해당하는 물건이 없습니다.</p>') + '</div>';
   }
   function renderKpiList() {
@@ -844,14 +954,14 @@
   }
   function openKpiList(kind, sector) {
     KPL.kind = kind || 'all';
-    KPL.sector = sector || (kind === 'sale' || kind === 'lease' ? 'office' : 'ALL');
+    KPL.sector = sector || 'ALL';   /* 섹터를 먼저 정해 놓지 않습니다 — 매각중 KPI 가 오피스만 보여 0건으로 보이던 문제 (2026-11-28) */
     openModal(kpiListTitle(), '<div id="kpiListBody">' + kpiListBody() + '</div>', { wide: true });
   }
   /** 현재 KPI 필터 목록 → 엑셀(xlsx) 다운로드 (SheetJS 없으면 CSV) — 시트 원본에 쓰지 않습니다 */
   function downloadKpiList() {
     var list = kpiListItems();
     if (!list.length) { toast('다운로드할 물건이 없습니다.', true); return; }
-    var secLabel = KPL.sector === 'office' ? '오피스' : (KPL.sector === 'datacenter' ? '데이터센터' : '전체섹터');
+    var secLabel = KPL.sector === 'ALL' ? '전체섹터' : (KPL.sector === '_none' ? '섹터미분류' : sectorLabel(KPL.sector));
     var kindLabel = KPL.kind === 'sale' ? '매각중' : (KPL.kind === 'lease' ? '임대중' : (KPL.kind === 'auc' ? '경공매' : '물건DB전체'));
     var stamp = todayStr().replace(/-/g, '');
     var base = 'AssetBridge_' + kindLabel + '_' + secLabel + '_' + stamp;
@@ -1786,6 +1896,7 @@
         return;
       }
       if (act === 'do-search') { doSearch(); return; }
+      if (act === 'refresh') { refreshHome(); return; }
       if (act === 'kpi') { openKpiList(btn.getAttribute('data-kpi')); return; }
       if (act === 'kpi-sector') { KPL.sector = btn.getAttribute('data-sector') || 'ALL'; renderKpiList(); return; }
       if (act === 'kpi-xlsx') { downloadKpiList(); return; }

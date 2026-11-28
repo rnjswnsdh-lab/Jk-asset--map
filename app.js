@@ -2709,6 +2709,35 @@
   }
 
   function bindUI() {
+    /* ── 상단 탭: 활성 탭이 화면 밖에 있으면 보이도록 가로 스크롤 (2026-11-28) ──
+       탭이 한 줄에 다 들어오지 않는 폭(모바일 등)에서만 스크롤하고,
+       데스크톱처럼 다 들어오면 아무 일도 하지 않습니다. 압축은 하지 않습니다. */
+    (function bindTabScroll() {
+      var bar = document.querySelector('.app-tabs');
+      if (!bar) return;
+      function keepVisible(btn) {
+        if (!btn || bar.scrollWidth <= bar.clientWidth + 1) return;
+        var r = btn.getBoundingClientRect(), b = bar.getBoundingClientRect();
+        if (r.left < b.left + 8) bar.scrollLeft -= (b.left + 8 - r.left);
+        else if (r.right > b.right - 8) bar.scrollLeft += (r.right - (b.right - 8));
+      }
+      Array.prototype.slice.call(bar.querySelectorAll('.vt-btn')).forEach(function (b) {
+        b.addEventListener('click', function () { setTimeout(function () { keepVisible(b); }, 30); });
+      });
+      window.naiKeepTabVisible = function () {
+        keepVisible(bar.querySelector('.vt-btn.is-active'));
+      };
+      setTimeout(function () { keepVisible(bar.querySelector('.vt-btn.is-active')); }, 400);
+      window.addEventListener('resize', function () { keepVisible(bar.querySelector('.vt-btn.is-active')); });
+      /* 다른 스크립트(뷰 전환)가 is-active 를 바꿔도 따라갑니다 */
+      if (window.MutationObserver) {
+        var mo = new MutationObserver(function () { keepVisible(bar.querySelector('.vt-btn.is-active')); });
+        Array.prototype.slice.call(bar.querySelectorAll('.vt-btn')).forEach(function (b) {
+          mo.observe(b, { attributes: true, attributeFilter: ['class'] });
+        });
+      }
+    })();
+
     /* 검색 — 입력하면 140ms 뒤 자동 필터, Enter 로 즉시 검색 + 결과 위치로 지도 이동 (2026-11-27) */
     var searchTimer = null;
     var searchComposing = false;

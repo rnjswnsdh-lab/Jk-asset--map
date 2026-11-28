@@ -100,6 +100,32 @@
     return esc(p);
   }
 
+  /* ─────────── 접수 건 수정·삭제 권한 — 등록자 본인 또는 관리자 (2026-11-28) ───────────
+     그 외 계정은 버튼을 만들지 않고, 서버(request_update·request_delete)도 같은 기준으로 거부합니다.
+     남의 접수 건은 지금처럼 요청자·연락처가 🔒 비공개로 내려옵니다. */
+  function digitsOf(s) { return String(s == null ? '' : s).replace(/[^0-9]/g, ''); }
+  function myId_() {
+    var m = me() || {};
+    return {
+      email: String(m.email || '').toLowerCase().trim(),
+      phone: digitsOf(m.phone),
+      name: String(m.name || '').trim(),
+      company: String(m.company || '').trim()
+    };
+  }
+  function isMyRequest(row) {
+    if (!row) return false;
+    var id = myId_();
+    if (id.email && row.email && id.email === String(row.email).toLowerCase().trim()) return true;
+    var rp = digitsOf(row.phone);
+    if (id.phone && rp.length >= 7 && id.phone === rp) return true;
+    if (id.name && row.name && String(row.name).trim() !== '비공개' && id.name === String(row.name).trim()) {
+      if (!row.company || !id.company || String(row.company).trim() === id.company) return true;
+    }
+    return false;
+  }
+  function canModify(row) { return isAdmin() || isMyRequest(row); }
+
   /** 📧 파트너 메일 공유 — 행을 블라인드 기준으로 넘깁니다 */
   function openShare(id) {
     var row = null;
@@ -429,7 +455,9 @@
 
   function close() {
     var host = $('#hubModal');
-    if (host) { host.classList.add('hidden'); host.innerHTML = ''; }
+    if (host) { host.classList.add('hidden'); host.classList.remove('is-full'); host.innerHTML = ''; }
+    document.body.classList.remove('hub-full');
+    DET.full = false;
     document.removeEventListener('keydown', escKey);
   }
   function escKey(e) { if (e.key === 'Escape') close(); }
@@ -660,22 +688,32 @@
   function tableHTML() {
     var rows = rowsForList();
     if (!rows.length) return '<p class="hub-empty">조건에 맞는 접수 내역이 없습니다.</p>';
-    var h = '<div class="hub-table-wrap"><table class="hub-table"><thead><tr>' +
+    var h = '<div class="hub-table-wrap"><table class="hub-table">' +
+      '<colgroup><col class="c-date"><col class="c-type"><col><col class="c-company"><col class="c-who">' +
+      '<col class="c-phone"><col class="c-cond"><col class="c-status"><col class="c-share"><col class="c-acts"></colgroup>' +
+      '<thead><tr>' +
       '<th>일시</th><th>유형</th><th>대상</th><th>회사</th><th>요청자</th><th>연락처</th>' +
-      '<th>금액 · 조건</th><th>상태</th><th>공유</th></tr></thead><tbody>';
+      '<th>금액 · 조건</th><th>상태</th><th>공유</th><th>관리</th></tr></thead><tbody>';
     rows.forEach(function (r) {
       var when = String(r.timestamp || r.at || '').replace('T', ' ').slice(0, 16);
-      h += '<tr>' +
+      var id = String(r.id || '');
+      var acts = '<button type="button" class="mini-btn" data-hub-open="' + esc(id) + '" title="접수 내용을 크게 봅니다">상세</button>' +
+        (canModify(r)
+          ? ' <button type="button" class="mini-btn" data-hub-edit="' + esc(id) + '" title="이 접수 건 수정">✏️</button>' +
+            ' <button type="button" class="mini-btn danger" data-hub-del="' + esc(id) + '" title="이 접수 건 삭제">🗑️</button>'
+          : '');
+      h += '<tr class="hub-row" data-hub-open="' + esc(id) + '">' +
         '<td class="nowrap">' + esc(when) + '</td>' +
         '<td><span class="hub-tag t-' + esc(normType(r)) + '">' + esc(normType(r)) + '</span></td>' +
         '<td class="wide-cell"><b>' + esc(r.asset_name || '') + '</b>' +
-        (r.memo ? '<span class="hub-memo">' + esc(String(r.memo).slice(0, 160)) + '</span>' : '') + '</td>' +
+        (r.memo ? '<span class="hub-memo">' + esc(String(r.memo).slice(0, 110)) + '</span>' : '') + '</td>' +
         '<td>' + companyCell(r) + '</td>' +
         '<td>' + requesterCell(r) + '</td>' +
         '<td class="nowrap">' + phoneCell(r) + '</td>' +
         '<td>' + esc([r.price, r.area_py, r.rent, r.timeline].filter(Boolean).join(' · ')) + '</td>' +
         '<td><span class="hub-st">' + esc(r.status || '접수') + '</span></td>' +
-        '<td class="nowrap">' + shareCellHTML(r) + '</td></tr>';
+        '<td class="nowrap">' + shareCellHTML(r) + '</td>' +
+        '<td class="nowrap"><span class="hub-acts">' + acts + '</span></td></tr>';
     });
     h += '</tbody></table></div>';
     return h;
@@ -780,6 +818,317 @@
       esc(gs.map(function (g) { return g.name.replace(/ TFT$/, ' TFT'); }).join(' · ')) + ' 공유</button>';
   }
 
+  /* ─────────────── 접수 상세 팝업 · 수정 · 삭제 (2026-11-28) ─────────────── */
+  var DET = { id: '', full: false };
+
+  function rowById(id) {
+    for (var i = 0; i < LIST.items.length; i++) {
+      if (String(LIST.items[i].id) === String(id)) return LIST.items[i];
+    }
+    return null;
+  }
+  function memoLines(memo) {
+    return String(memo || '').split('|').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  function memoPrefix(memo) {
+    var m = String(memo || '').match(/^\s*(\[(?:유형=)?[^\]]+\])\s*/);
+    return m ? m[1] : '';
+  }
+  function memoBody(memo) {
+    return String(memo || '').replace(/^\s*\[(?:유형=)?[^\]]+\]\s*/, '');
+  }
+  function hdField(label, value) {
+    return '<div class="hd-f"><span>' + esc(label) + '</span><b>' + (value === '' || value == null ? '—' : value) + '</b></div>';
+  }
+
+  function detailHTML(row) {
+    var t = normType(row);
+    var masked = requesterMasked(row) && !isAdmin();
+    var when = String(row.timestamp || row.at || '').replace('T', ' ').slice(0, 16);
+    var lines = memoLines(memoBody(row.memo));
+    var h = '';
+    h += '<div class="tr-head"><div><h3>' + esc(t) + ' 접수 상세</h3>' +
+      '<p>' + esc(row.asset_name || '제목 없음') + (when ? ' · 접수 ' + esc(when) : '') +
+      (row.id && String(row.id).indexOf('local-') !== 0 ? ' · ID ' + esc(row.id) : '') + '</p></div>' +
+      '<button type="button" class="tr-x hub-full" data-hub-full="1" aria-label="전체 화면으로 보기" title="전체 화면 (카드 더블클릭)">⤢</button>' +
+      '<button type="button" class="tr-x" data-hub="close" aria-label="닫기">×</button></div>';
+    h += '<div class="tr-scroll hub-detail">';
+    h += '<div class="hd-grid">';
+    h += hdField('유형', '<span class="hub-tag t-' + esc(t) + '">' + esc(t) + '</span>');
+    h += hdField('진행 상태', esc(row.status || '접수'));
+    h += hdField('회사', companyCell(row));
+    h += hdField('요청자', masked ? '<span class="hub-blind">🔒 비공개</span>' : esc(personOf(row) || '—'));
+    h += hdField('직책', masked ? '<span class="hub-blind">🔒 비공개</span>' : esc(row.title || ''));
+    h += hdField('연락처', phoneCell(row) || '—');
+    h += hdField('이메일', masked ? '<span class="hub-blind">🔒 비공개</span>' : esc(row.email || ''));
+    h += hdField('권역 · 지역', esc(row.region || ''));
+    if (row.area_py) h += hdField('면적(평)', esc(row.area_py));
+    if (row.price) h += hdField('예산 · 금액', esc(row.price));
+    if (row.rent) h += hdField('임대료 · 금리', esc(row.rent));
+    if (row.timeline) h += hdField('희망 시기', esc(row.timeline));
+    if (row.owner) h += hdField('NAI 담당', esc(row.owner));
+    h += '</div>';
+    if (lines.length) {
+      h += '<div class="hd-memo"><b>접수 내용</b><ul>' +
+        lines.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ul></div>';
+    }
+    h += '</div>';
+    h += '<div class="tr-actions">';
+    h += '<button type="button" class="btn btn-outline" data-hub="list">← 접수 목록</button>';
+    h += '<span class="hub-spacer"></span>';
+    if (canModify(row)) {
+      h += '<button type="button" class="btn btn-outline" data-hub-edit="' + esc(row.id) + '">✏️ 수정</button>';
+      h += '<button type="button" class="btn btn-outline danger" data-hub-del="' + esc(row.id) + '">🗑️ 삭제</button>';
+    }
+    h += '<button type="button" class="btn btn-primary" data-hub="close">닫기</button>';
+    h += '</div>';
+    return h;
+  }
+
+  function openDetail(id) {
+    var row = rowById(id);
+    if (!row) { toast('접수 건을 찾지 못했습니다. 목록을 새로고쳤습니다.', true); openList(); return; }
+    DET.id = String(id); DET.full = false;
+    var host = ensureHost();
+    host.classList.remove('is-full');
+    host.innerHTML = '<div class="tr-card hub-card hub-detail-card" role="dialog" aria-modal="true" aria-label="접수 상세">' +
+      detailHTML(row) + '</div>';
+    host.classList.remove('hidden');
+    bindDetail(host);
+  }
+
+  function bindDetail(host) {
+    document.removeEventListener('keydown', escKey);
+    document.addEventListener('keydown', escKey);
+    var card = host.querySelector('.hub-detail-card');
+    host.onclick = function (e) {
+      if (e.target === host) { close(); return; }          /* 바깥 클릭 = 닫기 (기존과 같은 동작) */
+      if (e.target.closest('[data-hub-full]')) { toggleFull(); return; }
+      var ed = e.target.closest('[data-hub-edit]');
+      if (ed) { openEdit(ed.getAttribute('data-hub-edit')); return; }
+      var dl = e.target.closest('[data-hub-del]');
+      if (dl) { removeRequest(dl.getAttribute('data-hub-del')); return; }
+      var b = e.target.closest('[data-hub]');
+      if (b && b.getAttribute('data-hub') === 'list') openList();
+    };
+    /* 더블클릭 = 전체 화면 ↔ 원래 크기 (버튼·입력칸 위는 제외) */
+    if (card) card.addEventListener('dblclick', function (e) {
+      if (e.target.closest('input, textarea, select, button, a, label')) return;
+      toggleFull();
+    });
+  }
+
+  function toggleFull(force) {
+    var host = $('#hubModal');
+    var card = host && host.querySelector('.hub-detail-card');
+    if (!card) return;
+    DET.full = (force == null) ? !DET.full : !!force;
+    card.classList.toggle('is-full', DET.full);
+    host.classList.toggle('is-full', DET.full);
+    document.body.classList.toggle('hub-full', DET.full);
+    var b = card.querySelector('[data-hub-full]');
+    if (b) {
+      b.textContent = DET.full ? '⤡' : '⤢';
+      b.setAttribute('aria-label', DET.full ? '원래 크기로 보기' : '전체 화면으로 보기');
+      b.title = DET.full ? '원래 크기로 (카드 더블클릭)' : '전체 화면 (카드 더블클릭)';
+    }
+  }
+
+  /* ── 수정 폼 ── */
+  var STATUS_OPTS = ['접수', '검토중', '진행', '완료', '보류'];
+  var TYPE_OPTS = ['매각', '매입', '임대', 'TR', '호텔운영', '금융', '자문사딜'];
+
+  function optHTML(list, sel) {
+    return list.map(function (v) {
+      return '<option value="' + esc(v) + '"' + (String(v) === String(sel) ? ' selected' : '') + '>' + esc(v) + '</option>';
+    }).join('');
+  }
+  function editField(label, name, value, opts) {
+    opts = opts || {};
+    var input;
+    if (opts.type === 'select') input = '<select name="' + name + '">' + optHTML(opts.list, value) + '</select>';
+    else if (opts.type === 'textarea') input = '<textarea name="' + name + '" rows="4">' + esc(value || '') + '</textarea>';
+    else input = '<input name="' + name + '" type="text" value="' + esc(value || '') + '"' +
+      (opts.numeric ? ' inputmode="numeric"' : '') + (opts.ph ? ' placeholder="' + esc(opts.ph) + '"' : '') + '>';
+    return '<label class="tr-f' + (opts.wide ? ' wide' : '') + '"><span>' + esc(label) + '</span>' + input + '</label>';
+  }
+
+  function openEdit(id) {
+    var row = rowById(id);
+    if (!row) return;
+    if (!canModify(row)) { toast('본인이 등록한 접수 건 또는 관리자만 수정할 수 있습니다.', true); return; }
+    DET.id = String(id);
+    var masked = requesterMasked(row) && !isAdmin();
+    var h = '<div class="tr-head"><div><h3>✏️ 접수 건 수정</h3>' +
+      '<p>' + esc(normType(row)) + ' · ' + esc(row.asset_name || '') + '</p></div>' +
+      '<button type="button" class="tr-x" data-hub="close" aria-label="닫기">×</button></div>';
+    h += '<div class="tr-scroll">';
+    h += '<div class="tr-sec"><h4>접수 내용</h4><div class="tr-grid">';
+    h += editField('유형', 'e_type', normType(row), { type: 'select', list: TYPE_OPTS });
+    h += editField('진행 상태', 'e_status', row.status || '접수', { type: 'select', list: STATUS_OPTS });
+    h += editField('물건 · 대상', 'e_name', row.asset_name || '', { wide: true });
+    h += editField('지역 · 권역', 'e_region', row.region || '');
+    h += editField('면적(평)', 'e_area', row.area_py || '', { numeric: true });
+    h += editField('예산 · 금액', 'e_price', row.price || '');
+    h += editField('임대료 · 금리', 'e_rent', row.rent || '');
+    h += editField('연락처', 'e_phone', masked ? '' : (row.phone || ''), { ph: masked ? '비공개 — 새로 입력하면 갱신됩니다' : '010-0000-0000' });
+    h += editField('접수 내용 · 메모', 'e_memo', memoBody(row.memo), { type: 'textarea', wide: true });
+    h += '</div></div>';
+    h += '<p class="tr-note">수정 이력은 접근·감사 로그에 남습니다(누가 · 언제 · 무엇을). ' +
+      '완료·보류로 바꾼 건도 목록에서 바로 확인할 수 있습니다.</p>';
+    h += '<div class="tr-err hidden" id="hubEditErr"></div>';
+    h += '</div>';
+    h += '<div class="tr-actions">' +
+      '<button type="button" class="btn btn-outline" data-hub-open="' + esc(id) + '">← 상세로</button>' +
+      '<span class="hub-spacer"></span>' +
+      '<button type="button" class="btn btn-outline" data-hub="list">목록</button>' +
+      '<button type="button" class="btn btn-primary" data-hub-save="' + esc(id) + '" id="hubEditSave">저장</button></div>';
+    var host = ensureHost();
+    host.classList.remove('is-full');
+    host.innerHTML = '<div class="tr-card hub-card" role="dialog" aria-modal="true" aria-label="접수 건 수정">' + h + '</div>';
+    host.classList.remove('hidden');
+    bindEdit(host);
+  }
+
+  function bindEdit(host) {
+    document.removeEventListener('keydown', escKey);
+    document.addEventListener('keydown', escKey);
+    host.onclick = function (e) {
+      if (e.target === host) { close(); return; }
+      var sv = e.target.closest('[data-hub-save]');
+      if (sv) { saveEdit(sv.getAttribute('data-hub-save')); return; }
+      var op = e.target.closest('[data-hub-open]');
+      if (op) { openDetail(op.getAttribute('data-hub-open')); return; }
+      var b = e.target.closest('[data-hub]');
+      if (!b) return;
+      var act = b.getAttribute('data-hub');
+      if (act === 'close') close();
+      else if (act === 'list') openList();
+    };
+  }
+
+  function editErr(host, msg) {
+    var el = $('#hubEditErr', host);
+    if (el) { el.textContent = msg; el.classList.toggle('hidden', !msg); }
+    else toast(msg, true);
+  }
+
+  /** 서버 액션 — request_update / request_delete. 서버가 아직 모르는 액션이면 local:true 로 알려 줍니다. */
+  function postRequestAction(action, id, patch) {
+    var base = CFG.SYNC_URL;
+    if (!base || !getToken()) return Promise.resolve({ ok: true, server: false, error: 'no_sync' });
+    return fetch(base, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ token: getToken(), action: action, id: id, request: patch || {} })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.ok) return { ok: true, server: true, item: j.item || null };
+      var e = String((j && j.error) || '');
+      if (/unknown|bad_action|no_action|unsupported|not_found/.test(e)) return { ok: true, server: false, error: e };
+      return { ok: false, server: true, error: e || '알 수 없는 오류' };
+    }).catch(function () { return { ok: true, server: false, error: 'network' }; });
+  }
+
+  function auditRequest(action, row, note) {
+    try {
+      if (window.naiMap && window.naiMap.log) {
+        var who = me() || {};
+        window.naiMap.log(action,
+          [row.id || '', normType(row), String(row.asset_name || '').slice(0, 60),
+            (who.name || who.company || '')].filter(Boolean).join(' · ') + (note || ''));
+      }
+    } catch (e) { /* 로그 실패는 화면과 무관 */ }
+  }
+
+  function applyRowPatch(row, patch) {
+    Object.keys(patch).forEach(function (k) {
+      if (patch[k] !== undefined) row[k] = patch[k];
+    });
+    row._edited = true;
+  }
+
+  /** 이 브라우저에 남긴 내 접수 내역(MINE_KEY) 갱신 */
+  function syncMine(id, row, patch, remove) {
+    try {
+      var list = JSON.parse(localStorage.getItem(MINE_KEY) || '[]');
+      if (!Array.isArray(list)) return;
+      var next = list.filter(function (r, i) {
+        var match = String(r.id || '') === String(id) ||
+          (row && r.at && String(r.at) === String(row.at));
+        if (!match) return true;
+        if (remove) return false;
+        if (patch) Object.keys(patch).forEach(function (k) { if (patch[k] !== undefined) r[k] = patch[k]; });
+        return true;
+      });
+      localStorage.setItem(MINE_KEY, JSON.stringify(next.slice(0, 60)));
+    } catch (e) { /* noop */ }
+  }
+
+  function saveEdit(id) {
+    var host = $('#hubModal');
+    var row = rowById(id);
+    if (!host || !row) return;
+    if (!canModify(row)) { toast('수정 권한이 없습니다.', true); return; }
+    var q = function (n) { var el = host.querySelector('[name="' + n + '"]'); return el ? String(el.value || '').trim() : ''; };
+    var patch = {
+      request_type: q('e_type'),
+      asset_name: q('e_name'),
+      region: q('e_region'),
+      area_py: q('e_area'),
+      price: q('e_price'),
+      rent: q('e_rent'),
+      status: q('e_status'),
+      memo: (memoPrefix(row.memo) ? memoPrefix(row.memo) + ' ' : '') + q('e_memo')
+    };
+    var phone = q('e_phone');
+    if (phone) patch.phone = phone;
+    if (!patch.asset_name) { editErr(host, '물건 · 대상을 입력하세요.'); return; }
+    if (phone && digitsOf(phone).length < 7) { editErr(host, '연락처를 정확히 입력하세요.'); return; }
+    var btn = $('#hubEditSave', host);
+    if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
+    editErr(host, '');
+    postRequestAction('request_update', id, patch).then(function (res) {
+      if (btn) { btn.disabled = false; btn.textContent = '저장'; }
+      if (!res.ok) {
+        editErr(host, /unauthor|forbidden|perm/.test(res.error || '') ? '수정 권한이 없습니다. (본인 또는 관리자)' : '수정에 실패했습니다: ' + res.error);
+        return;
+      }
+      applyRowPatch(row, patch);
+      if (row._local) syncMine(id, row, patch, false);
+      auditRequest('request_update', row, res.server ? '' : ' (서버 미반영)');
+      if (res.server) {
+        toast('접수 건을 수정했습니다.');
+        DET.id = String(id);
+        openDetail(id);
+        loadList();
+      } else {
+        toast('이 브라우저에만 저장했습니다 — 서버 반영은 Apps Script 패치 후 가능합니다.', true);
+        DET.id = String(id);
+        openDetail(id);
+        renderListBody();
+      }
+    });
+  }
+
+  function removeRequest(id) {
+    var row = rowById(id);
+    if (!row) { toast('접수 건을 찾지 못했습니다.', true); return; }
+    if (!canModify(row)) { toast('본인이 등록한 접수 건 또는 관리자만 삭제할 수 있습니다.', true); return; }
+    var nm = String(row.asset_name || '').slice(0, 80);
+    if (!window.confirm('이 접수 건을 삭제할까요?\n\n' + nm + '\n\n삭제 후에는 되돌릴 수 없습니다.')) return;
+    postRequestAction('request_delete', id, null).then(function (res) {
+      if (!res.ok) {
+        toast(/unauthor|forbidden|perm/.test(res.error || '') ? '삭제 권한이 없습니다. (본인 또는 관리자)' : '삭제 실패: ' + res.error, true);
+        return;
+      }
+      LIST.items = LIST.items.filter(function (r) { return String(r.id) !== String(id); });
+      if (row._local) syncMine(id, row, null, true);
+      auditRequest('request_delete', row, res.server ? '' : ' (서버 미반영)');
+      openList();
+      toast(res.server ? '접수 건을 삭제했습니다.' : '목록에서 지웠습니다. 서버에는 아직 반영되지 않았습니다(Apps Script 패치 필요).', !res.server);
+    });
+  }
+
   function renderListBody() {    var body = $('#hubListBody');
     if (!body) return;
     $$('[data-hub-filter]', body.parentNode).length; /* noop */
@@ -792,8 +1141,11 @@
 
   function openList() {
     var host = ensureHost();
+    DET.full = false;
+    host.classList.remove('is-full');
+    document.body.classList.remove('hub-full');
     if (!host || host.classList.contains('hidden')) {
-      host.innerHTML = '<div class="tr-card hub-card" role="dialog" aria-modal="true" aria-label="접수 목록">' + listShellHTML() + '</div>';
+      host.innerHTML = '<div class="tr-card hub-card hub-list-card" role="dialog" aria-modal="true" aria-label="접수 목록">' + listShellHTML() + '</div>';
       host.classList.remove('hidden');
       bindHost(host);
     } else {
@@ -807,6 +1159,7 @@
   function listShellHTML() {
     return '<div class="tr-head"><div><h3>📥 접수 목록</h3>' +
       '<p>딜·참여 등록 허브로 접수된 내역입니다. 유형별로 걸러 보고 검색할 수 있습니다.' +
+      ' <b>행을 누르면</b> 접수 내용이 팝업으로 크게 열리고(더블클릭 = 전체 화면), 본인·관리자는 그 자리에서 수정·삭제할 수 있습니다.' +
       (isAdmin() ? ' <b>관리자</b> 권한에서는 업체명·요청자 원문이 보입니다.' : ' 업체명은 <b>🔒 블라인드</b>, TR 요청자·연락처는 <b>🔒 비공개</b>로 표시됩니다.') + '</p></div>' +
       '<button type="button" class="tr-x" data-hub="close" aria-label="닫기">×</button></div>' +
       '<div class="hub-list-tools"><div id="hubListChips" class="hub-fchips"></div>' +
@@ -825,6 +1178,12 @@
       if (e.target === host) { close(); return; }
       var sh = e.target.closest('[data-hub-share]');
       if (sh) { openShare(sh.getAttribute('data-hub-share')); return; }
+      var ed = e.target.closest('[data-hub-edit]');
+      if (ed) { openEdit(ed.getAttribute('data-hub-edit')); return; }
+      var dl = e.target.closest('[data-hub-del]');
+      if (dl) { removeRequest(dl.getAttribute('data-hub-del')); return; }
+      var op = e.target.closest('[data-hub-open]');
+      if (op) { openDetail(op.getAttribute('data-hub-open')); return; }
       var f = e.target.closest('[data-hub-filter]');
       if (f) { LIST.filter = f.getAttribute('data-hub-filter'); renderListBody(); return; }
       var b = e.target.closest('[data-hub]');
@@ -863,6 +1222,8 @@
     }
     function localRender(note) {
       LIST.items = (JSON.parse(localStorage.getItem(MINE_KEY) || '[]'));
+      /* 이 브라우저에서 접수한 건 — 등록자 본인 확인용 표시 */
+      LIST.items.forEach(function (r, i) { r._local = true; if (!r.id) r.id = 'local-' + i + '-' + String(r.at || '').slice(-6); });
       LIST.source = note || 'local';
       paint();
       body.innerHTML += '<p class="hub-foot">' + (note === 'server' ? '비공개 시트 <b>lois</b> 기준.' : '이 브라우저에서 제출한 내역입니다.') + '</p>';

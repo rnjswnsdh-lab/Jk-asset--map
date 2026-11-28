@@ -1175,6 +1175,8 @@
       html += '<button type="button" class="action-btn logs" data-act="assetlogs" title="관리자 탭 · 이 물건의 열람 이력">👁️ 열람 이력 ' + viewN + '건</button>';
     }
     html += '</div>';
+    /* ✨ AI 심층분석(Pickle) + Gemini·Claude 원클릭 연동 (2026-11-28) — ai.js */
+    if (window.NAI_AI && window.NAI_AI.detailCta) html += window.NAI_AI.detailCta(a);
     /* IM·TM은 지도의 분류가 아니라 '상세 참고자료'로만 보여줍니다 (2026-11-27 사용자 지시).
        원문 링크는 기존 정책대로 관리자·내부만 열람, 외부는 요청 흐름입니다. */
     if (isHttp(a.im_url) && canOpenImDoc()) {

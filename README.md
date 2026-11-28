@@ -305,7 +305,8 @@ API 응답은 기존 규격을 그대로 두고 `type=investors` 파라미터(�
 | `investors.js` | 🤝 SI·화주 풀 / 🏦 FI 풀 탭(탭별 필터·FI 펀드 메타 파싱·5개년 재무 표·선택·메일 발송 바·관리자 편집) |
 | `investors_fin.js` | 📊 5개년 재무 정적 폴백(`window.NAI_INV_FIN`) — `inv_id` 키와 재무 수치만. `work/oaab/build_investors_fin.py` 로 생성 |
 | `valuation.js` | 📊 밸류에이션·민감도 탭(프리셋·현금흐름 엔진·2D 민감도·시트 저장) |
-| `match.js` | 🤖 AI 매물 매칭(자연어 조건 파서·부합도 채점·Pickle 초대 CTA) |
+| `ai.js` | ✨ AI 심층분석 연동 — Pickle 진입(초대↔일반, `config.js` `PICKLE_MODE`) · Gemini·Claude 프롬프트 복사 + 새 창 |
+| `match.js` | 🤖 AI 매물 매칭(자연어 조건 파서·부합도 채점·상단 AI 심층분석 CTA) |
 | `tr.js` | 📋 TR 임차의뢰 모달(외부 화주·임차인 접수) |
 | `adminlogs.js` | 🛰️ 관리자 접속 로그(방문자별·물건별 이력·TR 접수·세션/신규컨택) |
 | `manifest.webmanifest` · `icons/` | PWA 홈 화면 설치(아이콘 192/512·apple-touch·theme-color) |
@@ -542,7 +543,12 @@ API 키 없이 **브라우저 안에서만** 도는 자연어 조건 파서 + �
   거래(매각·매입/임차/개발·컨버전/경·공매) · 면적(`15,000평`·`1만5천평`·`㎡→평`) · 가격(`3,000억`·`1조 2,000억`) · 온도(상온·냉동·냉장·신선)
 - 채점: 섹터 34 · 지역 26 · 권역 26 · 거래 16 · 면적 20(±15% 만점, ±45% 부분) · 가격 14 · 온도 12 · 키워드 5/개(최대 18)
 - 결과: 부합도 % · 해석된 조건 칩 · 후보별 이유(✓/△) · `지도·상세 / 📊 밸류에이션 / 📋 TR` 바로 연결 · 20건씩 더 보기
-- 하단 CTA: **“본인 피클(Pickle)로 로그인해서 직접 물어보세요”** → `https://pickle.com/i/2X6HQCBL47MN`
+- 하단 CTA: **`✨ AI 심층분석 (Pickle)`** — `config.js` 의 `PICKLE_MODE` 에 따라
+  `PICKLE_INVITE_URL`(`https://pickle.com/i/2X6HQCBL47MN`, 기본값) 또는 `PICKLE_DEFAULT_URL`(`https://pickle.com/app`)로 진입.
+  초대권이 소모되면 `PICKLE_MODE: "default"` 한 줄만 바꾸면 전체 버튼이 전환됩니다.
+- 보조 버튼 **`Gemini로 분석` · `Claude로 검토`** — 검색 조건과 상위 후보 스펙을 구조화한 프롬프트를 클립보드에 복사하고
+  `https://gemini.google.com/app` · `https://claude.ai/new` 를 새 창으로 엽니다(붙여넣기만 하면 됨 · 토스트 안내).
+- 물건 상세 패널도 같은 CTA를 씁니다(그 물건의 자산명·주소·섹터·규모·예상가·주요 스펙·메모를 프롬프트로).
 
 ### 4) 📜 등기부 바로열람 · 🏢 기업·소유주 재무(DART)
 - 상세 패널 **`📜 등기부 바로열람`** — `물건명 + 주소`를 클립보드에 복사하고 토스트 안내 후 `https://www.iros.go.kr` 새 창

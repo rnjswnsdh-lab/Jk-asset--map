@@ -428,6 +428,23 @@ button { font-family: inherit; }
 .im-btn .im-btn-label { font-size: 10.5px; font-weight: 600; opacity: .85; display: block; margin-top: 1px; }
 .im-btn .im-btn-arrow { margin-left: auto; font-size: 16px; }
 
+/* ── ✨ AI 심층분석(Pickle) · Gemini · Claude 연동 (2026-11-28) ── */
+.ai-cta { margin: 10px 0 0; padding: 10px 11px 9px; border: 1px solid #e4dcc6; border-radius: 11px;
+  background: linear-gradient(180deg, #fdfcf7, #f7f4ea); }
+.ai-cta-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
+.ai-btn-main { flex: 1 1 176px; display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  background: linear-gradient(135deg, #0b2a4a, #1b4b7d); color: #fff; text-decoration: none;
+  font-size: 12.4px; font-weight: 800; letter-spacing: -.01em; padding: 9px 12px; border-radius: 9px;
+  box-shadow: 0 3px 10px rgba(11, 42, 74, .22); }
+.ai-btn-main:hover { filter: brightness(1.09); }
+.ai-btn-main .ai-btn-sub { font-weight: 600; font-size: 10.8px; opacity: .82; }
+.ai-btn-main .ai-arrow { font-size: 12px; opacity: .85; }
+.ai-btn-alt { border: 1px solid #d9d1bd; background: #fff; color: var(--text-2); border-radius: 9px;
+  font-family: inherit; font-size: 10.8px; font-weight: 700; padding: 0 9px; min-height: 34px;
+  cursor: pointer; white-space: nowrap; }
+.ai-btn-alt:hover { background: #fbf8ee; border-color: #c7bda2; color: var(--navy-2); }
+.ai-cta-note { margin: 6px 2px 0; font-size: 10px; line-height: 1.55; color: var(--muted); }
+
 .detail-section { padding: 12px 14px; border-bottom: 1px solid var(--line-2); }
 .detail-section h4 {
   margin: 0 0 8px;
@@ -2174,6 +2191,8 @@ body.role-external .pf-toggle { display: none; }
 .mt-cta p { margin: 5px 0 6px; font-size: 11.5px; color: var(--text-2); line-height: 1.6; }
 .mt-cta-li { margin: 0; padding-left: 16px; font-size: 10.8px; color: var(--muted); line-height: 1.7; }
 .mt-cta-r { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.mt-ai-alt { display: flex; gap: 5px; }
+.mt-pickle-sub { font-weight: 600; font-size: 10.8px; opacity: .82; }
 .mt-pickle { display: inline-block; background: linear-gradient(135deg, #0b2a4a, #1b4b7d); color: #fff;
   font-size: 12.6px; font-weight: 800; text-decoration: none; padding: 11px 16px; border-radius: 11px; box-shadow: var(--shadow-md); white-space: nowrap; }
 .mt-pickle:hover { filter: brightness(1.08); }
@@ -2242,6 +2261,8 @@ body.role-external .pf-toggle { display: none; }
   .mt-cta { grid-template-columns: 1fr; }
   .mt-cta-r { align-items: stretch; }
   .mt-pickle { text-align: center; }
+  .mt-ai-alt { width: 100%; }
+  .mt-ai-alt .ai-btn-alt { flex: 1; }
   .ad-kpi { grid-template-columns: repeat(2, 1fr); }
   .tr-grid { grid-template-columns: 1fr; }
   .dart-grid { grid-template-columns: 1fr; }

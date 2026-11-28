@@ -940,7 +940,7 @@
           '<td class="num">' + (b.ltv_pct ? n0(b.ltv_pct) + '%' : '-') + '</td>' +
           '<td class="vdr-terms">' + esc([b.accept, (b.dd_days ? '실사 ' + b.dd_days + '일' : ''), (b.close_months ? b.close_months + '개월' : '')].filter(Boolean).join(' · ')) +
           (b.conditions ? '<span class="vdr-sub">' + esc(b.conditions) + '</span>' : '') +
-          (b.memo ? '<span class="vdr-sub">' + esc(b.memo) + '</span>' : '') + '</td>' +
+          (b.memo ? '<span class="vdr-sub">' + esc(String(b.memo).slice(0, 46)) + (String(b.memo).length > 46 ? '…' : '') + '</span>' : '') + '</td>' +
           '<td>' + esc(b.valid_until || '-') + '</td>' +
           '<td>' + esc(b.status || '접수') + '</td></tr>';
       });

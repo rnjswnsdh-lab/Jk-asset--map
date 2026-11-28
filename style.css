@@ -3776,3 +3776,6 @@ label.rfp-pick span { flex: 1; }
 .vdr-top-actions .btn-ghost:hover { background: #eef5fd; }
 .vdr-top-actions .btn-ghost[aria-pressed="true"] { background: #eef5fd; border-color: #9dc3e6; color: #0b5c9a; }
 .vdr-top-actions .btn-primary { background: #fff; color: var(--navy); border: 1px solid var(--line); }
+.jkv-loi .vdr-table th, .jkv-loi .vdr-table td { vertical-align: top; }
+.jkv-loi .vdr-table td { word-break: break-word; }
+.jkv-loi .vdr-terms { max-width: 230px; }

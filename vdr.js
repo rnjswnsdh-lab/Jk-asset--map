@@ -870,7 +870,8 @@
             '<td>' + esc(x.phone || '-') + '<span class="vdr-sub">' + esc(x.email || '') + '</span></td>' +
             '<td class="vdr-terms">' + esc((x.scopes || []).join(' · ')) + '</td>' +
             '<td>' + esc(x.status || '심사중') + '</td>' +
-            '<td class="nowrap">' + (x.status === '승인' ? '<span class="jkv-ok">승인됨</span>' :
+            '<td class="nowrap">' + (x.status === '승인' ? '<span class="jkv-ok">승인됨</span> ' +
+              '<button type="button" class="mini-btn" data-vdr-ca-revoke="' + esc(x.id) + '">승인 취소</button>' :
               '<button type="button" class="mini-btn" data-vdr-ca-ok="' + esc(x.id) + '">승인</button> ' +
               '<button type="button" class="mini-btn" data-vdr-ca-no="' + esc(x.id) + '">반려</button>') + '</td></tr>';
         });
@@ -1334,9 +1335,10 @@
     for (var i = 0; i < list.length; i++) if (list[i].id === id) c = list[i];
     if (!c) return;
     c.status = status;
-    c.approved_at = status === '승인' ? nowISO() : (c.approved_at || '');
+    c.approved_at = status === '승인' ? nowISO() : '';
     c.decided_by = (me() && me().name) || 'JK Value';
     if (status === '반려') c.reason = c.reason || '기관 실체·투자 적격성 확인 필요';
+    if (status === '심사중') c.reason = 'JK Value 승인 취소 — 재검토';
     persistCA(c).then(function () {
       persistLog(room.id, 'CA ' + status, c.company + ' ' + c.name);
       render();
@@ -1377,6 +1379,8 @@
       if (okBtn) { decideCA(okBtn.getAttribute('data-vdr-ca-ok'), '승인'); return; }
       var noBtn = e.target.closest('[data-vdr-ca-no]');
       if (noBtn) { decideCA(noBtn.getAttribute('data-vdr-ca-no'), '반려'); return; }
+      var rvBtn = e.target.closest('[data-vdr-ca-revoke]');
+      if (rvBtn) { decideCA(rvBtn.getAttribute('data-vdr-ca-revoke'), '심사중'); return; }
       var b = e.target.closest('[data-vdr]');
       if (!b) return;
       var act = b.getAttribute('data-vdr');

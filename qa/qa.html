@@ -103,8 +103,8 @@ var ROWS = [
   { id: 'qa-2', request_type: '매각', asset_name: 'QA 물건 B', company: 'QA리츠', name: 'QA담당2', phone: '010-0000-0002',
     timestamp: '2026-11-28T11:00', status: '접수', memo: '[유형=매각] 테스트 B' }
 ];
-localStorage.setItem((window.NAI_MAP_CONFIG.STORAGE_PREFIX || 'nai-map') + ':token:v1', 'qa-token');
-localStorage.removeItem((window.NAI_MAP_CONFIG.STORAGE_PREFIX || 'nai-map') + ':hub:deleted:v1');
+/* 이 브라우저에 이미 있는 접속 토큰을 그대로 씁니다(토큰·삭제표시를 건드리지 않습니다).
+   토큰이 없어도 fetch 스텁이 응답하므로 검증 결과는 같습니다. */
 
 window.fetch = function (url, opt) {
   var isPost = !!(opt && String(opt.method || '').toUpperCase() === 'POST');

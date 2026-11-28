@@ -1,6 +1,5 @@
 /* OAAB 2026 3Q 통합 마켓 리포트 데이터 (2026-11-28)
-   ─ 출처 : CM DA1 Market Data(전체시장)_261029 / CM DA1 Market Deal Status(거래사례)_261030 /
-           NAI_CM 전략회의_261030 / NAI Korea Research 3Q 발표본 / 2015-2024 Hotel Market Data /
+   ─ 출처 : NAI Korea Research 3Q 발표본 / NAI 내부 자료(시장 데이터·거래사례·전략회의) / 2015-2024 Hotel Market Data /
            타사 7개사 3Q 리포트 교차검증(2026-11-28)
    ─ 원칙 : 모든 지표에 basis(면적기준)·sample(표본)·source 를 함께 표기. 단일 수치 금지.
    ─ 외부 원문의 문장·도표·표 배열은 옮기지 않고 수치·사실만 자체 재구성. */
@@ -11,7 +10,7 @@ window.OAAB_MARKET_REPORT_2026Q3 = {
     "subtitle": "공실률 2계열 · NOC 2계열 · 2026년 오피스 거래 35건 12.59조",
     "as_of": "2026-09-30",
     "published": "2026-11-28",
-    "scope": "서울 오피스 중심 · 물류·호텔·DC 보조 (CM DA1 DB + 외부 7개사 교차검증)",
+    "scope": "서울 오피스 중심 · 물류·호텔·DC 보조 (NAI 내부 자료 + 외부 7개사 교차검증)",
     "sources": 12,
     "note": "NAI 단일 수치(2.07%)에 의존하지 않는 자체 발간본. 모든 수치에 기준·표본·출처를 병기했습니다."
   },
@@ -52,7 +51,7 @@ window.OAAB_MARKET_REPORT_2026Q3 = {
       { "cluster": "프라임·A급", "org": "JLL", "sample": "Grade A", "seoul": "5.8", "cbd": "10.6", "gbd": "0.8", "ybd": "5.0", "etc": "—", "qoq": "−0.8%p" },
       { "cluster": "전체 오피스", "org": "알스퀘어", "sample": "전체 · 2Q 표본 945동", "seoul": "5.7", "cbd": "5.2", "gbd": "0.6~1.4", "ybd": "—", "etc": "10.0", "qoq": "−0.8%p" },
       { "cluster": "전체 오피스", "org": "젠스타메이트", "sample": "전체 · 신축 포함", "seoul": "6.7", "cbd": "6.3", "gbd": "3.4", "ybd": "3.0", "etc": "12.9", "qoq": "—" },
-      { "cluster": "전체 오피스", "org": "CM DA1 (2Q)", "sample": "전체 · 신축 포함", "seoul": "6.9", "cbd": "6.8", "gbd": "3.5", "ybd": "2.8", "etc": "13.3", "qoq": "3Q 미기입" },
+      { "cluster": "전체 오피스", "org": "NAI 내부 자료 (2Q)", "sample": "전체 · 신축 포함", "seoul": "6.9", "cbd": "6.8", "gbd": "3.5", "ybd": "2.8", "etc": "13.3", "qoq": "3Q 미기입" },
       { "cluster": "자체표본", "org": "NAI Korea Research", "sample": "표본·분모 미공개", "seoul": "2.07", "cbd": "2.14", "gbd": "1.95", "ybd": "2.31", "etc": "1.92", "qoq": "−0.43%p" }
     ],
     "noc": [
@@ -89,7 +88,7 @@ window.OAAB_MARKET_REPORT_2026Q3 = {
       { "type": "미상", "count": 1, "eok": 0, "share": 0 }
     ],
     "cap": [
-      { "org": "CM DA1 (서울·GM)", "value": "4.2", "prev": "4.1", "note": "국고5년 4.10% · 스프레드 0.10%p" },
+      { "org": "NAI 내부 자료 (서울·GM)", "value": "4.2", "prev": "4.1", "note": "국고5년 4.10% · 스프레드 0.10%p" },
       { "org": "젠스타메이트", "value": "4.2", "prev": "4.1", "note": "매매가격지수 586(−1.9% QoQ)" },
       { "org": "CBRE", "value": "4.3", "prev": "4.2", "note": "Grade A 명목 · 2년 만의 상승 전환" },
       { "org": "알스퀘어", "value": "4.49", "prev": "소폭 상승", "note": "국고3년 3.87% · 스프레드 0.62%p" },
@@ -115,9 +114,9 @@ window.OAAB_MARKET_REPORT_2026Q3 = {
     ]
   },
   "sectors": [
-    { "sector": "오피스", "grade": "확정", "detail": "클로징·계약 33건(연중 35건)", "numbers": "12.09조 (12.59조)", "source": "CM Deal Status Comparables" },
+    { "sector": "오피스", "grade": "확정", "detail": "클로징·계약 33건(연중 35건)", "numbers": "12.09조 (12.59조)", "source": "NAI 내부 자료" },
     { "sector": "물류", "grade": "관계자 확인", "detail": "아레나스 양지→코람코자산신탁 / CBRE IM 5개→와이드크릭+하인즈 / 롯데 덕평→코람코+우정 우협 / 페블스톤 평택+여주→이지스+베인", "numbers": "6,200억 / 약 4,300억 / 우협(2026-09) / 평당 500만 초반", "source": "시장 관계자 통화 2026-11-22 (공시 미대조)" },
-    { "sector": "호텔", "grade": "확정", "detail": "신라스테이 구로(동작구 신대방동 698) 쉐어딜 · 2024 서울 OCC 78.62%·ADR 200,703원·RevPAR 157,793원", "numbers": "850억 / 5,245평 / 1,621만원·평", "source": "CM Comparables · 한국호텔업협회" },
+    { "sector": "호텔", "grade": "확정", "detail": "신라스테이 구로(동작구 신대방동 698) 쉐어딜 · 2024 서울 OCC 78.62%·ADR 200,703원·RevPAR 157,793원", "numbers": "850억 / 5,245평 / 1,621만원·평", "source": "NAI 내부 자료 · 한국호텔업협회" },
     { "sector": "DC", "grade": "확정", "detail": "클로징 0건 — 춘천 수열클러스터 250MW 공모(조성원가 790,913원/㎡, 12-01 설명회·12-21 마감), GS 동해 AI DC 2026-11-28 착공", "numbers": "총 2,253.7억", "source": "K-water 공고 · 보도" },
     { "sector": "리테일", "grade": "확정", "detail": "NAI 3Q 집계 — 거래 5.13조(+8.2%), 중대형 상가 공실 9.9%", "numbers": "5.13조 / 9.9%", "source": "NAI Korea Research 3Q" }
   ],
@@ -144,17 +143,17 @@ window.OAAB_MARKET_REPORT_2026Q3 = {
     { "org": "알스퀘어", "doc": "2026년 3분기 오피스 마켓 리포트", "date": "2026-11-13", "url": "https://www.newsis.com/view/NISX20261113_0003866703" },
     { "org": "젠스타메이트", "doc": "Korea Office Market Report Q3 2026", "date": "2026-10-21", "url": "https://www.wowtv.co.kr/NewsCenter/News/Read?articleId=202611135247r" },
     { "org": "NAI Korea Research", "doc": "2026 Q3 Market Review (9p)", "date": "2026-11-23", "url": "" },
-    { "org": "NAI CM팀", "doc": "★CM DA1 Market Data(전체시장)_261029 (13시트)", "date": "2026-10-29", "url": "" },
-    { "org": "NAI CM팀", "doc": "★CM DA1 Market Deal Status(거래사례)_261030 (226건)", "date": "2026-10-30", "url": "" },
-    { "org": "NAI CM팀", "doc": "NAI_CM 전략회의_261030 (6p)", "date": "2026-10-30", "url": "" },
+    { "org": "NAI 내부 자료", "doc": "임대·공급·거시 시장 데이터", "date": "2026-10-29", "url": "" },
+    { "org": "NAI 내부 자료", "doc": "거래사례 집계", "date": "2026-10-30", "url": "" },
+    { "org": "NAI 내부 자료", "doc": "전략회의 자료", "date": "2026-10-30", "url": "" },
     { "org": "한국호텔업협회", "doc": "호텔업운영현황 2015~2024", "date": "2025", "url": "" }
   ],
   "limits": [
     { "item": "CM 3Q 임대·공급 미기입", "text": "3.임대시장·4.공급시장 2026 3Q 공란(갱신 2026-10-29) — 11월 정기보고 시 백필" },
     { "item": "공실률 두 계열", "text": "자체표본 2.07% ↔ 전체 6.9% — 표본 건물·분모 미확인" },
     { "item": "NOC 기준 표기", "text": "290,534에 「전용면적 기준」 각주 의무화" },
-    { "item": "거래 집계 정합", "text": "발표본 32건 12.3조 ↔ Comparables 35건 12.59조(3건 차이)" },
-    { "item": "물류·DC DB 공백", "text": "Comparables가 오피스 전용 — 섹터 DB 신설 필요" },
+    { "item": "거래 집계 정합", "text": "발표본 32건 12.3조 ↔ 내부 집계 35건 12.59조(3건 차이)" },
+    { "item": "물류·DC DB 공백", "text": "내부 거래사례가 오피스 전용 — 섹터 DB 신설 필요" },
     { "item": "호텔 최신 실적", "text": "2024년분까지만 확보(2025~2026 공표 전)" }
   ]
 };

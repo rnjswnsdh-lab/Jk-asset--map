@@ -62,7 +62,7 @@
           '<td>' + esc(r.unit) + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
       '<ul class="rp-li rp-li-sm">' + (m.comments || []).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' +
-      '<p class="rp-hint">*Source : ★CM DA1 Market Data(전체시장)_261029 시트 1.거시경제(갱신 2026-10-29) · 4Q는 입력값(전망 성격)</p></section>';
+      '<p class="rp-hint">*Source : NAI 내부 자료(2026-10-29 갱신) · 4Q는 입력값(전망 성격)</p></section>';
   }
 
   /* ② 오피스 임대 — 공실률 2계열 + NOC 2계열 */
@@ -103,7 +103,7 @@
       '</div>' + vacancy +
       '<p class="rp-hint">단위: % · 2026-09-30 기준. 프라임·A급과 전체 오피스는 표본이 달라 직접 비교하지 않습니다.</p>' +
       '<h4 style="margin:14px 0 8px;font-size:12.5px;color:#33475b">NOC · 임대료 — 단위 원/3.3㎡·월</h4>' + noc +
-      '<p class="rp-hint">*Source : NAI Korea Research 3Q 발표본(NOC 전용) / ★CM DA1 Market Data 261029(명목임대·관리비, 2Q) / 젠스타메이트 3Q. 배율 1.76 = 1÷전용률 56.7%.</p>' +
+      '<p class="rp-hint">*Source : NAI Korea Research 3Q 발표본(NOC 전용) / NAI 내부 자료(명목임대·관리비, 2Q) / 젠스타메이트 3Q. 배율 1.76 = 1÷전용률 56.7%.</p>' +
       '<ul class="rp-li rp-li-sm">' + (l.comments || []).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></section>';
   }
 
@@ -153,7 +153,7 @@
       '<h4 style="margin:14px 0 8px;font-size:12.5px;color:#33475b">매수자 구성</h4>' +
       '<ul class="rp-li rp-li-sm">' + buy + '</ul>' +
       '<h4 style="margin:14px 0 8px;font-size:12.5px;color:#33475b">2026년 상위 10건</h4>' + top +
-      '<p class="rp-hint">*Source : ★CM DA1 Market Deal Status(거래사례)_261030 시트 Comparables(2026-10-30 갱신) · 각 사 3Q 리포트(Cap Rate)</p>' +
+      '<p class="rp-hint">*Source : NAI 내부 자료(거래사례, 2026-10-30 갱신) · 각 사 3Q 리포트(Cap Rate)</p>' +
       '<ul class="rp-li rp-li-sm">' + (d.comments || []).map(function (t2) { return '<li>' + esc(t2) + '</li>'; }).join('') + '</ul></section>';
   }
 
@@ -167,7 +167,7 @@
           '<td class="num b">' + esc(r.numbers) + '</td><td class="rp-remark">' + esc(r.source) + '</td>' +
           '<td>' + esc(r.grade) + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
-      '<p class="rp-hint">CM Deal Status Comparables는 「Office Transaction Comparables」 단일 구성 — 물류·DC 거래는 0건입니다. 섹터 확장에는 별도 DB가 필요합니다.</p></section>';
+      '<p class="rp-hint">NAI 내부 자료(거래사례)는 「Office Transaction Comparables」 단일 구성 — 물류·DC 거래는 0건입니다. 섹터 확장에는 별도 DB가 필요합니다.</p></section>';
   }
 
   /* ⑤ 전망·시사점 */

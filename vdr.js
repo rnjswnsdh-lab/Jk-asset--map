@@ -742,9 +742,9 @@
     var rows = d ? (d.rows || docRows(d.text)) : [];
     var body;
     if (!d) {
-      body = '<p class="vdr-doc-empty">아직 등록되지 않았습니다.' + (isAdmin() ? ' <button type="button" class="mini-btn" data-vdr-doc-edit="' + kind.k + '">＋ 등록</button>' : '') + '</p>';
+      body = '<p class="vdr-doc-empty">아직 등록되지 않았습니다.' + ((isAdmin() && operatorView()) ? ' <button type="button" class="mini-btn" data-vdr-doc-edit="' + kind.k + '">＋ 등록</button>' : '') + '</p>';
     } else if (!rows.length) {
-      body = '<p class="vdr-doc-empty">내용이 비어 있습니다.' + (isAdmin() ? ' <button type="button" class="mini-btn" data-vdr-doc-edit="' + kind.k + '">✏️ 편집</button>' : '') + '</p>';
+      body = '<p class="vdr-doc-empty">내용이 비어 있습니다.' + ((isAdmin() && operatorView()) ? ' <button type="button" class="mini-btn" data-vdr-doc-edit="' + kind.k + '">✏️ 편집</button>' : '') + '</p>';
     } else {
       body = '<div class="vdr-table-wrap"><table class="vdr-table"><thead><tr>' +
         kind.cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
@@ -757,7 +757,7 @@
     }
     return '<section class="vdr-doc"><div class="vdr-doc-head"><h4>' + kind.icon + ' ' + esc(kind.label) +
       '<span>' + (rows.length ? rows.length + '행' : '미등록') + '</span></h4>' +
-      (isAdmin() && d ? '<button type="button" class="mini-btn" data-vdr-doc-edit="' + kind.k + '">✏️ 편집</button>' : '') +
+      ((isAdmin() && operatorView()) && d ? '<button type="button" class="mini-btn" data-vdr-doc-edit="' + kind.k + '">✏️ 편집</button>' : '') +
       '</div>' + body + '</section>';
   }
 
@@ -772,7 +772,7 @@
         '<button type="button" class="mini-btn" data-vdr="ca-new">CA 제출</button></div></section>';
     }
     var h = '<section class="vdr-doc"><div class="vdr-doc-head"><h4>📘 티저 · IM(Information Memorandum) <span>' +
-      (hasTm || hasIm ? '열람 가능' : '요청 접수') + '</span></h4></div><div class="jkv-im-body">';
+      (hasTm || hasIm ? '열람 가능' : '파일 미등록 · 요청 가능') + '</span></h4></div><div class="jkv-im-body">';
     if (hasTm) h += '<a class="jkv-file" href="' + esc(room.tm_url) + '" target="_blank" rel="noopener noreferrer" data-vdr-log="티저 열람">📄 티저(Teaser) 열람 ↗</a>';
     if (hasIm) h += '<a class="jkv-file" href="' + esc(room.im_url) + '" target="_blank" rel="noopener noreferrer" data-vdr-log="IM 열람">📘 IM 원문 열람 ↗</a>';
     if (!hasTm && !hasIm) h += '<p class="vdr-doc-empty">등록된 파일이 없습니다. 아래 <b>IM·티저 열람 요청</b>을 보내면 JK Value가 워터마크 사본을 발송합니다.</p>';
@@ -989,7 +989,7 @@
         '<span><b>' + esc(room.loi_deadline || '-') + '</b>LOI 마감</span>' +
         '<span><b>' + esc(room.bid_deadline || '-') + '</b>입찰 마감</span>' +
         '<span><b>' + (ok ? bidsOf(room.id).length + '건' : '—') + '</b>접수</span></div></div>';
-      if (isAdmin()) h += '<div class="jkv-room-tools"><button type="button" class="mini-btn" data-vdr="room-edit">✏️ 딜룸·블라인드 정보</button>' +
+      if (isAdmin() && operatorView()) h += '<div class="jkv-room-tools"><button type="button" class="mini-btn" data-vdr="room-edit">✏️ 딜룸·블라인드 정보</button>' +
         '<span>섹터·규모·임대율·권역 등 블라인드 표기 항목을 채우면 Pre-CA 화면이 완성됩니다.</span></div>';
       if (ok && room.description) h += '<p class="vdr-desc">' + esc(room.description) + '</p>';
       h += '<div class="vdr-tabs" role="tablist">' +

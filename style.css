@@ -3648,7 +3648,7 @@ label.rfp-pick span { flex: 1; }
 .jkv-wm { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;
   display: flex; flex-wrap: wrap; align-content: space-around; justify-content: space-around; gap: 20px; }
 .jkv-wm span { font-size: 13px; font-weight: 800; letter-spacing: .04em; color: #0b2a4a;
-  opacity: .055; transform: rotate(-22deg); white-space: nowrap; }
+  opacity: .075; transform: rotate(-22deg); white-space: nowrap; }
 
 /* 블라인드 자산소개서 */
 .jkv-teaser-wrap { position: relative; }

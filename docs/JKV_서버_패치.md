@@ -41,6 +41,7 @@ signature, signature_hash, ua, by
 | `vdr_cas` | `id, room_id, company, name, email, phone, status, submitted_at, approved_at, approved_by, json` |
 | `jkv_logs` | `id, room_id, company, name, email, action, detail, at, role, json` |
 | `jkv_req` | `id, room_id, kind, company, name, email, memo, status, at, json` |
+| `vdr_bids` *(확장 권장)* | 기존 헤더 + `equity_eok, debt_eok, rate_pct, valid_until, fee_bearer, conditions, ca_id` — LOI 상세 필드가 시트에 없으면 저장 후 새로고침 시 사라집니다(로컬 모드에서는 유지) |
 | `vdr_rooms` *(확장 권장)* | 기존 헤더 + `asset_id, sector, sub_market, gfa_pyeong, site_pyeong, occupancy_pct, built_year, wale_years, tenant_profile, deal_type, timeline, ltv_band, special_note, advisor, tm_url, im_url` |
 
 > **블라인드 표기 메타**는 현재 브라우저(`localStorage` `{prefix}:jkv:rooms:v1`)에도 함께 보존됩니다. 위 컬럼을 시트에 추가하기 전까지 새로고침 후에도 브라우저 단위로 유지되며, 컬럼 추가 후에는 서버값이 우선합니다.

@@ -695,7 +695,7 @@
       '</div>' +
       '<div class="hq-acl-form">' +
       '<label><span>이름 *</span><input id="aclName" type="text" placeholder="예) 김광연"></label>' +
-      '<label><span>소속</span><input id="aclOrg" type="text" placeholder="예) NAI Korea CM팀"></label>' +
+      '<label><span>소속</span><input id="aclOrg" type="text" placeholder="예) CM팀"></label>' +
       '<label><span>명함 이메일 *</span><input id="aclEmail" type="email" placeholder="name@naikorea.com"></label>' +
       '<label><span>권한</span><select id="aclAccess"><option value="VIEW">열람만</option><option value="EDIT">열람 + 수정</option></select></label>' +
       '<button type="button" class="btn btn-solid" id="aclAdd">등록</button></div>' +

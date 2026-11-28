@@ -144,7 +144,7 @@
       '<div class="crm-card-body">' +
       '<p class="crm-target">' + esc(company || '') + ' <span>' + esc(kind || '') + '</span></p>' +
       '<div class="tr-grid">' +
-      '<label class="tr-f"><span>작성자명 <b>*</b></span><input name="author" value="' + esc(last) + '" placeholder="예) 권준오"></label>' +
+      '<label class="tr-f"><span>작성자명 <b>*</b></span><input name="author" value="' + esc(last) + '" placeholder="예) 홍길동"></label>' +
       '<label class="tr-f"><span>의향 · 단계 <b>*</b></span><select name="stage">' +
       STAGES.map(function (s) { return '<option>' + s + '</option>'; }).join('') + '</select></label>' +
       '<label class="tr-f wide"><span>메모 <b>*</b></span><textarea name="note" rows="4" placeholder="예) 11/24 미팅 — 사옥 이전 검토, GBD 3,000평·예산 800억. IM 요청."></textarea></label>' +

@@ -16,9 +16,9 @@
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
   var S = { built: false, q: '', parsed: null, results: [], shown: 0, page: 20, ranAt: 0, loose: false, total: 0 };
-  /* ✨ 피클 진입 URL은 ai.js 가 config.js 의 PICKLE_MODE 로 결정합니다(초대 ↔ 일반 진입) */
+  /* ✨ 피클 진입 URL은 ai.js 가 config.js 의 PICKLE_MODE 로 결정합니다(초대 링크는 쓰지 않음, 2026-11-28) */
   var PICKLE_URL = (window.NAI_AI && window.NAI_AI.pickleUrl) ? window.NAI_AI.pickleUrl()
-    : (CFG.PICKLE_INVITE_URL || 'https://pickle.com/i/2X6HQCBL47MN');
+    : (CFG.PICKLE_DEFAULT_URL || 'https://pickle.com/app');
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -385,7 +385,7 @@
     html += '</div>';
     html += (window.NAI_AI && window.NAI_AI.matchCtaHtml) ? window.NAI_AI.matchCtaHtml() :
       ('<div class="mt-cta-r"><a class="mt-pickle" href="' + PICKLE_URL + '" target="_blank" rel="noopener noreferrer" id="mtPickle">✨ AI 심층분석 (Pickle) ↗</a>' +
-        '<span class="mt-cta-note">권준오 상무의 피클 초대 링크 · pickle.com</span></div>');
+        '<span class="mt-cta-note">AI 대화형 분석 · pickle.com</span></div>');
     html += '</div>';
     html += '</div>';
 

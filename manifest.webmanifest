@@ -1,7 +1,7 @@
 {
-  "name": "Open AI Asset Bridge — NAI Korea",
+  "name": "Open AI Asset Bridge",
   "short_name": "Asset Bridge",
-  "description": "NAI Korea 상업용 부동산 물건·투자자(SI·FI) 통합 딜 브릿지",
+  "description": "상업용 부동산 물건·투자자(SI·FI)·접수 통합 딜 브릿지",
   "lang": "ko",
   "dir": "ltr",
   "start_url": "./?src=pwa",

@@ -656,7 +656,7 @@
         ? '아직 제안서가 접수되지 않았습니다. 마감 전까지 🤝 자문사 포털에서 승인 코드로 접속해 제출해 주세요.\n· ' +
           missing.map(function (m) { return m.company + ' (' + m.code + ')'; }).join('\n· ')
         : '모든 초청 자문사가 제안서를 제출했습니다.') +
-      '\n\n문의: ' + (rfp.client || 'NAI Korea');
+      '\n\n문의: ' + (rfp.client || ((window.NAI_PLATFORM && window.NAI_PLATFORM.name) ? window.NAI_PLATFORM.name() : 'Open AI Asset Bridge'));
     var body = '<p class="rfp-note">미제출 자문사에게 보낼 안내 문안입니다. 복사해서 메일로 보내세요(자동 발송 없음).</p>' +
       '<div class="rfp-mailbox"><pre>' + esc(text) + '</pre><button type="button" class="mini-btn" data-fl-copy="1">문구 복사</button></div>';
     var m = C.modal('미제출 안내문 (' + missing.length + '명)', body, { wide: true, footer: '<button type="button" class="btn btn-primary" data-rfp="close">확인</button>' });
@@ -850,7 +850,7 @@
       '제출 ' + C.submissionsOf(rfp.id).length + '건 / 초청 ' + (rfp.invites || []).length + '명\n' +
       rows.map(function (r, i) { return (i + 1) + '. ' + r.sub.advisor_company + ' — ' + r.total + '점 (제안 v' + (r.sub.version || 1) + ')'; }).join('\n') +
       '\n\n선정(안): ' + (sel.company || '미정') + (sel.total ? ' (' + sel.total + '점)' : '') +
-      '\n\n첨부: RFP_평가리포트 엑셀\n\n확인 부탁드립니다. 회신 주시면 선정 확정하겠습니다.\n' + (rfp.client || 'NAI Korea');
+      '\n\n첨부: RFP_평가리포트 엑셀\n\n확인 부탁드립니다. 회신 주시면 선정 확정하겠습니다.\n' + (rfp.client || ((window.NAI_PLATFORM && window.NAI_PLATFORM.name) ? window.NAI_PLATFORM.name() : 'Open AI Asset Bridge'));
   }
 
   /* ─────────────────────────── 이벤트 ─────────────────────────── */

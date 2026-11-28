@@ -422,7 +422,7 @@
     host.insertBefore(box, host.children[1] || null);
     $('#aclCopyCode').onclick = function () { copyText(c.code, '접속코드를 복사했습니다.'); };
     $('#aclCopyHow').onclick = function () {
-      copyText('Open AI Asset Bridge 접속코드입니다.\n' + APP_URL + '\n접속코드: ' + c.code + '\n(본인만 사용해 주세요. 문의: NAI Korea)', '전달 문구를 복사했습니다.');
+      copyText('Open AI Asset Bridge 접속코드입니다.\n' + APP_URL + '\n접속코드: ' + c.code + '\n(본인만 사용해 주세요. 문의: Open AI Asset Bridge)', '전달 문구를 복사했습니다.');
     };
   }
 

@@ -872,6 +872,10 @@
       h += '<div class="hd-memo"><b>접수 내용</b><ul>' +
         lines.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ul></div>';
     }
+    /* 🧠 매칭 검토 현황 — 접수 화면 안에서 후보·승인·담당자를 바로 확인 (2026-11-28) */
+    if (isAdmin() && window.NAI_TRREVIEW && window.NAI_TRREVIEW.summaryFor) {
+      try { h += window.NAI_TRREVIEW.summaryFor(row); } catch (e) { /* noop */ }
+    }
     h += '</div>';
     h += '<div class="tr-actions">';
     h += '<button type="button" class="btn btn-outline" data-hub="list">← 접수 목록</button>';
@@ -1223,6 +1227,7 @@
       '<span id="hubListCount" class="hub-count">불러오는 중…</span>' +
       (isAdmin() ? '<button type="button" class="mini-btn" data-hub="xlsx" title="현재 유형·검색 조건의 접수 내역을 엑셀로 저장">📥 엑셀 다운로드</button>' : '') +
       (isAdmin() ? '<button type="button" class="mini-btn" data-hub="pr-csv" title="PR(임차의뢰) 접수만 파트너 전달용 CSV로 저장">📤 PR CSV</button>' : '') +
+      (isAdmin() ? '<button type="button" class="mini-btn" data-hub="review" title="접수 → AI 후보 → 관리자 승인 → 담당자 연결 → 요청자 전달">🧠 매칭 검토</button>' : '') +
       '<button type="button" class="mini-btn" data-hub="form">＋ 새 등록</button></div>' +
       '<div class="tr-scroll" id="hubListBody"><p class="hub-empty">불러오는 중…</p></div>';
   }
@@ -1247,6 +1252,7 @@
       var act = b.getAttribute('data-hub');
       if (act === 'close') close();
       else if (act === 'form') open(HUB.type, HUB.prefill);
+      else if (act === 'review') { if (window.NAI_TRREVIEW) window.NAI_TRREVIEW.open(); }
       else if (act === 'xlsx') exportListXlsx();
       else if (act === 'pr-csv') exportPrCsv();
     };

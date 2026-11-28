@@ -525,7 +525,7 @@
       '· 평가 결과·배점은 외부에 공개하지 않습니다.'
     ];
     return {
-      id: '', asset_id: assetId, asset_name: a.name || '', client: (me() && me().company) || 'NAI Korea',
+      id: '', asset_id: assetId, asset_name: a.name || '', client: (me() && me().company) || (window.NAI_PLATFORM ? window.NAI_PLATFORM.name() : 'Open AI Asset Bridge'),
       title: (a.name || '물건') + ' 매각 자문 RFP',
       issue_date: today(), due_date: d(sch.offer_days || 14), loi_due: d(sch.loi_days || 49),
       status: '초안', guide_eok: price || '',

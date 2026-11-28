@@ -17,15 +17,14 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
 
   /* ─────────────── 진입 URL — 초대 링크 우선, 소모 후 일반 진입 ─────────────── */
-  var INVITE_URL = CFG.PICKLE_INVITE_URL || 'https://pickle.com/i/2X6HQCBL47MN';
+  /* 개인 초대·추천 링크는 쓰지 않습니다 (2026-11-28). 초대 링크가 비어 있으면 일반 진입 주소로 갑니다. */
+  var INVITE_URL = String(CFG.PICKLE_INVITE_URL || '').trim();
   var DEFAULT_URL = CFG.PICKLE_DEFAULT_URL || 'https://pickle.com/app';
-  var MODE = String(CFG.PICKLE_MODE || 'invite').toLowerCase() === 'default' ? 'default' : 'invite';
+  var MODE = (String(CFG.PICKLE_MODE || 'default').toLowerCase() === 'invite' && INVITE_URL) ? 'invite' : 'default';
 
   function pickleUrl() { return MODE === 'default' ? DEFAULT_URL : INVITE_URL; }
   function pickleNote() {
-    return MODE === 'default'
-      ? '피클에서 무료로 시작 · pickle.com (초대 없이 진입)'
-      : '권준오 상무의 피클 초대 링크 · pickle.com';
+    return 'AI 대화형 분석 · pickle.com';
   }
 
   /* ─────────────── 보조 AI 창 ─────────────── */

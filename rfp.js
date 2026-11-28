@@ -834,7 +834,7 @@
           '아래 승인 코드로 Open AI Asset Bridge → 🤝 자문사 포털에 접속해 RFP를 열람하고 제안서를 제출해 주세요.\n' +
           '제안서 작성에 필요한 자료는 ' + (rfp.signature_doc || 'CA(비밀유지약정서)') + ' 날인·회신 후 VDR에서 제공됩니다.\n\n' +
           '수신: ' + picked2.map(function (c) { return c.company + ' ' + (c.name || ''); }).join(', ') + '\n' +
-          '(코드는 배부 후 별도 안내)\n\n문의: ' + (rfp.client || 'NAI Korea');
+          '(코드는 배부 후 별도 안내)\n\n문의: ' + (rfp.client || ((window.NAI_PLATFORM && window.NAI_PLATFORM.name) ? window.NAI_PLATFORM.name() : 'Open AI Asset Bridge'));
         try { navigator.clipboard.writeText(text); C.toast('메일 초안을 복사했습니다(발송은 직접).'); } catch (er) { C.toast('복사하지 못했습니다.', true); }
         return;
       }

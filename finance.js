@@ -2,7 +2,7 @@
    Open AI Asset Bridge — finance.js  (🧩 매칭 마켓, 2026-11-28)
    -------------------------------------------------------------------------
    화면: 「🧩 매칭 마켓」 — 자금·실사·운영·보험을 올리고 찾는 곳.
-     · 카테고리 5종 × 품목을 첫 화면에 그대로 펼쳐 보여 줍니다.
+     · 카테고리 4종 × 품목을 첫 화면에 그대로 펼쳐 보여 줍니다.
      · 공급(할 수 있다)과 수요(필요하다) 양쪽에서 등록·탐색·문의합니다.
      · 딜(RFP)은 "이 건에 붙이기"를 고를 때만 필요합니다 — 없으면 전체 시장.
      · 문의는 대상 레코드의 inquiries[] 에 쌓이고, 받은 쪽이 수락/거절/진행을 표시합니다.
@@ -13,6 +13,9 @@
 
   var C = window.NAI_RFPC;
   if (!C) return;
+  var CFG = window.NAI_MAP_CONFIG || {};
+  var TOKEN_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':token:v1';
+  function token() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
   var esc = C.esc, n0 = C.n0;
   var $ = function (s, r) { return (r || document).querySelector(s); };
 
@@ -20,13 +23,39 @@
 
   var CATS = [
     { key: 'fund', label: '① 자금·금융', icon: '💰', items: ['개발 PF', '담보대출(선순위)', '담보대출(중순위)', '브릿지', '리파이낸싱', '메자닌', '에쿼티·공동투자', '금융주선'] },
-    { key: 'advisory', label: '② 실사·자문', icon: '📑', items: ['감정평가', '회계·세무 실사', '법률', '기술·환경', '시장조사'] },
-    { key: 'ops', label: '③ 운영·관리', icon: '🛠', items: ['PM', 'FM(미화·경비·주차)', '기계설비 성능점검', '에너지진단', '소방·전기·승강기 점검', '조경·주차', '법정관리·컨설팅'] },
-    { key: 'ins', label: '④ 보험·인력', icon: '🛡', items: ['재산종합보험', '영업배상·CAR', 'PM·FM 인력'] },
-    { key: 'broker', label: '⑤ 매각·임대·중개', icon: '🏷', items: ['매각자문', '임대주선', '리츠·펀드 출자'] }
+    { key: 'advisory', label: '② 실사·자문·컨설팅', icon: '📑', cols: 2,
+      items: ['감정평가', '회계·세무 실사', '법률', '기술·환경', '시장조사',
+        '입지·상권 조사', '시장·권역 분석', '개발 타당성 검토(사업성·RLV)', '용도변경·인허가 검토', '법정관리·자산관리 자문'] },
+    { key: 'ops', label: '③ 운영·관리', icon: '🛠', items: ['PM', 'FM(미화·경비·주차)', '기계설비 성능점검', '에너지진단', '소방·전기·승강기 점검', '조경·주차'] },
+    { key: 'ins', label: '④ 보험·인력', icon: '🛡', cols: 2,
+      items: ['재산종합보험(화재 포함)', '화재보험', '손해보험(배상책임·시설물)', '기계보험·기계손해',
+        '휴업손해보험', 'CAR·EAR(공사·조립)', '영업배상·CAR', 'PM·FM 인력'] }
   ];
 
   function ss() { return C.session(); }
+  /* 품목 한 줄 설명 — 카드에서 이름 아래 작게 표시합니다(자문·보험처럼 품목이 많은 카테고리) */
+  var ITEM_DESC = {
+    '감정평가': '시가·담보·보상 평가, 감정평가사 연결',
+    '회계·세무 실사': '재무·세무 실사와 거래 구조 검토',
+    '법률': '계약·권리분석·분쟁 자문',
+    '기술·환경': '구조·설비·환경 실사, 보수비 산정',
+    '시장조사': '임대료·공실·거래사례 조사',
+    '입지·상권 조사': '배후수요·유동인구·접근성 분석',
+    '시장·권역 분석': '권역별 수급·임대료·Cap Rate 분석',
+    '개발 타당성 검토(사업성·RLV)': '용적·사업성·RLV로 개발 방향 검토',
+    '용도변경·인허가 검토': '용도지역·인허가 가능성 사전 검토',
+    '법정관리·자산관리 자문': '법정관리·자산관리 절차와 회수 전략',
+    '재산종합보험(화재 포함)': '건물·시설 재산손해 담보(화재 포함)',
+    '화재보험': '화재·폭발로 인한 건물 손해 담보',
+    '손해보험(배상책임·시설물)': '시설물·배상책임 사고 대비',
+    '기계보험·기계손해': '기계·설비 고장 손해 담보',
+    '휴업손해보험': '사고로 인한 임대수입·영업 손실 보전',
+    'CAR·EAR(공사·조립)': '공사·조립 기간 중 손해 담보',
+    '영업배상·CAR': '영업배상책임과 공사 보험',
+    'PM·FM 인력': '운영·시설 인력 공급'
+  };
+  function itemDesc(it) { return ITEM_DESC[it] || ''; }
+
   function isParty() { var s = ss(); return !!(s && s.holder_type); }
   function isStaff() { var r = C.role(); return r === 'admin' || r === 'internal'; }
   function meName() { var s = ss(); return s ? String(s.holder || '') : ''; }
@@ -126,9 +155,10 @@
     var items = cat.items.map(function (it) {
       var n = itemCount(cat.key, it);
       var on = (S.cat === cat.key && S.item === it);
+      var d = itemDesc(it);
       return '<div class="mk-item' + (on ? ' on' : '') + '">' +
         '<button type="button" class="mk-item-name" data-fin-item="' + esc(cat.key) + '|' + esc(it) + '">' + esc(it) +
-        '<em>' + n + '건</em></button>' +
+        '<em>' + n + '건</em>' + (d ? '<span class="mk-item-desc">' + esc(d) + '</span>' : '') + '</button>' +
         '<span class="mk-item-act">' +
         '<button type="button" class="mini-btn" data-fin-add="' + esc(cat.key) + '|' + esc(it) + '|공급">＋ 공급</button>' +
         '<button type="button" class="mini-btn" data-fin-add="' + esc(cat.key) + '|' + esc(it) + '|수요">＋ 수요</button>' +
@@ -136,7 +166,7 @@
     }).join('');
     return '<section class="mk-catcard"><div class="mk-catcard-head"><b>' + cat.icon + ' ' + esc(cat.label) + '</b>' +
       '<span>' + cat.items.length + '품목 · 게시 ' + totals + '건</span></div>' +
-      '<div class="mk-items">' + items + '</div></section>';
+      '<div class="mk-items' + (cat.cols === 2 ? ' cols2' : '') + '">' + items + '</div></section>';
   }
 
   function itemPanelHTML() {
@@ -337,7 +367,10 @@
       C.field('region', '권역·대상', '', 'text') +
       C.field('deadline', '마감', '', 'date') +
       C.field('terms', '조건 요약', '', 'textarea', { wide: true, rows: 3, ph: '범위·규모·주기·보수 등' }) +
-      C.field('contact', '담당·연락', '', 'text', { wide: true }) + '</div>';
+      C.field('contact', '담당·연락', '', 'text', { wide: true }) +
+      (side === '수요'
+        ? '<label class="mk-inboxopt"><input type="checkbox" data-mk-inbox checked> 접수 인박스에도 등록 — 관리자 검토·AI 매칭을 거쳐 회신</label>'
+        : '') + '</div>';
     var m = C.modal(side === '공급' ? '＋ 공급 제안' : '＋ 수요 요청', body, {
       wide: true,
       footer: '<button type="button" class="btn btn-ghost" data-rfp="close">취소</button>' +
@@ -346,15 +379,54 @@
     m.querySelector('[data-mk-save]').addEventListener('click', function () {
       var co = C.fval(m, 'company');
       if (!co) { C.toast('회사를 입력하세요.', true); return; }
-      C.commit('market_posts', {
+      var itemV = C.fval(m, 'item');
+      var post = {
         id: C.uid('mkp'), rfp_id: rfp ? rfp.id : (S.rfpId || ''), rfp_title: rfp ? rfp.title : '',
-        cat: cat.key, item: C.fval(m, 'item'), side: side, company: co,
+        cat: cat.key, item: itemV, side: side, company: co,
         region: C.fval(m, 'region'), deadline: C.fval(m, 'deadline'), terms: C.fval(m, 'terms'),
         contact: C.fval(m, 'contact'), status: '게시', matches: [], inquiries: [],
         at: new Date().toISOString(), by: (C.me() && C.me().name) || meName() || C.role()
-      });
-      C.closeModal(); if (done) done(); C.toast('게시했습니다.');
+      };
+      C.commit('market_posts', post);
+      /* 수요 요청은 접수 인박스(lois)로도 보냅니다 — 같은 관리자 검토·AI 매칭 흐름을 타게 하기 위해서입니다.
+         (별도 처리 없음 · 체크를 끄면 게시만 됩니다) */
+      var inbox = m.querySelector('[data-mk-inbox]');
+      var toInbox = !!(inbox && inbox.checked);
+      C.closeModal(); if (done) done();
+      if (toInbox && side === '수요') pushServiceRequest(post, cat);
+      else C.toast('게시했습니다.');
     });
+  }
+
+  /** 매칭 마켓의 서비스 수요 → 접수 인박스(lois) 등록.
+      별도 테이블을 만들지 않고 허브 접수(submit_request)와 같은 API·같은 검토 흐름을 씁니다. */
+  function pushServiceRequest(post, cat) {
+    var base = CFG.SYNC_URL;
+    if (!base || !token()) { C.toast('게시했습니다. (접속 후에는 접수 인박스로도 등록됩니다)', true); return; }
+    var tag = cat.key === 'fund' ? '금융' : '자문사딜';
+    var title = '[' + tag + '] ' + cat.label.replace(/^[①-⑳]\s*/, '') + ' · ' + post.item;
+    var memo = '[' + tag + '] 매칭 마켓 수요 — ' + cat.label + ' · ' + post.item +
+      ' | 조건=' + (post.terms || '미정') + ' | 권역·대상=' + (post.region || '미지정') +
+      (post.deadline ? ' | 희망시점=' + post.deadline : '') +
+      ' | 접수경로=매칭 마켓(' + post.id + ')';
+    fetch(base, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        token: token(), action: 'submit_request',
+        request: {
+          asset_id: 'MK-' + Date.now().toString(36),
+          asset_name: title, request_type: tag, request_code: 'market',
+          deal_type: '매입', price: '', area_py: '', rent: '', timeline: post.deadline || '',
+          company: post.company, name: post.contact || '', title: '', phone: '', email: '',
+          blind_name: '비공개 고객사', region: post.region || '', lat: '', lng: '',
+          memo: memo
+        }
+      })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.ok) C.toast('게시하고 접수 인박스에도 등록했습니다 — 관리자 검토 후 회신됩니다.');
+      else C.toast('게시했습니다. (접수 인박스 등록은 실패: ' + ((j && j.error) || '오류') + ')', true);
+    }).catch(function () { C.toast('게시했습니다. (접수 인박스 등록은 네트워크 오류)', true); });
   }
 
   /* 문의 보내기 */
@@ -364,7 +436,7 @@
     var s = ss() || {};
     var body = '<p class="rfp-note">' + esc(recLabel(kind, rec)) + '</p>' +
       '<div class="rfp-formgrid">' +
-      C.field('from_company', '보내는 곳', s.holder || (isStaff() ? 'NAI Korea' : ''), 'text', { req: true }) +
+      C.field('from_company', '보내는 곳', s.holder || (isStaff() ? ((window.NAI_PLATFORM && window.NAI_PLATFORM.name) ? window.NAI_PLATFORM.name() : 'Open AI Asset Bridge') : ''), 'text', { req: true }) +
       C.field('from_contact', '담당·연락', (C.me() && C.me().name) || s.name || '', 'text') +
       C.field('message', '문의 내용', '', 'textarea', { wide: true, rows: 3, ph: '조건 확인·추가 요청·미팅 제안' }) +
       '</div>';

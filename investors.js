@@ -119,6 +119,8 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  /* 플랫폼 표기 — 개인 실명·회사명을 화면에 고정하지 않습니다 (config.js PLATFORM) */
+  function platName() { return (window.NAI_PLATFORM && window.NAI_PLATFORM.name) ? window.NAI_PLATFORM.name() : 'Open AI Asset Bridge'; }
   function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
   function toast(msg, isErr) {
     var el = $('#toast');
@@ -938,7 +940,7 @@
 
   function contactHtml(r) {
     if (isExternal()) {
-      return '<div class="pr-contact pr-masked">🔒 담당자 연락처·이메일은 비공개입니다 <span class="pc-title">· 문의: NAI Korea</span></div>';
+      return '<div class="pr-contact pr-masked">🔒 담당자 연락처·이메일은 비공개입니다 <span class="pc-title">· 문의: ' + esc(platName()) + '</span></div>';
     }
     /* 다른 사람이 등록한 컨택트 포인트 — 서버가 값을 내려보내지 않습니다 */
     if (r && r.contact_private) {
@@ -1008,7 +1010,7 @@
     var phone = String(r.phone || '');
     var body;
     if (isExternal()) {
-      body = '🔒 담당자 연락처·이메일은 비공개입니다 <span class="pc-title">· 문의: NAI Korea</span>';
+      body = '🔒 담당자 연락처·이메일은 비공개입니다 <span class="pc-title">· 문의: ' + esc(platName()) + '</span>';
     } else if (priv) {
       body = '🔒 다른 담당자가 등록한 컨택포인트입니다 — 등록자와 관리자만 볼 수 있습니다';
     } else {
@@ -1209,7 +1211,7 @@
 
   function composeSubject() {
     var s = ($('#mailSubject') && $('#mailSubject').value || '').trim();
-    return s || '[NAI Korea] 물건 티저 안내';
+    return s || '[' + platName() + '] 물건 티저 안내';
   }
   function composeLink() {
     return ($('#mailLink') && $('#mailLink').value || '').trim();
@@ -1222,7 +1224,7 @@
     if (link) lines.push(link);
     lines.push('');
     lines.push('감사합니다.');
-    lines.push('NAI Korea 권준오 상무');
+    lines.push(platName());
     return lines.join('\n');
   }
 
@@ -1444,7 +1446,7 @@
   }
 
   /** NAI 담당자 후보 — 시트에 이미 지정된 이름 + 기본 팀원 */
-  var OWNER_BASE = ['권준오 상무'];
+  var OWNER_BASE = [];   /* 담당자 표기는 개인 실명을 쓰지 않습니다(2026-11-28). 필요하면 화면에서 직접 추가합니다. */
   function ownerOptions() {
     var set = {};
     OWNER_BASE.forEach(function (x) { set[x] = 1; });
@@ -1524,7 +1526,7 @@
         ? ('<div class="mf-sec">③ 메모·NAI 담당자</div>' +
             '<div class="mf-grid">' +
               '<label class="mf"><span>NAI 담당자</span>' +
-                '<input data-k="owner" list="mfOwnerList" type="text" value="' + esc(row.owner || '') + '" placeholder="예) 권준오 상무 — 비우면 담당 미지정">' +
+                '<input data-k="owner" list="mfOwnerList" type="text" value="' + esc(row.owner || '') + '" placeholder="예) 담당자 구분명 — 비우면 담당 미지정">' +
                 '<datalist id="mfOwnerList">' + ownerOptions() + '</datalist></label>' +
               '<label class="mf mf-wide"><span>메모·근거(선택)</span><textarea data-k="notes" rows="3" placeholder="통화·미팅 내용, 추가 사유 등">' + esc(row.notes || '') + '</textarea></label>' +
             '</div>')

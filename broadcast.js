@@ -850,7 +850,7 @@
 
   function draftText() {
     var a = currentArticle();
-    var lines = ['안녕하세요, NAI Korea 권준오입니다.', '', '오늘의 딜 아티클을 공유드립니다.', ''];
+    var lines = ['안녕하세요, ' + ((window.NAI_PLATFORM && window.NAI_PLATFORM.name) ? window.NAI_PLATFORM.name() : 'Open AI Asset Bridge') + '입니다.', '', '오늘의 딜 아티클을 공유드립니다.', ''];
     if (a) {
       lines.push('■ ' + String(a.title || '').replace(/^\[[^\]]*\]\s*/, ''));
       var meta = [String(a.date || ''), String(a.source || '')].filter(Boolean).join(' · ');

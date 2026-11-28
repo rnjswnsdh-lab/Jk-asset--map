@@ -62,6 +62,10 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  /* 플랫폼 표기 — 개인 실명·회사명을 화면에 고정하지 않습니다 (config.js PLATFORM) */
+  function platName() { return (window.NAI_PLATFORM && window.NAI_PLATFORM.name) ? window.NAI_PLATFORM.name() : 'Open AI Asset Bridge'; }
+  function platContact() { return (window.NAI_PLATFORM && window.NAI_PLATFORM.contact) ? window.NAI_PLATFORM.contact() : ''; }
+  function platFooter() { return (window.NAI_PLATFORM && window.NAI_PLATFORM.footer) ? window.NAI_PLATFORM.footer() : platName(); }
   function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
   function role() { return (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external'; }
   function me() { return (window.naiMap && window.naiMap.me) ? window.naiMap.me() : null; }
@@ -1572,7 +1576,7 @@
       (a.owner_amc ? '<span>' + esc(a.owner_amc) + '</span>' : '') +
       (a.scale_info ? '<span>' + esc(a.scale_info) + '</span>' : '') +
       '</div>' +
-      '<p class="ims-draft">NAI Korea 매각자문 · ' + esc(todayStr()) + '</p></div>', 'cover');
+      '<p class="ims-draft">매각자문 브리프 · ' + esc(todayStr()) + '</p></div>', 'cover');
 
     /* ② Deal Summary — 항상 채워지는 값만 */
     html += slide('01 Deal Summary', '02',
@@ -1676,9 +1680,8 @@
     /* ⑨ Contact */
     html += slide('Contact', '09',
       '<h2 class="ims-h2">Contact</h2>' +
-      '<div class="ims-contact"><div><b>NAI Korea</b><p>서울시 강남구 테헤란로 516 정헌빌딩 10층</p>' +
-      '<p>TEL 02-508-1180 · FAX 02-508-1184</p><p>www.naikorea.com</p></div>' +
-      '<div><b>담당</b><p>권준오 상무 · 010-7731-4316 · jk@naikorea.com</p>' +
+      '<div class="ims-contact"><div><b>' + esc(platName()) + '</b><p>본 브리프는 ' + esc(platName()) + ' 자동 생성본입니다.</p></div>' +
+      '<div><b>문의</b><p>' + esc(platContact() || '플랫폼 접수 화면을 통해 문의해 주세요') + '</p>' +
       '<p>본 자료는 잠재 매수자 검토용이며, 매도인·매각자문사의 서면 동의 없이 복사·배포할 수 없습니다.</p></div></div>' +
       '<p class="ims-note">자동 생성 프리뷰 · ' + esc(todayStr()) + ' — 제출용 IM 은 NAI 양식 .pptx/.pdf 로 제작됩니다.</p>');
 
@@ -1757,10 +1760,10 @@
     html += '<section class="naip-sec"><h2>' + (isTM ? '03' : '04') + '. 투자 포인트 · Next Step</h2><ul class="naip-li">' +
       '<li>' + esc(sectorLabel(a.sector)) + ' · ' + esc(a.region || '권역 미정') + ' — ' + esc(a.status || a.status_group || '상태 확인 중') + '</li>' +
       '<li>가격: ' + esc(a.price_info || '협의') + ' / 규모: ' + esc(a.scale_info || '확인 필요') + '</li>' +
-      '<li>NAI Korea 담당자와 조건 협의 후 NDA → 상세 자료(IM·렌트롤) 제공</li>' +
+      '<li>담당자와 조건 협의 후 NDA → 상세 자료(IM·렌트롤) 제공</li>' +
       '</ul>' +
-      '<p class="naip-note">본 문서는 웹앱 <b>Open AI Asset Bridge</b>에서 자동 생성된 ' + (isTM ? 'TM' : 'IM') + ' 브리프입니다. 제출용 최종본은 NAI Korea 양식(.pptx/PDF)으로 별도 제작됩니다.</p></section>';
-    html += '<div class="naip-foot">NAI Korea · Open AI Asset Bridge · ' + esc(todayStr()) + ' · ' + (isTM ? 'TM' : 'IM') + ' Brief</div>';
+      '<p class="naip-note">본 문서는 웹앱 <b>' + esc(platName()) + '</b>에서 자동 생성된 ' + (isTM ? 'TM' : 'IM') + ' 브리프입니다. 제출용 최종본은 별도 양식(.pptx/PDF)으로 제작됩니다.</p></section>';
+    html += '<div class="naip-foot">' + esc(platFooter()) + ' · ' + esc(todayStr()) + ' · ' + (isTM ? 'TM' : 'IM') + ' Brief</div>';
     return html;
   }
 
@@ -2138,7 +2141,7 @@
     var body = '<p class="fm-note">' + (kind === 'TM' ? '📄 TM(티저)' : '📘 IM(투자설명)') + ' 브리프를 만들 물건을 선택하세요. 미리보기가 열리면 동시에 제작 요청이 기록됩니다.</p>' +
       '<div class="fm-grid">' + assetPickerHTML('dp', '') + '</div>' +
       '<div class="fm-actions"><button type="button" class="btn btn-solid" data-home="doc-pick-go" data-kind="' + kind + '">브리프 미리보기</button>' +
-      '<span class="fm-hint">최종 제출용 .pptx는 NAI Korea 양식으로 별도 제작됩니다.</span></div>';
+      '<span class="fm-hint">최종 제출용 .pptx는 별도 양식으로 제작됩니다.</span></div>';
     openModal((kind === 'TM' ? '📄 TM' : '📘 IM') + ' 제작 — 물건 선택', body);
     var m = $('.home-modal');
     if (m) {

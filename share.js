@@ -25,8 +25,9 @@
   function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
   function role() { return (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external'; }
   function isAdmin() { return role() === 'admin'; }
-  var ME = { name: '권준오', title: '상무', phone: '010-7731-4316', email: 'jk@naikorea.com',
-    company: 'NAI Korea', addr: '서울시 강남구 테헤란로 516 정헌빌딩 10층' };
+  /* 발신 표기 — 개인 실명·직함·회사명을 쓰지 않고 플랫폼 표기만 사용합니다 (2026-11-28) */
+  function platName() { return (window.NAI_PLATFORM && window.NAI_PLATFORM.name) ? window.NAI_PLATFORM.name() : 'Open AI Asset Bridge'; }
+  function platContact() { return (window.NAI_PLATFORM && window.NAI_PLATFORM.contact) ? window.NAI_PLATFORM.contact() : ''; }
 
   /* 파트너 기관 — 물건별 공유는 폐지(2026-11-27). PR(임차의뢰) 접수만 관련 파트너에게 공유합니다.
      목록은 config.js 의 PARTNERS(설정값)에서 읽고, 주소는 서버 프리셋(관리자) 또는 직접 입력. */
@@ -80,13 +81,13 @@
   }
 
   function buildSubject(p) {
-    return scrub('[NAI Korea] ' + p.badge + ' — ' + p.headline, p.hideTokens, p.blindName);
+    return scrub('[' + platName() + '] ' + p.badge + ' — ' + p.headline, p.hideTokens, p.blindName);
   }
 
   function buildBody(p) {
     var L = [];
     var blindLabel = p.blindName || '비공개 고객사';
-    L.push('안녕하세요, NAI Korea 권준오 상무입니다.');
+    L.push('안녕하세요, ' + platName() + ' 담당자입니다.');
     L.push('');
     L.push(p.intro || '아래 건으로 확인 중인 수요/매물 조건을 공유드립니다. 부합하는 후보가 있으시면 회신 부탁드립니다.');
     L.push('');
@@ -101,13 +102,12 @@
       L.push(p.ask);
     }
     L.push('');
-    L.push('회신 주시면 NAI Korea에서 조건 확인 후 바로 연결드리겠습니다.');
+    L.push('회신 주시면 조건 확인 후 바로 연결드리겠습니다.');
     L.push('');
     L.push('감사합니다.');
     L.push('');
-    L.push(ME.company + ' · ' + ME.name + ' ' + ME.title);
-    L.push('T. ' + ME.phone + ' · E. ' + ME.email);
-    L.push(ME.addr);
+    L.push(platName());
+    if (platContact()) L.push(platContact());
     L.push('');
     L.push('※ 본 메일은 확인된 조건만 담았으며, 수요 주체의 업체명은 비공개(블라인드)로 표기했습니다.');
     return scrub(L.join('\n'), p.hideTokens, blindLabel);

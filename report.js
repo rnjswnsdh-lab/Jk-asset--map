@@ -338,7 +338,7 @@
 
     return '<div class="rp-tabs" role="tablist">' + tabs + '</div>' + panels +
       '<p class="rp-foot">OAAB 통합 마켓 리포트 · ' + esc((d.meta || {}).as_of || '') + ' 기준 · ' + esc((d.meta || {}).published || '') + ' 발간<br>' +
-      esc((d.meta || {}).note || '') + '<br>본 리포트는 NAI Korea 내부·고객 검토용이며, 수치의 기준(표본·면적)을 확인한 뒤 인용해야 합니다.</p>';
+      esc((d.meta || {}).note || '') + '<br>본 리포트는 내부·고객 검토용이며, 수치의 기준(표본·면적)을 확인한 뒤 인용해야 합니다.</p>';
   }
 
   /* 탭 전환 */

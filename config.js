@@ -112,12 +112,24 @@ window.NAI_MAP_CONFIG = {
   LIST_PAGE: 200,
 
   /* ✨ AI 심층분석(Pickle) 진입 — 물건 상세·AI 매물 매칭 공통 (2026-11-28)
-     PICKLE_MODE: "invite"(준오 님 초대 링크 우선 · 소모될 때까지) | "default"(일반 진입)
-       → 초대권이 다 소모되면 이 한 줄만 "default"로 바꾸면 전체 버튼이 전환됩니다.
-     PICKLE_INVITE_URL: 초대 링크 / PICKLE_DEFAULT_URL: 초대 없이 들어가는 피클 웹앱 주소 */
-  PICKLE_MODE: "invite",
-  PICKLE_INVITE_URL: "https://pickle.com/i/2X6HQCBL47MN",
+     PICKLE_MODE: "default" 만 사용합니다. 개인 초대·추천 링크는 화면에 노출하지 않습니다(2026-11-28 지시).
+     초대 링크를 다시 쓰려면 PICKLE_INVITE_URL 에 주소를 넣고 PICKLE_MODE 를 "invite" 로 바꾸면 됩니다. */
+  PICKLE_MODE: "default",
+  PICKLE_INVITE_URL: "",
   PICKLE_DEFAULT_URL: "https://pickle.com/app",
+
+  /* 🏷️ 플랫폼 표기 — 운영 주체·문의처·푸터 (2026-11-28)
+     지금은 개인·회사 이름 없이 중립 표기로 운영합니다. 나중에 법인을 만들면 아래 세 값만 채우면
+     상단·푸터·문의·발신 표기가 한 번에 바뀝니다. 비워 두면 플랫폼 이름(Open AI Asset Bridge)을 씁니다.
+       operator: 운영 주체 (법인명)   contact: 문의처(이메일·전화)   footer: 저작권·푸터 문구
+     dataSources 는 '데이터 출처' 표기에만 씁니다(운영 주체 표기와 별개). */
+  PLATFORM: {
+    name: "Open AI Asset Bridge",
+    operator: "",
+    contact: "",
+    footer: "",
+    dataSources: { nai: "NAI Korea" }
+  },
 
   /* 🤝 PR(임차의뢰) 공유 파트너 — 물건별 공유는 폐지하고 TR 접수만 공유합니다 (2026-11-27)
      수신자 이메일은 코드에 두지 않습니다. 앱이 실제로 메일을 발송하지도 않습니다.
@@ -140,3 +152,33 @@ window.NAI_MAP_CONFIG = {
       note: "물류센터 관련 건만 — PR(임차의뢰)·매각·공개·지도" }
   ]
 };
+
+
+/* =========================================================================
+   🏷️ 플랫폼 표기 헬퍼 — 운영 주체·문의처·푸터·데이터 출처를 한 곳에서 (2026-11-28)
+   -------------------------------------------------------------------------
+   · 화면·문서·발신 문구에 개인 실명·직함·연락처를 하드코딩하지 않고 이 값을 씁니다.
+   · 지금은 운영 주체가 비어 있어 플랫폼 이름(Open AI Asset Bridge)으로 표기됩니다.
+     법인 설립 시 NAI_MAP_CONFIG.PLATFORM.operator 만 채우면 전체에 반영됩니다.
+   · NAI Korea 는 '데이터 출처'로만 씁니다 — sourceOf('nai').
+   ========================================================================= */
+(function () {
+  'use strict';
+  var CFG = window.NAI_MAP_CONFIG || {};
+  var P = CFG.PLATFORM || {};
+  function clean(s) { return String(s == null ? '' : s).trim(); }
+  var NAME = clean(P.name) || 'Open AI Asset Bridge';
+  window.NAI_PLATFORM = {
+    name: function () { return NAME; },
+    operator: function () { return clean(P.operator); },
+    operatorOrName: function () { return clean(P.operator) || NAME; },
+    contact: function () { return clean(P.contact); },
+    footer: function () { return clean(P.footer) || NAME; },
+    sourceOf: function (key) { return clean((P.dataSources || {})[key] || ''); },
+    sourceLine: function (key, detail) {
+      var s = window.NAI_PLATFORM.sourceOf(key);
+      if (!s) return clean(detail);
+      return '출처: ' + s + (clean(detail) ? ' · ' + clean(detail) : '');
+    }
+  };
+})();

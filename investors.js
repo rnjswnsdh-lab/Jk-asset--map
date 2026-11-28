@@ -250,11 +250,16 @@
     }).then(function (r) { return r.json(); });
   }
 
-  /* 컨택포인트 편집: 관리자·내부(CM) 허용, 물류TF는 화주(shipper)만, 외부는 불가 */
-  function canEdit() { return state.role === 'admin' || state.role === 'internal' || state.role === 'logi'; }
+  /* 컨택포인트 편집: 관리자·내부(CM) 허용, 물류TF는 화주(shipper)만, 개인 계정은 부여 범위+수정 허용, 외부·게스트 불가 */
+  function canEdit() {
+    if (state.role === 'admin' || state.role === 'internal' || state.role === 'logi') return true;
+    if (state.role === 'person') return !!(window.naiMap && window.naiMap.canEditScope && window.naiMap.canEditScope());
+    return false;
+  }
   function canEditRow(r) {
     if (state.role === 'admin' || state.role === 'internal') return true;
     if (state.role === 'logi') return !r || r.kind === 'shipper';
+    if (state.role === 'person') return canEdit();
     return false;
   }
   function canDelete() { return state.role === 'admin'; }
@@ -262,7 +267,9 @@
   function roleName_() {
     return state.role === 'admin' ? '관리자'
       : state.role === 'logi' ? '물류TF'
-        : state.role === 'internal' ? 'CM팀 내부' : '외부 방문자';
+        : state.role === 'internal' ? 'CM팀 내부'
+          : state.role === 'person' ? '담당자'
+            : state.role === 'guest' ? '초대 열람' : '외부 방문자';
   }
   /** 서버가 '권한 없음'류로 거부한 응답인지 — 이 경우 요청 모양을 바꿔도 결과가 같습니다. */
   function isDenied_(e) { return /unauth|forbid|denied|permission|not\s*allowed|권한|거부/i.test(String(e || '')); }
@@ -280,6 +287,8 @@
     var s = String(r || '');
     if (s === 'admin') return 'admin';
     if (s === 'logi') return 'logi';
+    if (s === 'person') return 'person';
+    if (s === 'guest') return 'guest';
     if (s === 'internal' || s === 'readonly') return 'internal';
     return 'external';
   }
@@ -617,11 +626,12 @@
     var ext = isExternal();
     if (badge) {
       badge.classList.remove('hidden');
-      badge.className = 'role-chip' + ((state.role === 'internal' || state.role === 'logi') ? ' is-internal' : (ext ? ' is-external' : ''));
+      badge.className = 'role-chip' + ((state.role === 'internal' || state.role === 'logi' || state.role === 'person') ? ' is-internal' : ((ext || state.role === 'guest') ? ' is-external' : ''));
       badge.textContent = state.role === 'admin' ? '관리자'
         : (state.role === 'internal' ? '내부용 · 전화번호 비공개'
-          : (state.role === 'logi' ? '물류TF · 화주만 저장'
-            : '외부 방문자 · 연락처 비공개'));
+          : (state.role === 'logi' ? '물류TF · 화주만'
+            : (state.role === 'person' ? '담당자 · 본인 등록 컨택트만'
+              : (state.role === 'guest' ? '초대 열람' : '외부 방문자 · 연락처 비공개'))));
     }
     var add = $('#poolAddBtn');
     if (add) add.classList.toggle('hidden', !canEdit());
@@ -908,6 +918,10 @@
   function contactHtml(r) {
     if (isExternal()) {
       return '<div class="pr-contact pr-masked">🔒 담당자 연락처·이메일은 비공개입니다 <span class="pc-title">· 문의: NAI Korea</span></div>';
+    }
+    /* 다른 사람이 등록한 컨택트 포인트 — 서버가 값을 내려보내지 않습니다 */
+    if (r && r.contact_private) {
+      return '<div class="pr-contact pr-masked">🔒 다른 담당자가 등록한 컨택포인트입니다 — 등록자와 관리자만 볼 수 있습니다</div>';
     }
     var phone = String(r.phone || '');
     var phoneMasked = !phone || phone === '비공개';
@@ -1348,6 +1362,7 @@
         fieldRow('성격·역할', 'role', row.role) +
       '</div>' +
       '<div class="mf-sec">② 컨택포인트(담당자)</div>' +
+      (row.contact_private ? '<p class="mf-hint">🔒 이 화주사의 컨택포인트는 다른 담당자가 등록했습니다. 회사·업종·센터 정보만 수정되고, 컨택포인트는 그대로 보존됩니다.</p>' : '') +
       '<div class="mf-grid">' +
         fieldRow('담당자명', 'contact', row.contact) +
         fieldRow('부서·직책', 'title', row.title) +

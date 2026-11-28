@@ -41,6 +41,16 @@
   function token() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
   function role() { return (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external'; }
   function isAdmin() { return role() === 'admin'; }
+  /** 부여 범위에 adminhq 가 있는가(사람·게스트) */
+  function hasHqScope() {
+    if (isAdmin()) return true;
+    return !!(window.naiMap && window.naiMap.hasScope && window.naiMap.hasScope('adminhq'));
+  }
+  /** 회의록 수정 가능 — 관리자 또는 adminhq + 수정 허용 */
+  function canEditHq() {
+    if (isAdmin()) return true;
+    return hasHqScope() && !!(window.naiMap && window.naiMap.canEditScope && window.naiMap.canEditScope());
+  }
   function assets() {
     var st = window.naiMap && window.naiMap.state;
     return (st && st.assets) ? st.assets : [];
@@ -118,7 +128,9 @@
       text: String(b.text || ''), raw: raw,
       body: String(it.body || ''),
       updated_at: String(it.updated_at || ''), updated_by: String(it.updated_by || ''),
-      edit_log: String(it.edit_log || '')
+      edit_log: String(it.edit_log || ''),
+      shareScope: String(it.share_scope || 'all'),
+      shareWith: String(it.share_with || '')
     };
   }
 
@@ -130,7 +142,7 @@
   }
 
   /** 회의록 접근 가능 여부 — 관리자(role==='admin') 또는 서버가 허용한 명단 사용자 */
-  function canAccess() { return isAdmin() || S.granted === true; }
+  function canAccess() { return isAdmin() || hasHqScope() || S.granted === true; }
 
   function syncTab() {
     var b = document.getElementById('btnAdminHqTab');
@@ -237,8 +249,8 @@
       '<div class="ad-tools">' +
       '<button type="button" class="btn btn-ghost" id="hqRefresh">↻ 새로고침</button>' +
       (isAdmin() ? '<button type="button" class="btn btn-ghost" id="hqBroadcast">📰 아티클 배포</button>' : '') +
-      (isAdmin() ? '<button type="button" class="btn btn-ghost" id="hqAcl">🔐 접근 명단</button>' : '') +
-      '<button type="button" class="btn btn-outline" id="hqNew">＋ 회의록 등록</button>' +
+      (isAdmin() ? '<button type="button" class="btn btn-ghost" id="hqAcl">🔐 접근 권한</button>' : '') +
+      (isAdmin() ? '<button type="button" class="btn btn-outline" id="hqNew">＋ 회의록 등록</button>' : '') +
       '</div></div>' +
       '<div id="hqKpi" class="ad-kpi"></div>' +
       '<div class="ad-bar">' +
@@ -321,8 +333,9 @@
       '<p>' + esc(body) + '</p>' +
       (t.speaker ? '<span class="nt-spk">' + esc(t.speaker) + '</span>' : '') +
       '<div class="hq-acts">' +
+      (shareBadge(t)) +
       '<button type="button" class="mini-btn" data-hq-read="' + esc(t.id) + '">📄 원문</button>' +
-      '<button type="button" class="mini-btn" data-hq-edit="' + esc(t.id) + '">✏️ 수정</button>' +
+      (canEditHq() ? '<button type="button" class="mini-btn" data-hq-edit="' + esc(t.id) + '">✏️ 수정</button>' : '') +
       '<button type="button" class="mini-btn" data-hq-hist="' + esc(t.id) + '">🕘 이력</button>' +
       (t.asset ? '<button type="button" class="mini-btn" data-hq-asset="' + esc(t.asset) + '">🗂 ' + esc(a) + '</button>' : '') +
       '</div></article>';
@@ -361,7 +374,10 @@
     var nw = $('#hqNew');
     if (nw) nw.addEventListener('click', function () { openEditor(null); });
     var acl = $('#hqAcl');
-    if (acl) acl.addEventListener('click', function () { openAcl(); });
+    if (acl) acl.addEventListener('click', function () {
+      if (window.NAI_ACL && window.NAI_ACL.open) { window.NAI_ACL.open(); return; }
+      openAcl();
+    });
     var bc = $('#hqBroadcast');
     if (bc) bc.addEventListener('click', function () {
       if (window.NAI_BROADCAST) window.NAI_BROADCAST.open();
@@ -410,6 +426,14 @@
   }
 
   function byId(id) { return S.items.filter(function (x) { return x.id === id; })[0] || null; }
+
+  function shareBadge(t) {
+    if (!isAdmin()) return '';
+    var sc = String(t.shareScope || 'all').toLowerCase();
+    if (sc === 'admin') return '<span class="nt-tag" title="관리자만 볼 수 있습니다">🔒 관리자만</span>';
+    if (sc === 'restricted') return '<span class="nt-tag" title="' + esc(t.shareWith || '') + '">👥 지정 ' + esc(String(t.shareWith || '').split(',').filter(Boolean).length) + '명</span>';
+    return '<span class="nt-tag" title="행정 범위를 받은 사람 모두">🌐 전체 공유</span>';
+  }
 
   function modalOpen(title, body) {
     var modal = $('#poolModal');
@@ -468,6 +492,12 @@
       }).join('') + '</div></label>' +
       '<label class="fm-row wide"><span>요약</span><input id="hqSummary" type="text" value="' + esc(item.summary) + '"></label>' +
       '<label class="fm-row wide"><span>본문 *</span><textarea id="hqText" rows="12">' + esc(item.text) + '</textarea></label>' +
+      (isAdmin() ? '<label class="fm-row"><span>공유 범위</span><select id="hqShare">' +
+        [['all', '전체 공유 (행정 범위를 받은 사람 모두)'], ['restricted', '지정 인원만'], ['admin', '관리자만']].map(function (o) {
+          return '<option value="' + o[0] + '"' + (String(item.shareScope || 'all') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+        }).join('') + '</select></label>' +
+        '<label class="fm-row wide"><span>공유 대상 (이메일·쉼표 구분 — 지정 인원만 선택 시)</span>' +
+        '<input id="hqShareWith" type="text" value="' + esc(item.shareWith || '') + '" placeholder="예) lead@naikorea.com, acl-20261128-120000"></label>' : '') +
       '</div>' +
       '<p class="hq-meta">저장하면 이 회의록의 시트 행이 갱신되고, 누가·언제·무엇을 고쳤는지가 접속 로그(access_logs)에 수정 이력으로 남습니다. 다른 글은 건드리지 않습니다.</p>' +
       '<div class="fm-actions"><button type="button" class="btn btn-solid" id="hqSave">저장</button></div>' +
@@ -526,6 +556,10 @@
       updated_by: (window.naiMap && window.naiMap.state && window.naiMap.state.me && window.naiMap.state.me.name) || '관리자',
       updated_at: new Date().toISOString()
     };
+    if (isAdmin()) {
+      item.share_scope = val('hqShare') || 'all';
+      item.share_with = val('hqShareWith');
+    }
     var btn = $('#hqSave');
     if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
     var changed = orig ? changedFields(orig, item) : ['신규 등록'];

@@ -1369,7 +1369,9 @@
     var wsum = 0, tsum = 0;
     (rfp.criteria || []).forEach(function (c) { var v = (items[c.key] || {}).score || 0; tsum += v * num(c.weight); wsum += num(c.weight); });
     var total = wsum > 0 ? Math.round(tsum / wsum) : 0;
-    var best = Object.keys(items).sort(function (a, b) { return items[b].score - items[a].score; }).slice(0, 2);
+    var critKeys = (rfp.criteria || []).map(function (c) { return c.key; });
+    var best = Object.keys(items).filter(function (k) { return critKeys.indexOf(k) >= 0; })
+      .sort(function (a, b) { return items[b].score - items[a].score; }).slice(0, 2);
     var label = function (k) { var hit = (rfp.criteria || []).filter(function (c) { return c.key === k; })[0]; return hit ? hit.label : k; };
     var summary = sub.advisor_company + ' — 종합 ' + total + '점(가중 평균). 강점: ' + best.map(label).join(' · ') +
       '. ' + (missing.length ? '요구 서류 ' + missing.length + '건 미충족.' : '요구 서류 충족.') +

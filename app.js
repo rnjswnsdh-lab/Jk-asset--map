@@ -46,7 +46,9 @@
       query: ''
     },
     selectedId: null,
-    role: 'external',      // admin | internal | external — 토큰 권한으로 서버가 정합니다
+    role: 'external',      // admin | internal | logi | person | guest | external — 토큰 권한으로 서버가 정합니다
+    scopes: null,          // 사람·게스트에게 서버가 부여한 범위(탭 키) — null 이면 종전 역할 기준
+    roleCanEdit: false,    // 사람 계정의 수정 허용 여부
     me: null,              // { name, company } — 외부 방문자 신원
     panelMode: 'view',      // view | edit | add
     addMode: false,
@@ -582,7 +584,33 @@
     if (r === 'admin') return '관리자';
     if (r === 'internal') return '내부용(CM팀)';
     if (r === 'logi') return '물류TF';
+    if (r === 'person') return '담당자(범위 권한)';
+    if (r === 'guest') return '초대 열람';
     return '외부 방문자';
+  }
+
+  /* ── 화면(탭) ↔ 범위 키 — 서버 Acl.gs 의 ACL_SCOPES 와 같습니다 ── */
+  var VIEW_SCOPE = {
+    map: 'map', nai: 'nai_sale', lm: 'nai_lease', match: 'match', rfp: 'rfp', vdr: 'vdr',
+    advise: 'advise', portal: 'portal', pool: 'pool', ship: 'ship', fi: 'fi',
+    valuation: 'valuation', adminhq: 'adminhq', finance: 'finance', admin: 'admin'
+  };
+  function hasScope(k) {
+    if (state.role === 'admin') return true;
+    if (!state.scopes) return true;               /* 종전 역할(내부·외부·물류TF)은 서버 규칙 그대로 */
+    return state.scopes.indexOf(k) >= 0;
+  }
+  /** 탭을 볼 수 있는가 — 홈은 항상, 나머지는 부여 범위 */
+  function canView(view) {
+    if (view === 'home') return true;
+    var k = VIEW_SCOPE[view];
+    if (!k) return true;
+    return hasScope(k);
+  }
+  function canEditScope() {
+    if (state.role === 'admin') return true;
+    if (state.role === 'person') return !!state.roleCanEdit;
+    return state.role === 'internal';
   }
 
   /** 접속 권한에 따른 화면 잠금: 내부용은 수정 불가, 외부용은 수정·추가·삭제·메일 바를 숨깁니다. */
@@ -606,6 +634,23 @@
     document.body.classList.toggle('role-external', ext);
     document.body.classList.toggle('role-internal', role === 'internal');
     document.body.classList.toggle('role-logi', role === 'logi');
+    document.body.classList.toggle('role-person', role === 'person');
+    document.body.classList.toggle('role-guest', role === 'guest');
+    /* 사람·게스트 — 부여받은 범위 밖 탭은 아예 숨깁니다(서버도 내려주지 않음) */
+    if (state.scopes) {
+      $$('.vt-btn').forEach(function (b) {
+        var v = b.getAttribute('data-view');
+        if (v === 'home') return;
+        var ok = canView(v);
+        b.classList.toggle('hidden', !ok);
+        b.disabled = !ok;
+      });
+      var cur = document.querySelector('.vt-btn.is-active');
+      if (cur && !canView(cur.getAttribute('data-view'))) {
+        var first = $$('.vt-btn').filter(function (b) { return canView(b.getAttribute('data-view')); })[0];
+        if (window.naiShowView) { try { window.naiShowView((first && first.getAttribute('data-view')) || 'home'); } catch (eS) { /* noop */ } }
+      }
+    }
     /* 물류TF — 물류센터·화주 외 영역은 탭 자체를 숨깁니다 */
     if (role === 'logi') {
       $$('.vt-btn').forEach(function (b) {
@@ -628,11 +673,14 @@
     if (badge) {
       badge.classList.remove('hidden');
       badge.textContent = roleLabel(role);
-      badge.className = 'role-chip' + ((role === 'internal' || role === 'logi') ? ' is-internal' : (ext ? ' is-external' : ''));
+      badge.className = 'role-chip' + ((role === 'internal' || role === 'logi' || role === 'person') ? ' is-internal' : ((ext || role === 'guest') ? ' is-external' : ''));
       badge.title = ext
         ? ('리멤버 명함 인증 세션' + (state.me && state.me.name ? ' · ' + state.me.name : '') + ' — 담당자 연락처 비공개')
         : (role === 'logi' ? '물류TF — 물류센터·화주 데이터만 (전화번호 가림)'
-          : (role === 'internal' ? 'CM팀 내부용 — 전체 섹터, 전화번호는 서버에서 가려집니다' : '관리자 — 전체 조회·수정·저장·삭제'));
+          : (role === 'internal' ? 'CM팀 내부용 — 전체 섹터, 전화번호는 서버에서 가려집니다'
+            : (role === 'person' ? ('부여 범위: ' + (state.scopes || []).length + '개 — ' + (state.scopes || []).join(', '))
+              : (role === 'guest' ? ('초대 열람 — 부여 범위만 볼 수 있습니다' + (state.me && state.me.name ? ' · ' + state.me.name : ''))
+                : '관리자 — 전체 조회·수정·저장·삭제'))));
     }
     var codeBtn = $('#btnCodeChange');
     if (codeBtn) codeBtn.title = ext ? '외부 세션 종료 (접속 화면으로)' : '접속코드 변경 (관리자 / 내부용)';
@@ -672,6 +720,14 @@
     $$('#exportMenu [data-export="im-import"], #exportMenu [data-export="reset"]').forEach(function (b) {
       b.classList.toggle('hidden', !admin);
     });
+    /* 홈 바로가기 타일도 부여 범위 밖이면 감춥니다 */
+    if (state.scopes) {
+      var tileScope = { advise: 'advise', vdr: 'vdr', match: 'match', loan: 'fi', 'hub-list': 'requests' };
+      $$('[data-home]').forEach(function (el) {
+        var sc = tileScope[el.getAttribute('data-home')];
+        if (sc && !hasScope(sc)) el.classList.add('hidden');
+      });
+    }
     var compose = $('#poolCompose');
     if (compose) compose.classList.toggle('hidden', ext);
     var mailToggle = $('#poolOnlyEmail');
@@ -3116,6 +3172,8 @@
     var r = String((j && j.role) || '');
     if (r === 'admin') return 'admin';
     if (r === 'logi') return 'logi';
+    if (r === 'person') return 'person';
+    if (r === 'guest') return 'guest';
     if (r === 'internal' || r === 'readonly') return 'internal';
     return 'external';
   }
@@ -3130,8 +3188,14 @@
         if (j && j.error === 'unauthorized' && isUserInput) clearToken();
         throw new Error((j && j.error) ? String(j.error) : 'server_error');
       }
-      if (!Array.isArray(j.assets) || !j.assets.length) throw new Error('데이터가 비어 있습니다.');
-      state.role = roleOfServer_(j);
+      var roleNext = roleOfServer_(j);
+      /* 범위 권한 계정(사람·게스트)은 물건이 0건이어도 접속됩니다(예: 회의록만 부여). */
+      if ((!Array.isArray(j.assets) || !j.assets.length) && roleNext !== 'person' && roleNext !== 'guest') {
+        throw new Error('데이터가 비어 있습니다.');
+      }
+      state.role = roleNext;
+      state.scopes = Array.isArray(j.scopes) ? j.scopes : null;
+      state.roleCanEdit = !!j.can_edit;
       state.me = j.me || null;
       setToken(token);
       hideGate();
@@ -3169,12 +3233,38 @@
   }
 
   /* ────────────────────────────── 부팅 ────────────────────────────── */
+  /** 초대 링크(=?guest=GUEST:…)로 들어온 경우 토큰을 심고 바로 접속합니다. */
+  function guestTokenFromUrl() {
+    try {
+      var q = new URLSearchParams(location.search || '');
+      var g = q.get('guest') || q.get('g') || '';
+      if (g) return g;
+      var h = String(location.hash || '');
+      var m = h.match(/guest=([^&]+)/);
+      if (m) return decodeURIComponent(m[1]);
+    } catch (e) { /* noop */ }
+    return '';
+  }
+
   function boot() {
     bindUI();
     bindGate();
 
     if (!isRemote()) {
       showFatal('config.js 의 SYNC_URL 이 비어 있습니다. 설정을 확인해 주세요.');
+      return;
+    }
+
+    var guest = guestTokenFromUrl();
+    if (guest) {
+      try {
+        var u = new URL(location.href);
+        u.searchParams.delete('guest'); u.searchParams.delete('g');
+        history.replaceState(null, '', u.toString());
+      } catch (e0) { /* noop */ }
+      clearToken();
+      setToken(guest);
+      connect(guest, false).catch(function () { clearToken(); showGate('초대 링크가 만료되었거나 해제되었습니다. 보내신 분께 새 링크를 요청해 주세요.'); });
       return;
     }
 
@@ -3199,6 +3289,10 @@
     select: function (id) { selectAsset(id, { pan: true }); },
     role: function () { return state.role; },
     me: function () { return state.me; },
+    scopes: function () { return state.scopes; },
+    hasScope: hasScope,
+    canView: canView,
+    canEditScope: canEditScope,
     isNai: isNaiDeal,
     naiKind: naiKindOf,
     isNaiLm: isNaiLm,

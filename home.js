@@ -443,27 +443,143 @@
     return /매각|매물|입찰|공매|경매|매도/.test(s);
   }
 
-  /* 2026-11-28 — 홈 새로 고침 포인트 : 섹터별 3Q 대표 지표 (마켓 리포트와 같은 데이터) */
+  /* 2026-11-28 — 홈 '섹터별 3Q 지표' 카드 개편
+     · 카드마다 지표를 5초 간격으로 자동 전환(공실률 → Cap → 임대료 → ADR …)
+     · 점을 누르거나 좌우로 넘기면 직접 전환, 카드를 누르면 해당 섹터 리포트
+     · 지표마다 이름·출처·기준일을 카드 안에 표시 */
+  var MKTR = { data: [], timers: [] };
+
+  function mktReduced() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function stopMktRot() {
+    (MKTR.timers || []).forEach(function (t) { clearInterval(t); });
+    MKTR.timers = [];
+  }
+
+  function mktMetricsOf(key) {
+    for (var i = 0; i < MKTR.data.length; i++) if (MKTR.data[i].key === key) return MKTR.data[i].metrics || [];
+    return [];
+  }
+
+  function mktApply(tile, i, anim) {
+    var list = mktMetricsOf(tile.getAttribute('data-sector'));
+    if (!list.length) return;
+    var n = list.length;
+    i = ((i % n) + n) % n;
+    tile.setAttribute('data-i', String(i));
+    var m = list[i];
+    function put(role, html) {
+      var el = tile.querySelector('[data-role="' + role + '"]');
+      if (el) el.innerHTML = html;
+    }
+    put('label', esc(m.label));
+    put('val', esc(m.value) + (m.unit ? '<small> ' + esc(m.unit) + '</small>' : ''));
+    put('delta', esc(m.delta || ''));
+    put('src', esc([m.src, m.as_of].filter(Boolean).join(' · ')));
+    var dots = tile.querySelectorAll('.mkt-dot');
+    for (var k = 0; k < dots.length; k++) dots[k].classList.toggle('on', k === i);
+    if (anim && !mktReduced()) {
+      var body = tile.querySelector('.mkt-body');
+      if (body) { body.classList.remove('swap'); void body.offsetWidth; body.classList.add('swap'); }
+    }
+  }
+
   function sectorStripHTML() {
     var R = window.OAAB_MARKET_REPORT_2026Q3 || {};
-    var list = R.sectors_home || [];
-    if (!list.length) return '';
+    MKTR.data = (R.sectors_home_metrics || []).length
+      ? R.sectors_home_metrics
+      : (R.sectors_home || []).map(function (s) {
+        return { key: s.key, name: s.name, icon: s.icon, metrics: [{ label: s.label, value: s.value, unit: s.unit, delta: s.delta || '', src: '', as_of: '' }] };
+      });
+    if (!MKTR.data.length) return '';
+    var badge = {};
+    (R.sectors_home || []).forEach(function (s) { badge[s.key] = s.badge || ''; });
+    var total = MKTR.data.reduce(function (n, s) { return n + (s.metrics || []).length; }, 0);
     var upd = (R.meta && R.meta.sectors_updated) || '';
     var h = '<section class="home-card hc-mkt" id="hcMkt">';
-    h += '<div class="hc-head"><h2>📊 섹터별 3Q 지표 <span class="hc-tag">' + list.length + '개 섹터</span></h2>' +
-      '<span class="hc-hint">' + (upd ? esc(upd) + ' 갱신 · ' : '') + '카드를 누르면 해당 섹터 리포트가 열립니다</span></div>';
-    h += '<div class="mkt-grid">';
-    list.forEach(function (s) {
-      h += '<button type="button" class="mkt-tile" data-home="report-sector" data-sector="' + esc(s.key) + '">' +
-        (s.badge ? '<span class="mkt-new">' + esc(s.badge) + '</span>' : '') +
-        '<span class="mkt-i">' + esc(s.icon) + '</span>' +
-        '<span class="mkt-n">' + esc(s.name) + '</span>' +
-        '<b>' + esc(s.value) + (s.unit ? '<small> ' + esc(s.unit) + '</small>' : '') + '</b>' +
-        '<em>' + esc(s.label) + '</em>' +
-        '<span class="mkt-d">' + esc(s.delta || '') + '</span></button>';
+    h += '<div class="hc-head"><h2>📊 섹터별 3Q 지표 <span class="hc-tag">' + MKTR.data.length + '개 섹터 · 지표 ' + total + '</span></h2>' +
+      '<span class="hc-hint">카드가 5초마다 다른 지표로 넘어갑니다 · 점을 누르거나 좌우로 넘기세요 · 카드를 누르면 섹터 리포트' +
+      (upd ? ' · ' + esc(upd) + ' 갱신' : '') + '</span></div>';
+    h += '<div class="mkt-grid" id="mktGrid">';
+    MKTR.data.forEach(function (s) {
+      var list = s.metrics || [];
+      var m = list[0] || { label: '', value: '-', unit: '', delta: '', src: '', as_of: '' };
+      var dots = list.length > 1 ? '<span class="mkt-dots">' + list.map(function (_, j) {
+        return '<span class="mkt-dot' + (j === 0 ? ' on' : '') + '" data-j="' + j + '"></span>';
+      }).join('') + '</span>' : '';
+      h += '<button type="button" class="mkt-tile mkt-rot" data-sector="' + esc(s.key) + '" data-i="0" title="' + esc(s.name) + ' 3Q 지표 — 누르면 리포트">' +
+        '<span class="mkt-top"><span class="mkt-i">' + esc(s.icon) + '</span><span class="mkt-n">' + esc(s.name) + '</span>' +
+        (badge[s.key] ? '<span class="mkt-new">' + esc(badge[s.key]) + '</span>' : '') + '</span>' +
+        '<span class="mkt-mlabel" data-role="label">' + esc(m.label) + '</span>' +
+        '<span class="mkt-body"><b data-role="val">' + esc(m.value) + (m.unit ? '<small> ' + esc(m.unit) + '</small>' : '') + '</b>' +
+        '<span class="mkt-d" data-role="delta">' + esc(m.delta || '') + '</span></span>' +
+        '<span class="mkt-src" data-role="src">' + esc([m.src, m.as_of].filter(Boolean).join(' · ')) + '</span>' +
+        dots + '</button>';
     });
     h += '</div></section>';
     return h;
+  }
+
+  /* 카드 전환 배선 — 렌더 후 1회 호출. 타이머는 매 렌더마다 정리합니다. */
+  function bindMktRot() {
+    var grid = document.getElementById('mktGrid');
+    if (!grid) return;
+    stopMktRot();
+    if (!grid._mktBound) {
+      grid._mktBound = 1;
+      grid.addEventListener('click', function (e) {
+        var tile = e.target.closest('.mkt-rot');
+        if (!tile) return;
+        var dot = e.target.closest('.mkt-dot');
+        if (dot) {
+          e.preventDefault();
+          tile._pause = Date.now() + 9000;
+          mktApply(tile, Number(dot.getAttribute('data-j')), true);
+          return;
+        }
+        if (tile._swiped && Date.now() - tile._swiped < 600) return;
+        if (window.NAI_REPORT) window.NAI_REPORT.open(tile.getAttribute('data-sector'));
+      });
+      var sx = 0, sy = 0, cur = null;
+      grid.addEventListener('pointerdown', function (e) {
+        var tile = e.target.closest('.mkt-rot');
+        if (!tile) return;
+        cur = tile; sx = e.clientX; sy = e.clientY;
+      });
+      grid.addEventListener('pointerup', function (e) {
+        if (!cur) return;
+        var dx = e.clientX - sx, dy = e.clientY - sy;
+        if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy)) {
+          mktApply(cur, Number(cur.getAttribute('data-i') || 0) + (dx < 0 ? 1 : -1), true);
+          cur._swiped = Date.now();
+          cur._pause = Date.now() + 9000;
+        }
+        cur = null;
+      });
+      grid.addEventListener('pointercancel', function () { cur = null; });
+      grid.addEventListener('keydown', function (e) {
+        var tile = e.target.closest('.mkt-rot');
+        if (!tile || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+        e.preventDefault();
+        tile._pause = Date.now() + 9000;
+        mktApply(tile, Number(tile.getAttribute('data-i') || 0) + (e.key === 'ArrowRight' ? 1 : -1), true);
+      });
+    }
+    var tiles = grid.querySelectorAll('.mkt-rot');
+    for (var i = 0; i < tiles.length; i++) {
+      (function (tile, idx) {
+        var n = tile.querySelectorAll('.mkt-dot').length;
+        if (n < 2) return;
+        var t = setInterval(function () {
+          if (document.hidden) return;
+          if (tile._pause && Date.now() < tile._pause) return;
+          mktApply(tile, Number(tile.getAttribute('data-i') || 0) + 1, true);
+        }, 5200 + idx * 450);
+        MKTR.timers.push(t);
+      })(tiles[i], i);
+    }
   }
 
   /* ─────────────────── 홈 렌더 (2026-11-27 재배치) ───────────────────
@@ -575,6 +691,7 @@
     html += '</div>'; /* home-grid */
     host.innerHTML = html;
     host.dataset.count = String(all.length);
+    bindMktRot();   /* 섹터 지표 카드 자동 전환 */
 
     /* 섹터·권역 옵션 채우기 */
     var secSel = $('#hsSector');

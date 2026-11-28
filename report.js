@@ -37,6 +37,28 @@
   }
   function h4(t) { return '<h4 style="margin:14px 0 8px;font-size:12.5px;color:#33475b">' + esc(t) + '</h4>'; }
 
+  /* 범용 표 — 섹터별 권역 지표 (2026-11-28 섹터 심화) */
+  function tableHTML(tb) {
+    if (!tb || !(tb.rows || []).length) return '';
+    var cols = tb.cols || [];
+    var head = '<thead><tr>' + cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead>';
+    var body = (tb.rows || []).map(function (r) {
+      return '<tr>' + r.map(function (c, i) {
+        var v = String(c == null ? '' : c);
+        var num = i > 0 && /^[\u2212+\-]?[\d,.]+\s*%p?$/.test(v);
+        var tag = i === 0 ? 'th' : 'td';
+        return '<' + tag + (num ? ' class="num"' : '') + '>' + esc(v) + '</' + tag + '>';
+      }).join('') + '</tr>';
+    }).join('');
+    var foot = (tb.foot || []).length ? '<tfoot>' + tb.foot.map(function (r) {
+      return '<tr>' + r.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>';
+    }).join('') + '</tfoot>' : '';
+    return h4(tb.title) +
+      '<div class="rp-table-wrap"><table class="rp-table">' + head + '<tbody>' + body + '</tbody>' + foot + '</table></div>' +
+      (tb.note ? '<p class="rp-hint">' + esc(tb.note) + '</p>' : '') +
+      '<p class="rp-hint">*Source : ' + esc(tb.source || '') + (tb.as_of ? ' · 기준 ' + esc(tb.as_of) : '') + '</p>';
+  }
+
   function load() {
     if (BOOT.data) return Promise.resolve(BOOT.data);
     var inline = window.OAAB_MARKET_REPORT_2026Q3 || null;
@@ -166,6 +188,8 @@
         (k.unit ? '<small> ' + esc(k.unit) + '</small>' : '') + '</b><i>' + esc(k.basis || '') + '</i></div>';
     }).join('');
 
+    var tables = (sp.tables || []).map(tableHTML).join('');
+
     var deals = '';
     if ((sp.deals || []).length) {
       deals = h4('대표 거래·사건') + '<div class="rp-table-wrap"><table class="rp-table"><thead><tr>' +
@@ -183,10 +207,10 @@
     }).join('');
 
     return '<section class="rp-sec">' +
-      '<div class="rp-sechead"><h3>' + esc(sp.icon || '') + ' ' + esc(sp.name) + ' <span>' + esc((sp.kpis || []).length + '개 지표 · ' + (sp.deals || []).length + '건 거래') + '</span></h3>' +
+      '<div class="rp-sechead"><h3>' + esc(sp.icon || '') + ' ' + esc(sp.name) + ' <span>' + esc((sp.kpis || []).length + '개 지표 · ' + (sp.tables || []).length + '개 표 · ' + (sp.deals || []).length + '건 거래') + '</span></h3>' +
       '<span class="rp-grade">' + esc(sp.grade || '') + '</span></div>' +
       '<p class="rp-lead">' + esc(sp.lead || '') + '</p>' +
-      '<div class="rp-kpis">' + kpis + '</div>' + deals +
+      '<div class="rp-kpis">' + kpis + '</div>' + tables + deals +
       '<div class="rp-cols" style="margin-top:12px">' +
       '<div class="rp-col"><h4>수요</h4><p style="margin:0;font-size:11.6px;color:#4a5b6b;line-height:1.65">' + esc(sp.demand || '—') + '</p></div>' +
       '<div class="rp-col"><h4>공급·가격</h4><p style="margin:0;font-size:11.6px;color:#4a5b6b;line-height:1.65">' + esc(sp.supply || '—') + '</p></div>' +
@@ -281,7 +305,7 @@
   function officePanel(d) {
     return '<section class="rp-sec"><h3>🏢 오피스 <span>임대 2계열 · 거래 35건 · Cap 4.2~4.5%</span></h3>' +
       '<p class="rp-lead">임대는 견조(프라임 공실 3.1~5.8%), 투자는 선별적(35건 12.59조), 가격은 금리 대비 조정 대기.</p></section>' +
-      macroHTML(d.macro) + leaseHTML(d.lease) + dealsHTML(d.deals);
+      macroHTML(d.macro) + leaseHTML(d.lease) + tableHTML(d.office_rent) + dealsHTML(d.deals);
   }
 
   function tabsOf(d) {

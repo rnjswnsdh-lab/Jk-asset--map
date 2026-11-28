@@ -62,11 +62,8 @@
       '</tr>';
   }
 
-  function render() {
-    var host = $('#shareListModal');
-    if (!host) return;
-    var map = read();
-    var list = allAssets().filter(function (a) {
+  function visibleList(map) {
+    return allAssets().filter(function (a) {
       if (F.q) {
         var hay = [a.name, a.address, a.region, a.sub_type, a.status, a.owner_amc, (map[a.id] || {}).shipper]
           .join(' ').toLowerCase();
@@ -78,6 +75,13 @@
       if (F.pub === 'PRIV' && pub) return false;
       return true;
     });
+  }
+
+  function render() {
+    var host = $('#shareListModal');
+    if (!host) return;
+    var map = read();
+    var list = visibleList(map);
     var pubCount = Object.keys(map).filter(function (k) { return map[k] && map[k].pub; }).length;
     var statuses = {};
     allAssets().forEach(function (a) { if (a.status_group) statuses[a.status_group] = (statuses[a.status_group] || 0) + 1; });
@@ -138,11 +142,15 @@
   function csv() {
     var map = read();
     var rows = [['asset_id', '물건명', '섹터', '상태', '공개여부', '공개대상화주', '공개일', '메모']];
-    allAssets().forEach(function (a) {
+    /* 화면에 보이는 행만 내보냅니다 — 공개/비공개·상태·검색 필터를 그대로 따릅니다.
+       (예: '공개만'으로 보고 내보내면 비공개 물건의 화주명은 파일에 들어가지 않습니다.) */
+    var list = visibleList(map);
+    list.forEach(function (a) {
       var r = map[a.id] || {};
       rows.push([a.id, a.name, '물류센터', a.status || a.status_group || '', r.pub ? '공개' : '비공개',
         r.shipper || '', r.date || '', r.memo || '']);
     });
+    var hidden = allAssets().length - list.length;
     var text = rows.map(function (r) {
       return r.map(function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }).join(',');
     }).join('\r\n');
@@ -153,7 +161,7 @@
       a.download = '화주공개목록_' + today() + '.csv';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
-      toast('CSV를 내려받았습니다.');
+      toast(list.length + '건을 내려받았습니다.' + (hidden ? ' (화면 필터로 ' + hidden + '건 제외)' : ''));
     } catch (e) { toast('CSV를 만들지 못했습니다.', true); }
   }
 

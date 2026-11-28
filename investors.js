@@ -802,21 +802,39 @@
     var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
     return '' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate());
   }
+  /* 컨택포인트(담당자·직함·이메일·전화)를 화면 카드와 **같은 규칙**으로 가립니다.
+     엑셀·CSV는 서버가 이미 가린 값에만 기대지 않고, 내려받는 사람의 권한으로 한 번 더 판정합니다.
+       · 외부 방문자        → 담당자 '비공개', 직함·이메일 빈 값, 전화 '비공개' (카드와 동일)
+       · contact_private 행 → 다른 담당자가 등록했거나 서버가 가린 행 → 위와 동일하게 가림
+       · 내부(CM)·물류TF    → 전화만 '비공개' (역할 배지의 '전화번호 비공개' 규칙 그대로)
+       · 전화 값이 비어 있거나 이미 '비공개'인 행 → '비공개'로 통일 (빈 칸으로 남기지 않음) */
+  function exportContactView(r) {
+    var phone = String((r && r.phone) || '');
+    if (isExternal() || (r && r.contact_private)) {
+      return { contact: '비공개', title: '', email: '', phone: '비공개' };
+    }
+    if (state.role === 'internal' || state.role === 'logi' || !phone || phone === '비공개') phone = '비공개';
+    return {
+      contact: (r && r.contact) || '', title: (r && r.title) || '',
+      email: (r && r.email) || '', phone: phone
+    };
+  }
+
   function exportRows() {
     var rows = filtered();
     var mode = state.mode;
     var m = {
       si: {
         name: 'SI', head: ['분류', '권역', '회사·기관', '업종·섹터', '성격·역할', '담당자', '직함', '이메일', '전화', 'NAI 담당자', '사례·비고', '확장·수요', '금액(억)', '출처'],
-        map: function (r) { return [kindLabel(r.kind), r.region, r.company, r.industry, r.role, r.contact, r.title, r.email, r.phone, r.owner, r.case_info || r.notes, r.expansion, r.amount, r.source]; }
+        map: function (r) { var c = exportContactView(r); return [kindLabel(r.kind), r.region, r.company, r.industry, r.role, c.contact, c.title, c.email, c.phone, r.owner, r.case_info || r.notes, r.expansion, r.amount, r.source]; }
       },
       ship: {
         name: '물류화주', head: ['분류', '권역', '화주사', '업종', '담당자', '직함', '이메일', '전화', 'NAI 담당자', '온도대', '확인 센터수', '확장·수요 권역', '비고', '출처'],
-        map: function (r) { return [kindLabel(r.kind), r.region, r.company, r.industry, r.contact, r.title, r.email, r.phone, r.owner, r.temp, r.centers, r.expansion, r.notes, r.source]; }
+        map: function (r) { var c = exportContactView(r); return [kindLabel(r.kind), r.region, r.company, r.industry, c.contact, c.title, c.email, c.phone, r.owner, r.temp, r.centers, r.expansion, r.notes, r.source]; }
       },
       fi: {
         name: 'FI풀', head: ['분류', '권역', '운용사·기관', '전략·업종', '성격·역할', '담당자', '직함', '이메일', '전화', 'NAI 담당자', '펀드·전략 상세', '금액(억)', '연도', '출처', '비고'],
-        map: function (r) { return [kindLabel(r.kind), r.region, r.company, r.industry, r.role, r.contact, r.title, r.email, r.phone, r.owner, r.case_info, r.amount, r.year, r.source, r.notes]; }
+        map: function (r) { var c = exportContactView(r); return [kindLabel(r.kind), r.region, r.company, r.industry, r.role, c.contact, c.title, c.email, c.phone, r.owner, r.case_info, r.amount, r.year, r.source, r.notes]; }
       }
     }[mode] || null;
     if (!m) return null;
@@ -833,7 +851,10 @@
     if (!d) return;
     if (!d.count) { toast('다운로드할 항목이 없습니다. 필터를 조정해 보세요.', true); return; }
     var base = 'NAI_' + d.name + '_' + ymd();
-    var note = isExternal() ? '외부 공개본(연락처 비공개)' : (state.role === 'internal' || state.role === 'logi' ? '내부용(전화번호 비공개)' : '관리자용');
+    var note = isExternal() ? '외부 공개본(연락처 비공개)'
+      : (state.role === 'internal' || state.role === 'logi') ? '내부용(전화번호 비공개)'
+        : state.role === 'person' ? '담당자용(본인 등록분 외 비공개)'
+          : state.role === 'guest' ? '초대 열람용(등록자 외 비공개)' : '관리자용';
     if (window.XLSX && window.XLSX.utils) {
       try {
         var aoa = [d.head].concat(d.body);

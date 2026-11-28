@@ -1516,10 +1516,31 @@ body.role-external .pf-toggle { display: none; }
 .dc-badge.nego { background: #0f766e; color: #fff; }
 .dc-badge.past { background: #e5e7eb; color: #6b7280; }
 .dc-badge.gen { background: var(--navy); color: #fff; }
+/* 거래 상태 배지·매각/임대 단계·금액 성격 라벨 (2026-11-28) */
+.dc-badge.t-sale { background: #dc2626; color: #fff; }
+.dc-badge.t-lease { background: #0f766e; color: #fff; }
+.dc-top { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.dc-stage {
+  font-size: 10px; font-weight: 800; color: var(--navy);
+  background: #eef2f7; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.ptag {
+  font-style: normal; font-size: 9px; font-weight: 800; letter-spacing: .01em;
+  border-radius: 4px; padding: 1px 4px; white-space: nowrap; flex: 0 0 auto;
+}
+.ptag.pt-est { background: #fef3c7; color: #92400e; }
+.ptag.pt-deal { background: #dcfce7; color: #166534; }
+.ptag.pt-ask { background: #dbeafe; color: #1d4fbe; }
+.ptag.pt-low { background: #f1f5f9; color: #334155; border: 1px solid var(--line); }
+.ptag.pt-src { background: #f1f5f9; color: #64748b; }
+.ptag.pt-none { background: #f8fafc; color: #94a3b8; border: 1px solid var(--line); }
 .dc-sector { font-size: 10.5px; font-weight: 700; }
 .dc-name { font-size: 12.8px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .dc-addr { font-size: 10.8px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dc-price { font-size: 12px; font-weight: 800; color: var(--navy); margin-top: 2px; }
+.dc-price { font-size: 12px; font-weight: 800; color: var(--navy); margin-top: 2px; display: flex; align-items: center; gap: 4px; min-width: 0; }
+.dc-price b { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.hsi-right .ptag { margin-right: 4px; }
 .dc-date { font-size: 10.5px; color: var(--muted); }
 
 .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

@@ -102,6 +102,217 @@
     var v = parseEok(a && a.price_info);
     return v ? fmtEok(v) : '';
   }
+  /* ─────────── 금액 성격 라벨 · 매각·임대 단계 배지 (2026-11-28) ───────────
+     보도·기사·내부 검토에서 온 금액을 '팩트'처럼 보이지 않게 성격 라벨을 붙입니다.
+     · 서버가 price_type 을 주면 그것을 우선 사용하고, 없으면 기존 price_info 문구에서 판정
+     · 단계는 기존 status/facts 값에서 짧은 라벨로 줄여 표시 (새 단계 체계를 만들지 않음)
+     · 매각·임대 카드는 renderDealStrip() 한 곳에서 그리므로 여기만 고치면 양쪽에 반영됩니다. */
+  var PRICE_TAG = {
+    '실거래': 'deal', '계약(환산)': 'deal', '매입가': 'deal', '우협가': 'deal',
+    '예상': 'est', '추정': 'est', '평당': 'est',
+    '호가': 'ask', '최저입찰': 'low', '감정가': 'low',
+    '보도 기준': 'src', '자료 기준': 'src', '합계 기준': 'src', '우선주': 'src',
+    '미공개': 'none'
+  };
+  function priceTagHTML(label) {
+    if (!label) return '';
+    return '<em class="ptag pt-' + (PRICE_TAG[label] || 'src') + '">' + esc(label) + '</em>';
+  }
+  /** 문구에서 첫 '억/조' 금액만 추출 — '평당 3,875만원' 같은 단가는 건너뛰고 범위는 유지 */
+  function amountInText(s) {
+    var str = String(s || '');
+    var re = /(?:약\s*)?(\d[\d,]*(?:\.\d+)?)\s*(조\s*\d[\d,]*(?:\.\d+)?\s*억|조|억)\s*원?/g, m;
+    while ((m = re.exec(str))) {
+      if (str.slice(Math.max(0, m.index - 6), m.index).indexOf('평당') >= 0) continue;
+      var txt = String(m[0]).replace(/\s+/g, '');
+      var rng = str.slice(Math.max(0, m.index - 14), m.index).match(/(\d[\d,]*(?:\.\d+)?)\s*[~\-]\s*$/);
+      if (rng) txt = rng[1] + '~' + txt;
+      return txt;
+    }
+    return '';
+  }
+  /** 금액 성격 판정 순서 — 앞쪽 표기가 우선 (예: '최저 3,300억원 (감정 3,800억원)') */
+  var SALE_PRICE_RULES = [
+    [/^최저/, '최저입찰'],
+    [/^예상/, '예상'],
+    [/^(추정|적정)|시나리오\s*범위/, '추정'],
+    [/^(희망매각가|희망가|호가)|^asking/i, '호가'],
+    [/^감정/, '감정가'],
+    [/^(매입|취득)|장부\s*취득원가|(^|\s)인수(\s|원|가|$)/, '매입가'],
+    [/^(매매계약|거래가|실거래|계약가)|확정금액\s*미보도/, '계약(환산)'],
+    [/합계[\s\S]*개별가\s*미공개/, '합계 기준'],
+    [/우협\s*기준/, '우협가'],
+    [/우선주|종류주/, '우선주'],
+    [/보도/, '보도 기준']
+  ];
+  function salePriceMeta(a) {
+    var raw = String((a && a.price_info) || '').trim();
+    var forced = a && a.price_type ? String(a.price_type) : '';
+    if (!raw) return { label: '미공개', value: '가격 비공개', full: '가격 정보 없음' };
+    if (/(가격|매각가|입찰가)\s*미공개/.test(raw) && raw.indexOf('확정금액') < 0)
+      return { label: '미공개', value: '가격 비공개', full: raw };
+    var amt = amountInText(raw);
+    if (!amt) {
+      var pp = raw.match(/^평당\s*([\d,]+\s*만원대?)/);
+      if (pp) return { label: '평당', value: '평당 ' + pp[1].replace(/\s+/g, ''), full: raw };
+      return { label: '미공개', value: '가격 비공개', full: raw };
+    }
+    var label = forced;
+    if (!label) {
+      for (var i = 0; i < SALE_PRICE_RULES.length; i++) {
+        if (SALE_PRICE_RULES[i][0].test(raw)) { label = SALE_PRICE_RULES[i][1]; break; }
+      }
+    }
+    return { label: label || '자료 기준', value: amt, full: raw };
+  }
+
+  /* 2026 3Q 서울 오피스 명목임대료 (원/평·월, 임대면적 기준) — 마켓 리포트 값 */
+  var MKT_RENT = { CBD: 118108, GBD: 118700, YBD: 99500, '서울': 103785 };
+  function manWon(n) {
+    n = Number(n) || 0;
+    if (n >= 10000) return (Math.round(n / 1000) / 10) + '만';
+    return n.toLocaleString('ko-KR');
+  }
+  function officeZone(a) {
+    var z = String(fact(a, '권역') || '').toUpperCase(), m = z.match(/CBD|GBD|YBD/);
+    if (m) return m[0];
+    var ad = String(a.address || '') + ' ' + String(a.region || '');
+    if (/중구|종로/.test(ad)) return 'CBD';
+    if (/강남|서초/.test(ad)) return 'GBD';
+    if (/영등포|여의도|마포/.test(ad)) return 'YBD';
+    return '';
+  }
+  function areaPyTotal(a) {
+    var s = String(a.scale_info || ''), m;
+    m = s.match(/연면적\s*([\d,\.]+)\s*㎡\s*\(([\d,\.]+)\s*(?:py|평)/);
+    if (m) return Number(m[2].replace(/,/g, ''));
+    m = s.match(/연면적\s*([\d,\.]+)\s*평/);
+    if (m) return Number(m[1].replace(/,/g, ''));
+    return null;
+  }
+  /** Leasing Flyer '임대가능 층' 표에서 평당 월임대료 — 면적·보증금 구조가 맞는 행만 채택 */
+  function flyerRents(a) {
+    var PY = 3.305785, total = areaPyTotal(a), out = [];
+    (a.facts || []).forEach(function (f) {
+      var L = String(f.label || ''), v = String(f.value || '');
+      if (L.indexOf('임대가능') !== 0 || !/\d/.test(v)) return;
+      var parts = v.split(/\s*·\s*/);
+      if (parts.length < 2) return;
+      var floor = parts[0].trim().replace(/\s+/g, '');
+      var body = parts.slice(1).join(' · ');
+      var toks = body.match(/\(?\s*[\d,]+(?:\.\d+)?\s*\)?/g);
+      if (!toks || toks.length < 3) return;
+      var nums = toks.map(function (x) { return Number(String(x).replace(/[^\d.]/g, '')); });
+      var dep = nums[nums.length - 3], rent = nums[nums.length - 2];
+      var areas = nums.slice(0, Math.max(1, nums.length - 3));
+      if (!(rent > 0) || !(dep > 0)) return;
+      var first = areas[0], second = areas.length > 1 ? areas[1] : null, cand = [];
+      if (second) {
+        if (Math.abs(second - first / PY) / Math.max(first / PY, 1) < 0.06) cand.push(second);
+        else if (Math.abs(second - first * PY) / Math.max(first * PY, 1) < 0.06) cand.push(first);
+      }
+      cand.push(first); cand.push(first / PY);
+      for (var i = 0; i < cand.length; i++) {
+        var apy = cand[i];
+        if (!(apy > 0)) continue;
+        if (total && (apy < total * 0.02 || apy > total * 1.02)) continue;
+        var per = rent / apy;
+        if (per >= 30000 && per <= 300000) { out.push({ floor: floor, per: per }); return; }
+      }
+    });
+    if (!out.length) return null;
+    var lo = Math.min.apply(null, out.map(function (x) { return x.per; }));
+    var hi = Math.max.apply(null, out.map(function (x) { return x.per; }));
+    return {
+      text: (hi - lo < 1000) ? '월 ' + manWon(lo) + '원/평' : '월 ' + manWon(lo) + '~' + manWon(hi) + '원/평',
+      basis: 'Leasing Flyer 임대가능 층(' + out.map(function (x) { return x.floor; }).join('·') + ') 평당 환산'
+    };
+  }
+  /** 임대 카드 금액 — ① DB 명시 임대료 ② Flyer 층별 표 ③ 오피스 권역 평균 추정 ④ 매각 호가 등 */
+  function leaseRentMeta(a) {
+    var raw = String((a && a.price_info) || '').trim();
+    var forced = a && a.price_type ? String(a.price_type) : '';
+    var m = raw.match(/월\s*임대료?\s*평당\s*([\d,]+)\s*원/);
+    if (m) return { label: forced || '호가', value: '월 ' + manWon(m[1].replace(/,/g, '')) + '원/평', full: raw };
+    var dep = raw.match(/보증금\s*(약?\s*\d[\d,]*(?:\.\d+)?\s*(?:억원?|만원))/);
+    var mon = raw.match(/월\s*(?:임대료|세)?\s*(약?\s*\d[\d,]*(?:\.\d+)?\s*(?:억원?|만원))/);
+    if (mon) {
+      return {
+        label: forced || '호가',
+        value: (dep ? '보증금 ' + dep[1].replace(/\s+/g, '') + ' · ' : '') + '월 ' + mon[1].replace(/\s+/g, ''),
+        full: raw
+      };
+    }
+    var fr = flyerRents(a);
+    if (fr) return { label: '호가', value: fr.text, full: raw || fr.basis, basis: fr.basis };
+    if (a.sector === 'office') {
+      var z = officeZone(a), base = (z && MKT_RENT[z]) ? MKT_RENT[z] : MKT_RENT['서울'];
+      return {
+        label: '추정', value: '월 ' + manWon(base) + '원/평', full: raw || '',
+        basis: '2026 3Q ' + (z || '서울') + ' 오피스 평균 임대료 ' + base.toLocaleString('ko-KR') + '원/평(임대면적) — 건물별 실임대료 아님, Flyer 확인 필요'
+      };
+    }
+    var alt = salePriceMeta(a);
+    if (alt.label !== '미공개' && alt.label !== '자료 기준') return alt;
+    if (/(임대료|보증금|조건)[^·/]{0,24}(협의|제안)|협의\s*(가능|단계)/.test(raw)) return { label: '미공개', value: '임대료 협의', full: raw };
+    return { label: '미공개', value: '임대료 비공개', full: raw || '임대료 정보 없음' };
+  }
+
+  /* 단계 라벨 — 기존 status·facts 문구를 짧게 (파이프라인 진행 순서로 판정) */
+  var STAGE_SALE = [
+    [/매매\s*계약|양도\s*계약|계약\s*체결/, '매매계약'],
+    [/클로징/, '클로징'],
+    [/우협|우선협상/, '우협 선정'],
+    [/RFP/, 'RFP'],
+    [/입찰|LOI|오퍼/, '입찰·LOI'],
+    [/자문사\s*선정/, '자문사 선정'],
+    [/IM|티저|Teaser|매각안내문|매각자료|매각제안서|플라이어|Flyer|물건홍보|마케팅/, '마케팅'],
+    [/전속/, '전속 매도'],
+    [/유동화|우선주|투자자\s*모집/, '유동화'],
+    [/매각\s*추진|매각진행중|매각\s*진행|매도/, '매각 추진'],
+    [/협의/, '조건 협의']
+  ];
+  var STAGE_LEASE = [
+    [/계약\s*체결|계약\s*완료/, '계약 체결'],
+    [/LOI|오퍼/, 'LOI 접수'],
+    [/(가격|조건|임대료)\s*협의/, '조건 협의'],
+    [/마스터리스|책임임대차/, '마스터리스'],
+    [/임차인\s*모집|물건홍보|플라이어|Flyer|임대\s*진행|임대\s*중|임대\s*홍보/, '임차인 모집'],
+    [/검토/, '임대 검토']
+  ];
+  function stageOf(a, kind) {
+    var cands = [], i, j;
+    if (kind === 'sale') {
+      cands.push(String(a.status || ''));
+      ['진행상황', '진행단계', 'NAI 상태', '단계', '매수인·투자자(예상)'].forEach(function (L) {
+        cands.push(String(fact(a, L) || ''));
+      });
+    } else {
+      cands.push(String(fact(a, 'NAI 상태') || ''));
+      cands.push(String(a.status || ''));
+      cands.push(String(a.status_group || ''));
+    }
+    var table = (kind === 'sale') ? STAGE_SALE : STAGE_LEASE;
+    for (i = 0; i < cands.length; i++) {
+      if (!cands[i]) continue;
+      for (j = 0; j < table.length; j++) {
+        if (table[j][0].test(cands[i])) {
+          var lab = table[j][1];
+          if (lab === 'RFP') lab = /자문/.test(cands[i]) ? '자문 RFP' : 'RFP 발송';
+          return { label: lab, basis: (i === 0 ? '' : cands[i]) };
+        }
+      }
+    }
+    return { label: '', basis: '' };
+  }
+  function cardTitle(a, kind, st, pm) {
+    var t = [];
+    if (st && st.label) t.push('단계: ' + st.label + (st.basis ? ' (근거: ' + st.basis + ')' : ''));
+    if (pm) t.push((kind === 'lease' ? '임대료' : '금액') + ': ' + (pm.label && pm.label !== '미공개' ? pm.label + ' ' : '') + (pm.full || pm.value));
+    if (pm && pm.basis) t.push('근거: ' + pm.basis);
+    return t.join(' / ');
+  }
+
   function sectorLabel(k) {
     var S = CFG.SECTORS || {};
     return (S[k] && S[k].label) || k || '기타';
@@ -353,12 +564,14 @@
     if (sale.length) {
       html += '<h3 class="strip-h">🏷️ 매각 진행 · 매각중</h3><div class="cards-row">';
       sale.forEach(function (a) {
-        html += '<button type="button" class="deal-card" data-home="open-asset" data-id="' + esc(a.id) + '">' +
-          '<span class="dc-badge gen">' + esc(a.status_group || '매각') + '</span>' +
+        var pm = salePriceMeta(a), st = stageOf(a, 'sale');
+        html += '<button type="button" class="deal-card" data-home="open-asset" data-id="' + esc(a.id) + '" title="' + esc(cardTitle(a, 'sale', st, pm)) + '">' +
+          '<span class="dc-top"><span class="dc-badge t-sale">🏷️ 매각중</span>' +
+          (st.label ? '<span class="dc-stage">' + esc(st.label) + '</span>' : '') + '</span>' +
           '<span class="dc-sector" style="color:' + sectorColor(a.sector) + '">' + esc(sectorLabel(a.sector)) + '</span>' +
           '<strong class="dc-name">' + esc(a.name) + '</strong>' +
           '<span class="dc-addr">' + esc(a.address || '') + '</span>' +
-          '<span class="dc-price">' + esc(eokText(a) || a.price_info || '가격 미상') + '</span>' +
+          '<span class="dc-price">' + priceTagHTML(pm.label) + '<b>' + esc(pm.value) + '</b></span>' +
           '<span class="dc-date">' + esc(a.status || '') + '</span></button>';
       });
       html += '</div>';
@@ -366,12 +579,14 @@
     if (lease.length) {
       html += '<h3 class="strip-h">🔑 임대 진행 · 임대중</h3><div class="cards-row">';
       lease.forEach(function (a) {
-        html += '<button type="button" class="deal-card" data-home="open-asset" data-id="' + esc(a.id) + '">' +
-          '<span class="dc-badge lease">임대중</span>' +
+        var rm = leaseRentMeta(a), st = stageOf(a, 'lease');
+        html += '<button type="button" class="deal-card" data-home="open-asset" data-id="' + esc(a.id) + '" title="' + esc(cardTitle(a, 'lease', st, rm)) + '">' +
+          '<span class="dc-top"><span class="dc-badge t-lease">🔑 임대중</span>' +
+          (st.label ? '<span class="dc-stage">' + esc(st.label) + '</span>' : '') + '</span>' +
           '<span class="dc-sector" style="color:' + sectorColor(a.sector) + '">' + esc(sectorLabel(a.sector)) + '</span>' +
           '<strong class="dc-name">' + esc(a.name) + '</strong>' +
           '<span class="dc-addr">' + esc(a.address || '') + '</span>' +
-          '<span class="dc-price">' + esc(eokText(a) || a.price_info || '가격 미상') + '</span>' +
+          '<span class="dc-price">' + priceTagHTML(rm.label) + '<b>' + esc(rm.value) + '</b></span>' +
           '<span class="dc-date">' + esc(a.status || '') + '</span></button>';
       });
       html += '</div>';
@@ -566,12 +781,14 @@
     var rows = list.slice(0, CAP).map(function (a) {
       var b = isAuction(a) ? ddayBadge(a) : null;
       var ts = tradeStateOf(a);
-      return '<button type="button" class="hs-item" data-home="open-asset" data-id="' + esc(a.id) + '">' +
+      var st = ts ? stageOf(a, ts) : null;
+      var meta = (ts === 'sale') ? salePriceMeta(a) : (ts === 'lease' ? leaseRentMeta(a) : null);
+      return '<button type="button" class="hs-item" data-home="open-asset" data-id="' + esc(a.id) + '" title="' + esc(cardTitle(a, ts || 'sale', st, meta)) + '">' +
         '<span class="hsi-sector" style="background:' + sectorColor(a.sector) + '"></span>' +
         '<span class="hsi-main"><strong>' + esc(a.name) +
-        (ts ? ' <span class="trade-badge mini t-' + ts + '">' + (ts === 'sale' ? '🏷️ 매각중' : '🔑 임대중') + '</span>' : '') + '</strong>' +
+        (ts ? ' <span class="trade-badge mini t-' + ts + '">' + (ts === 'sale' ? '🏷️ 매각중' : '🔑 임대중') + (st && st.label ? ' · ' + esc(st.label) : '') + '</span>' : '') + '</strong>' +
         '<span class="hsi-sub">' + esc([sectorLabel(a.sector), a.region, a.status || ''].filter(Boolean).join(' · ')) + '</span></span>' +
-        '<span class="hsi-right">' + esc(eokText(a) || a.price_info || '') +
+        '<span class="hsi-right">' + (meta ? priceTagHTML(meta.label) + esc(meta.value) : esc(eokText(a) || a.price_info || '')) +
         (b ? ' <span class="dc-badge ' + b.cls + ' mini">' + esc(b.label) + '</span>' : '') + '</span></button>';
     }).join('');
     var sec = [['office', '🏢 오피스'], ['datacenter', '🖥️ 데이터센터'], ['ALL', '전체 섹터']];

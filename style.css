@@ -2472,6 +2472,13 @@ body.role-external .pf-toggle { display: none; }
 .btn.btn-outline.danger:hover { background: #fdf2f2; }
 .hub-modal.is-full { padding: 0; }
 .hub-detail-card { width: min(1100px, 96vw); max-height: 90vh; }
+
+/* 모바일: 더블탭 확대 대신 카드 안 더블탭이 확대/축소로 동작하도록 (핀치줌은 유지) */
+.hub-detail-card { touch-action: manipulation; }
+@media (max-width: 760px) {
+  .hub-detail-card .tr-x.hub-full { width: 36px; height: 36px; font-size: 20px; }
+}
+
 .hub-detail-card.is-full { width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; }
 .hub-detail-card.is-full .tr-scroll { padding: 16px 22px; }
 .hub-detail-card .tr-scroll { flex: 1 1 auto; min-height: 0; }

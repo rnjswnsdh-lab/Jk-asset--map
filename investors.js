@@ -947,28 +947,96 @@
       '</div>';
   }
 
-  /** 🤝 SI·화주 카드 */
-  function siRowHtml(r) {
+  /* ─────────────── 한 회사 = 여러 컨택포인트 (2026-11-28) ───────────────
+     시트 구조는 '행 1개 = 컨택포인트 1개'입니다(같은 회사가 여러 행 — 예: 롯데건설 3행).
+     목록에서는 같은 회사(정규화 이름 + 분류)의 행을 한 카드로 묶고,
+     회사 정보(권역·업종·센터·NAI 담당자)는 값이 있는 행에서, 담당자·공개 여부는 행마다 그대로 보여 줍니다. */
+  var CO_FIELDS = ['region', 'industry', 'role', 'temp', 'centers', 'expansion', 'case_info', 'amount', 'year', 'notes', 'owner'];
+
+  function companyKeyOf(r) { return normCo_(r && r.company) + '|' + ((r && r.kind) || ''); }
+
+  function groupRows(rows) {
+    var map = {}, out = [];
+    (rows || []).forEach(function (r) {
+      var k = companyKeyOf(r);
+      if (k === '|') return;
+      var g = map[k];
+      if (!g) {
+        g = map[k] = {
+          key: k, company: r.company || '', kind: r.kind, rows: [], first: r,
+          region: '', industry: '', role: '', temp: '', centers: '', expansion: '',
+          case_info: '', amount: '', year: '', notes: '', owner: ''
+        };
+        out.push(g);
+      }
+      g.rows.push(r);
+      CO_FIELDS.forEach(function (f) { if (!g[f] && r[f]) g[f] = r[f]; });
+    });
+    out.forEach(function (g) {
+      g.named = g.rows.filter(function (r) { return r.contact || r.email || r.phone; }).length;
+      g.privateN = g.rows.filter(function (r) { return !!r.contact_private; }).length;
+    });
+    return out;
+  }
+
+  /** 그룹 안의 담당자 한 줄 — 이름·직책·이메일·전화 + 그 행의 수정/삭제 */
+  function contactLine(r) {
     var on = !!state.sel[r.id];
-    var sub = subLine(r);
-    return '<div class="pool-row' + (on ? ' is-sel' : '') + '" data-id="' + esc(r.id) + '" role="listitem">' +
-      '<label class="pr-check"><input type="checkbox" data-check="' + esc(r.id) + '"' + (on ? ' checked' : '') + ' aria-label="' + esc(r.company) + ' 선택"></label>' +
-      '<div class="pr-main">' +
-        '<div class="pr-top">' + kindBadge(r) +
-          '<span class="pr-region">' + esc(r.region || '-') + '</span>' +
-          finBadge(r) +
-          siBadge(r) +
-          (r.role ? '<span class="pr-role">' + esc(r.role) + '</span>' : '') +
-          (r.year ? '<span class="pr-year">' + esc(r.year) + '</span>' : '') +
-          (r.amount ? '<span class="pr-amount">' + esc(r.amount) + '억</span>' : '') +
-          ownerBadge(r) +
-        '</div>' +
-        '<div class="pr-name">' + esc(r.company) + (r.industry ? ' <span class="pr-industry">' + esc(r.industry) + '</span>' : '') + '</div>' +
-        (r.case_info ? '<div class="pr-case">' + esc(r.case_info) + '</div>' : '') +
-        (sub ? '<div class="pr-sub">' + esc(sub) + '</div>' : '') +
-        contactHtml(r) +
+    var priv = !!r.contact_private;
+    var masked = isExternal() || priv;
+    var phone = String(r.phone || '');
+    var body;
+    if (isExternal()) {
+      body = '🔒 담당자 연락처·이메일은 비공개입니다 <span class="pc-title">· 문의: NAI Korea</span>';
+    } else if (priv) {
+      body = '🔒 다른 담당자가 등록한 컨택포인트입니다 — 등록자와 관리자만 볼 수 있습니다';
+    } else {
+      body = (r.contact
+          ? '<span class="pc-name">👤 ' + esc(r.contact) + (r.title ? ' <span class="pc-title">' + esc(r.title) + '</span>' : '') + '</span>'
+          : '<span class="pc-none">👤 담당자 미기재</span>') +
+        (r.email ? '<a class="pc-mail" href="mailto:' + esc(String(r.email).split(',')[0].trim()) + '">✉️ ' + esc(r.email) + '</a>'
+          : '<span class="pc-none">이메일 없음</span>') +
+        ((!phone || phone === '비공개') ? '<span class="pc-none">☎ 비공개</span>'
+          : '<a class="pc-tel" href="tel:' + esc(phone.replace(/[^0-9+]/g, '')) + '">☎ ' + esc(phone) + '</a>');
+    }
+    return '<div class="pr-crow' + (on ? ' is-sel' : '') + '" data-id="' + esc(r.id) + '">' +
+      '<label class="pr-check"><input type="checkbox" data-check="' + esc(r.id) + '"' + (on ? ' checked' : '') + ' aria-label="' + esc(r.company) + ' 담당자 선택"></label>' +
+      '<div class="pr-cbody">' +
+        '<div class="pr-contact' + (masked ? ' pr-masked' : '') + '">' + body + '</div>' +
         crmInline(r) +
-      '</div>' + rowActions(r) +
+      '</div>' +
+      rowActions(r) +
+      '</div>';
+  }
+
+  /** 🤝 SI·화주 카드 — 한 회사 아래 담당자(컨택포인트) 여러 명 */
+  function groupRowHtml(g) {
+    var ids = g.rows.map(function (r) { return r.id; }).join(' ');
+    var allOn = g.rows.length > 0 && g.rows.every(function (r) { return !!state.sel[r.id]; });
+    var sub = subLine(g);
+    var addBtn = canEditRow({ kind: g.kind })
+      ? '<button type="button" class="mini-btn pr-addc" data-addc="' + esc(g.rows[0].id) + '" title="이 회사에 담당자(컨택포인트)를 추가합니다">＋ 담당자</button>'
+      : '';
+    return '<div class="pool-row pool-group' + (allOn ? ' is-sel' : '') + '" data-group="' + esc(g.key) + '" role="listitem">' +
+      '<label class="pr-check pr-check-all" title="이 회사 담당자 모두 선택"><input type="checkbox" data-gids="' + esc(ids) + '"' + (allOn ? ' checked' : '') + ' aria-label="' + esc(g.company) + ' 담당자 전체 선택"></label>' +
+      '<div class="pr-main">' +
+        '<div class="pr-top">' + kindBadge({ kind: g.kind }) +
+          '<span class="pr-region">' + esc(g.region || '-') + '</span>' +
+          finBadge(g.first) +
+          siBadge(g.first) +
+          (g.industry ? '<span class="pr-role">' + esc(g.industry) + '</span>' : '') +
+          (g.year ? '<span class="pr-year">' + esc(g.year) + '</span>' : '') +
+          (g.amount ? '<span class="pr-amount">' + esc(g.amount) + '억</span>' : '') +
+          ownerBadge(g) +
+          '<span class="pr-cnt" title="이 회사의 컨택포인트 수">👥 담당자 ' + g.named + '명' + (g.privateN ? ' · 🔒 ' + g.privateN : '') + '</span>' +
+        '</div>' +
+        '<div class="pr-name">' + esc(g.company) +
+          (g.rows.length > 1 ? '<span class="pr-multi">컨택포인트 ' + g.rows.length + '개</span>' : '') + '</div>' +
+        (g.case_info ? '<div class="pr-case">' + esc(g.case_info) + '</div>' : '') +
+        (sub ? '<div class="pr-sub">' + esc(sub) + '</div>' : '') +
+        '<div class="pr-contacts">' + g.rows.map(contactLine).join('') + '</div>' +
+        (addBtn ? '<div class="pr-groupfoot">' + addBtn + '</div>' : '') +
+      '</div>' +
       '</div>';
   }
 
@@ -1038,12 +1106,15 @@
 
   function render() {
     var rows = filtered();
+    var groups = state.mode === 'fi' ? null : groupRows(rows);
     var host = $('#poolList');
     var selCount = selectedRows().length;
     var withEmail = rows.filter(function (r) { return r.email; }).length;
     var fundRows = state.mode === 'fi' ? rows.filter(function (r) { return fiData(r).funds.length; }).length : 0;
     var finRows = rows.filter(function (r) { return !!finInfo(r); }).length;
-    $('#poolResultCount').textContent = rows.length + '건 · 이메일 ' + withEmail + '건' +
+    $('#poolResultCount').textContent = rows.length + '건' +
+      (groups ? ' · ' + groups.length + '개사' : '') +
+      ' · 이메일 ' + withEmail + '건' +
       (finRows ? ' · 📊 재무 ' + finRows + '건' : '') +
       (state.mode === 'fi' ? ' · 펀드정보 ' + fundRows + '건' : '');
 
@@ -1066,11 +1137,21 @@
       return;
     }
     var limit = modeDef(state.mode).limit || 400;
-    var shown = rows.slice(0, limit);
-    var html = shown.map(state.mode === 'fi' ? fiRowHtml : siRowHtml).join('');
-    if (rows.length > shown.length) {
-      html = '<div class="pool-empty" style="padding:8px 4px;font-size:12px">' +
-        rows.length + '건 중 ' + shown.length + '건만 표시 — 분류·권역·검색으로 좁히세요 (선택·메일 발송은 필터 결과 전체에 적용)</div>' + html;
+    var html;
+    if (groups) {
+      var gshown = groups.slice(0, limit);
+      html = gshown.map(groupRowHtml).join('');
+      if (groups.length > gshown.length) {
+        html = '<div class="pool-empty" style="padding:8px 4px;font-size:12px">' +
+          groups.length + '개사 중 ' + gshown.length + '개사만 표시 — 분류·권역·검색으로 좁히세요 (선택·메일 발송은 필터 결과 전체에 적용)</div>' + html;
+      }
+    } else {
+      var shown = rows.slice(0, limit);
+      html = shown.map(fiRowHtml).join('');
+      if (rows.length > shown.length) {
+        html = '<div class="pool-empty" style="padding:8px 4px;font-size:12px">' +
+          rows.length + '건 중 ' + shown.length + '건만 표시 — 분류·권역·검색으로 좁히세요 (선택·메일 발송은 필터 결과 전체에 적용)</div>' + html;
+      }
     }
     host.innerHTML = html;
     updateCompose(selCount);
@@ -1196,15 +1277,30 @@
     body += finSectionHtml(r);
 
     var canEdRow = canEditRow(r);
+    /* 같은 회사의 컨택포인트를 모두 모아 보여 줍니다 (행 1개 = 담당자 1명) */
+    var peers = state.rows.filter(function (x) { return companyKeyOf(x) === companyKeyOf(r); });
+    if (!peers.length) peers = [r];
+    if (peers.indexOf(r) < 0) peers.unshift(r);
+    var anyContact = peers.some(function (x) { return x.contact || x.email || x.phone; });
     body += '<div class="dc-sec"><h4>담당자(컨택포인트)' +
-      (canEdRow ? ' <button type="button" class="mini-btn dc-edit" data-edit="' + esc(r.id) + '">✏️ 컨택포인트 변경</button>' : '') + '</h4>' +
-      (r.contact || r.email || r.phone
-        ? '<div class="dc-contact">' +
-          (r.contact ? '<span class="pc-name">👤 ' + esc(r.contact) + (r.title ? ' <span class="pc-title">' + esc(r.title) + '</span>' : '') + '</span>' : '') +
-          (r.email ? '<a class="pc-mail" href="mailto:' + esc(r.email.split(',')[0].trim()) + '">✉️ ' + esc(r.email) + '</a>' : '<span class="pc-none">이메일 없음</span>') +
-          (r.phone ? '<a class="pc-tel" href="tel:' + esc(r.phone.replace(/[^0-9+]/g, '')) + '">☎ ' + esc(r.phone) + '</a>' : '') +
-          '</div>'
-        : '<div class="dc-none">등록된 담당자 없음' + (canEdRow ? ' — <b>✏️ 컨택포인트 변경</b>을 눌러 추가하세요.' : '') + '</div>') +
+      (peers.length > 1 ? ' <span class="pr-cnt">' + peers.length + '명</span>' : '') +
+      (canEdRow ? ' <button type="button" class="mini-btn dc-edit" data-addc="' + esc(r.id) + '">＋ 담당자 추가</button>' : '') + '</h4>' +
+      peers.map(function (p) {
+        var masked = isExternal() || !!p.contact_private;
+        var tel = String(p.phone || '');
+        return '<div class="dc-contact dc-crow">' +
+          (masked
+            ? '<span class="pc-mask">🔒 ' + (isExternal() ? '담당자 연락처·이메일은 비공개입니다'
+              : '다른 담당자가 등록한 컨택포인트 — 등록자와 관리자만 볼 수 있습니다') + '</span>'
+            : ((p.contact ? '<span class="pc-name">👤 ' + esc(p.contact) + (p.title ? ' <span class="pc-title">' + esc(p.title) + '</span>' : '') + '</span>'
+                : '<span class="pc-none">👤 담당자 미기재</span>') +
+              (p.email ? '<a class="pc-mail" href="mailto:' + esc(String(p.email).split(',')[0].trim()) + '">✉️ ' + esc(p.email) + '</a>'
+                : '<span class="pc-none">이메일 없음</span>') +
+              ((!tel || tel === '비공개') ? '' : '<a class="pc-tel" href="tel:' + esc(tel.replace(/[^0-9+]/g, '')) + '">☎ ' + esc(tel) + '</a>'))) +
+          (canEditRow(p) ? '<button type="button" class="mini-btn dc-edit" data-edit="' + esc(p.id) + '" title="이 담당자 정보 수정">✏️</button>' : '') +
+          '</div>';
+      }).join('') +
+      (anyContact ? '' : '<div class="dc-none">등록된 담당자 없음' + (canEdRow ? ' — <b>＋ 담당자 추가</b>로 추가하세요.' : '') + '</div>') +
       '</div>';
 
     if (fi) {
@@ -1300,6 +1396,12 @@
       if (edId) {
         var er = state.rows.filter(function (x) { return x.id === edId; })[0];
         if (er) openEditor(er);
+        return;
+      }
+      var acId = t.getAttribute('data-addc');
+      if (acId) {
+        var ab = state.rows.filter(function (x) { return x.id === acId; })[0];
+        if (ab) openContactAdd(ab);
       }
     };
   }
@@ -1329,8 +1431,19 @@
     return Object.keys(set).sort().map(function (o) { return '<option value="' + esc(o) + '"></option>'; }).join('');
   }
 
-  function openEditor(row) {
+  /** 컨택포인트 편집 — opt.base 를 주면 "기존 기업에 담당자만 추가"(회사 정보는 잠금). */
+  function openEditor(row, opt) {
+    opt = opt || {};
     var isNew = !row;
+    var lockCo = isNew && !!opt.base;
+    if (lockCo) {
+      var b0 = opt.base;
+      row = {
+        id: '', kind: b0.kind, region: b0.region || '', company: b0.company || '', industry: b0.industry || '',
+        role: b0.role || '', case_info: '', amount: '', year: '', contact: '', title: '', email: '', phone: '',
+        temp: '', centers: '', expansion: '', notes: '', source: '', owner: b0.owner || ''
+      };
+    }
     row = row || {
       id: '',
       kind: (state.role === 'logi' ? 'shipper' : (state.mode === 'fi' ? 'blind_fund' : 'office')),
@@ -1346,22 +1459,37 @@
       '수도권 동남', '수도권 남부', '수도권 서부', '수도권 동부', '충청', '지방·전국', '전국·미확인',
       '서울 오피스', '수도권 물류·DC', '전국'])
       .filter(function (x, i, a) { return a.indexOf(x) === i; });
+    var headTitle = isNew ? (lockCo ? '컨택포인트 추가 — ' + (row.company || '') : '컨택포인트 추가') : '컨택포인트 변경';
+    var headHint = lockCo
+      ? '기존에 등록된 회사 정보(회사명·권역·업종)는 그대로 두고 담당자(컨택포인트)만 새로 추가합니다. 저장하면 같은 회사의 새 행으로 비공개 시트 <code>investors</code>에 쌓이고, 목록 카드에는 이 회사 담당자로 함께 표시됩니다.'
+      : ((isNew ? 'SI·화주사 담당자(컨택포인트)를 새로 등록합니다. ' : '기존 담당자 정보를 수정합니다. ') +
+        '저장하면 비공개 시트 <code>investors</code>에 반영되고 목록·상세에 바로 표시됩니다.<br>펀드 상세는 <code>[펀드명] LP:… | 전략:… | 규모:… | 목표IRR:… | 지역:… | 만기:…</code> 형식으로 넣으면 🏦 FI 카드에 자동 표시됩니다.');
     var html =
       '<div class="modal-card mf-card">' +
-      '<div class="modal-head"><h3>' + (isNew ? '컨택포인트 추가' : '컨택포인트 변경') + '</h3><button type="button" class="icon-btn" data-close="1" aria-label="닫기">×</button></div>' +
-      '<p class="mf-hint">' + (isNew ? 'SI·화주사 담당자(컨택포인트)를 새로 등록합니다. ' : '기존 담당자 정보를 수정합니다. ') +
-        '저장하면 비공개 시트 <code>investors</code>에 반영되고 목록·상세에 바로 표시됩니다.<br>펀드 상세는 <code>[펀드명] LP:… | 전략:… | 규모:… | 목표IRR:… | 지역:… | 만기:…</code> 형식으로 넣으면 🏦 FI 카드에 자동 표시됩니다.</p>' +
+      '<div class="modal-head"><h3>' + esc(headTitle) + '</h3><button type="button" class="icon-btn" data-close="1" aria-label="닫기">×</button></div>' +
+      '<p class="mf-hint">' + headHint + '</p>' +
       '<div id="mfError" class="mf-err hidden"></div>' +
-      '<div class="mf-sec">① 회사·구분</div>' +
-      '<div class="mf-grid">' +
-        fieldRow('구분', 'kind', row.kind, { pairs: kindPairs }) +
-        fieldRow('권역', 'region', row.region, { pairs: regionOpts.map(function (x) { return [x, x]; }) }) +
-        '<label class="mf mf-wide"><span>회사·기관명 <b class="mf-req">필수</b></span>' +
-          '<input data-k="company" type="text" value="' + esc(row.company || '') + '" placeholder="예) ○○자산운용 · ○○물류"></label>' +
-        fieldRow('업종·섹터', 'industry', row.industry) +
-        fieldRow('성격·역할', 'role', row.role) +
-      '</div>' +
-      '<div class="mf-sec">② 컨택포인트(담당자)</div>' +
+      '<div class="mf-sec">① 회사·구분' + (lockCo ? ' <span class="mf-lock">기존 등록값 유지</span>' : '') + '</div>' +
+      (lockCo
+        ? ('<div class="mf-roco">' + kindBadge({ kind: row.kind }) +
+            '<b>' + esc(row.company) + '</b>' +
+            '<span class="pr-region">' + esc(row.region || '-') + '</span>' +
+            (row.industry ? '<span class="pr-role">' + esc(row.industry) + '</span>' : '') +
+            '</div>' +
+            '<input type="hidden" data-k="kind" value="' + esc(row.kind) + '">' +
+            '<input type="hidden" data-k="region" value="' + esc(row.region) + '">' +
+            '<input type="hidden" data-k="company" value="' + esc(row.company) + '">' +
+            '<input type="hidden" data-k="industry" value="' + esc(row.industry) + '">' +
+            '<input type="hidden" data-k="role" value="' + esc(row.role) + '">')
+        : ('<div class="mf-grid">' +
+            fieldRow('구분', 'kind', row.kind, { pairs: kindPairs }) +
+            fieldRow('권역', 'region', row.region, { pairs: regionOpts.map(function (x) { return [x, x]; }) }) +
+            '<label class="mf mf-wide"><span>회사·기관명 <b class="mf-req">필수</b></span>' +
+              '<input data-k="company" type="text" value="' + esc(row.company || '') + '" placeholder="예) ○○자산운용 · ○○물류"></label>' +
+            fieldRow('업종·섹터', 'industry', row.industry) +
+            fieldRow('성격·역할', 'role', row.role) +
+            '</div>')) +
+      '<div class="mf-sec">② 컨택포인트(담당자)' + (lockCo ? ' <b class="mf-req">담당자명 또는 이메일 필수</b>' : '') + '</div>' +
       (row.contact_private ? '<p class="mf-hint">🔒 이 화주사의 컨택포인트는 다른 담당자가 등록했습니다. 회사·업종·센터 정보만 수정되고, 컨택포인트는 그대로 보존됩니다.</p>' : '') +
       '<div class="mf-grid">' +
         fieldRow('담당자명', 'contact', row.contact) +
@@ -1369,23 +1497,31 @@
         fieldRow('연락처(전화)', 'phone', row.phone) +
         fieldRow('이메일', 'email', row.email) +
       '</div>' +
-      '<div class="mf-sec">③ 관심도·관리 정보</div>' +
-      '<div class="mf-grid">' +
-        fieldRow('관심도·온도', 'temp', row.temp) +
-        fieldRow('확인 센터수', 'centers', row.centers) +
-        fieldRow('확장·수요 권역', 'expansion', row.expansion) +
-        '<label class="mf"><span>NAI 담당자</span>' +
-          '<input data-k="owner" list="mfOwnerList" type="text" value="' + esc(row.owner || '') + '" placeholder="예) 권준오 상무 — 비우면 담당 미지정">' +
-          '<datalist id="mfOwnerList">' + ownerOptions() + '</datalist></label>' +
-      '</div>' +
-      '<div class="mf-sec">④ 상세·근거</div>' +
-      '<div class="mf-grid">' +
-        fieldRow('사례·펀드·전략 상세', 'case_info', row.case_info, { textarea: true, rows: 3 }) +
-        fieldRow('금액·규모(억)', 'amount', row.amount) +
-        fieldRow('연도', 'year', row.year) +
-        fieldRow('출처', 'source', row.source) +
-        '<label class="mf mf-wide"><span>메모·근거</span><textarea data-k="notes" rows="3" placeholder="미팅·통화 내용, 변경 사유 등">' + esc(row.notes || '') + '</textarea></label>' +
-      '</div>' +
+      (lockCo
+        ? ('<div class="mf-sec">③ 메모·NAI 담당자</div>' +
+            '<div class="mf-grid">' +
+              '<label class="mf"><span>NAI 담당자</span>' +
+                '<input data-k="owner" list="mfOwnerList" type="text" value="' + esc(row.owner || '') + '" placeholder="예) 권준오 상무 — 비우면 담당 미지정">' +
+                '<datalist id="mfOwnerList">' + ownerOptions() + '</datalist></label>' +
+              '<label class="mf mf-wide"><span>메모·근거(선택)</span><textarea data-k="notes" rows="3" placeholder="통화·미팅 내용, 추가 사유 등">' + esc(row.notes || '') + '</textarea></label>' +
+            '</div>')
+        : ('<div class="mf-sec">③ 관심도·관리 정보</div>' +
+            '<div class="mf-grid">' +
+              fieldRow('관심도·온도', 'temp', row.temp) +
+              fieldRow('확인 센터수', 'centers', row.centers) +
+              fieldRow('확장·수요 권역', 'expansion', row.expansion) +
+              '<label class="mf"><span>NAI 담당자</span>' +
+                '<input data-k="owner" list="mfOwnerList" type="text" value="' + esc(row.owner || '') + '" placeholder="예) 권준오 상무 — 비우면 담당 미지정">' +
+                '<datalist id="mfOwnerList">' + ownerOptions() + '</datalist></label>' +
+            '</div>' +
+            '<div class="mf-sec">④ 상세·근거</div>' +
+            '<div class="mf-grid">' +
+              fieldRow('사례·펀드·전략 상세', 'case_info', row.case_info, { textarea: true, rows: 3 }) +
+              fieldRow('금액·규모(억)', 'amount', row.amount) +
+              fieldRow('연도', 'year', row.year) +
+              fieldRow('출처', 'source', row.source) +
+              '<label class="mf mf-wide"><span>메모·근거</span><textarea data-k="notes" rows="3" placeholder="미팅·통화 내용, 변경 사유 등">' + esc(row.notes || '') + '</textarea></label>' +
+            '</div>')) +
       '<div class="modal-foot">' +
         '<button type="button" class="btn btn-outline" data-close="1">취소</button>' +
         '<button type="button" class="btn btn-solid" id="mfSave">저장</button>' +
@@ -1420,30 +1556,49 @@
     $('#mfSave').onclick = function () {
       var out = { id: row.id || '' };
       $$('#poolModal [data-k]').forEach(function (el) { out[el.getAttribute('data-k')] = el.value.trim(); });
+      /* 기존 기업에 담당자만 추가할 때 — 화면에 없는 회사 정보(센터·확장·사례 등)는 기존 행 값을 그대로 복제 */
+      if (lockCo && opt.base) {
+        ['kind', 'region', 'company', 'industry', 'role', 'temp', 'centers', 'expansion', 'case_info', 'amount', 'year', 'owner'].forEach(function (f) {
+          if (!out[f] && opt.base[f]) out[f] = opt.base[f];
+        });
+      }
       var bad = '';
       if (!out.company) bad = '회사·기관명을 입력하세요.';
+      else if (lockCo && !out.contact && !out.email) bad = '담당자명 또는 이메일 중 하나를 입력하세요.';
       else if (out.email && out.email.indexOf('@') < 1) bad = '이메일 형식(@)을 확인하세요.';
       else if (out.phone && out.phone !== '비공개' && String(out.phone).replace(/[^0-9]/g, '').length < 7) bad = '연락처(전화)를 확인하세요.';
+      else if (out.email) {
+        var dupE = state.rows.filter(function (x) {
+          return x.id !== out.id && companyKeyOf(x) === companyKeyOf(out) &&
+            String(x.email || '').toLowerCase().trim() === String(out.email).toLowerCase().trim();
+        })[0];
+        if (dupE) bad = '이미 이 회사에 같은 이메일의 담당자가 있습니다' + (dupE.contact ? ' (' + dupE.contact + ')' : '') + '.';
+      }
       if (bad) { showErr(bad); return; }
       if (!out.id) {
         var pre = out.kind === 'blind_fund' ? 'bf' : out.kind === 'reit_foreign' ? 'rf'
           : out.kind === 'pension_lp' ? 'lp' : out.kind === 'shipper' ? 'shp' : 'off';
-        out.id = 'inv-' + pre + '-' + Date.now().toString(36);
+        out.id = 'inv-' + pre + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
       }
       out.kind = normKind(out.kind);
       out.updated_at = ymd();
-      if (!out.source) out.source = '앱 직접 입력 · ' + roleName_();
+      if (!out.source) out.source = (lockCo ? '기존 ' + (state.mode === 'ship' ? '화주사' : 'SI 기업') + '에 컨택포인트 추가' : '앱 직접 입력') + ' · ' + roleName_();
       var btn = $('#mfSave');
       if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
       saveInvestor_(out).then(function (j) {
         if (btn) { btn.disabled = false; btn.textContent = '저장'; }
         if (j && j.ok) {
-          var i = state.rows.findIndex(function (r) { return r.id === out.id; });
-          if (i >= 0) state.rows[i] = out; else state.rows.unshift(out);
+          /* 서버가 붙인 값(등록자 contact_owner·updated_at)을 반영해 카드가 바로 맞게 보이도록 */
+          var saved = (j && j.items && j.items[0]) ? Object.assign({}, out, j.items[0]) : out;
+          if (!saved.id) saved.id = out.id;
+          saved.kind = normKind(saved.kind);
+          var i = state.rows.findIndex(function (r) { return r.id === saved.id; });
+          if (i >= 0) state.rows[i] = saved; else state.rows.unshift(saved);
           try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), rows: state.rows })); } catch (e1) { /* noop */ }
           closeEditor();
           renderChips(); render();
-          toast(isNew ? '컨택포인트를 추가했습니다.' : '컨택포인트를 변경했습니다.');
+          toast(lockCo ? (saved.company + ' — 담당자를 추가했습니다.')
+            : (isNew ? '컨택포인트를 추가했습니다.' : '컨택포인트를 변경했습니다.'));
         } else {
           var e = (j && j.error) ? String(j.error) : '알 수 없는 오류';
           if (isDenied_(e)) {
@@ -1460,6 +1615,101 @@
   function closeEditor() {
     var root = $('#poolModal');
     if (root) { root.classList.add('hidden'); root.innerHTML = ''; }
+  }
+
+  /* ─────────────── ＋ 추가 방식 선택 · 기존 기업 고르기 (2026-11-28) ───────────────
+     '기존 화주사에 담당자 추가' 와 '새 화주사 등록' 두 갈래를 고르게 합니다. */
+  function addNoun_() { return state.mode === 'ship' ? '화주사' : (state.mode === 'fi' ? 'FI 대상' : 'SI 기업'); }
+
+  function openAddChooser() {
+    var noun = addNoun_();
+    var addBtn = $('#poolAddBtn');
+    var title = addBtn ? addBtn.textContent : '＋ 컨택포인트 추가';
+    var html = '<div class="modal-card mf-card addc-card" role="dialog" aria-modal="true">' +
+      '<div class="modal-head"><h3>' + esc(title) + '</h3>' +
+      '<button type="button" class="icon-btn" data-close="1" aria-label="닫기">×</button></div>' +
+      '<p class="mf-hint">어느 방식으로 추가할까요?</p>' +
+      '<div class="addc-list">' +
+        '<button type="button" class="addc-opt" data-addmode="existing">' +
+          '<b>🏢 기존 ' + esc(noun) + '에 담당자 추가</b>' +
+          '<span>이미 등록된 ' + esc(noun) + '를 고르면 회사 정보는 그대로 두고 담당자(컨택포인트)만 새로 쌓입니다. 같은 회사에 담당자가 여러 명일 때 쓰세요.</span></button>' +
+        '<button type="button" class="addc-opt" data-addmode="new">' +
+          '<b>✨ 새 ' + esc(noun) + ' 등록</b>' +
+          '<span>회사 정보부터 새로 입력해 등록합니다.</span></button>' +
+      '</div></div>';
+    var root = $('#poolModal');
+    root.innerHTML = '<div class="modal-backdrop" data-close="1"></div>' + html;
+    root.classList.remove('hidden');
+    root.onclick = function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      if (t.closest('[data-close]')) { closeEditor(); return; }
+      var m = t.closest('[data-addmode]');
+      if (!m) return;
+      if (m.getAttribute('data-addmode') === 'new') openEditor(null);
+      else openCompanyPicker();
+    };
+  }
+
+  function openCompanyPicker() {
+    var noun = addNoun_();
+    var all = groupRows(state.rows.filter(inMode));
+    var html = '<div class="modal-card mf-card pick-card" role="dialog" aria-modal="true">' +
+      '<div class="modal-head"><h3>기존 ' + esc(noun) + ' 선택</h3>' +
+      '<button type="button" class="icon-btn" data-close="1" aria-label="닫기">×</button></div>' +
+      '<p class="mf-hint">담당자를 추가할 ' + esc(noun) + '를 고르세요. 회사 정보는 그대로 두고 담당자만 새로 추가됩니다.<span id="pkCount" class="pf-count"></span></p>' +
+      '<label class="mf mf-wide"><span>검색</span>' +
+        '<input id="pkSearch" type="text" autocomplete="off" placeholder="회사명·업종·권역 검색"></label>' +
+      '<div id="pkList" class="pk-list"></div>' +
+      '<div class="modal-foot"><button type="button" class="btn btn-outline" data-back="1">← 방식 다시 고르기</button>' +
+      '<button type="button" class="btn btn-outline" data-close="1">취소</button></div>' +
+      '</div>';
+    var root = $('#poolModal');
+    root.innerHTML = '<div class="modal-backdrop" data-close="1"></div>' + html;
+    root.classList.remove('hidden');
+
+    function paint() {
+      var inp = $('#pkSearch');
+      var q = String((inp && inp.value) || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+      var list = all.filter(function (g) {
+        if (!q.length) return true;
+        var hay = [g.company, g.industry, g.region, g.role, kindLabel(g.kind)].join(' ').toLowerCase();
+        for (var i = 0; i < q.length; i++) if (hay.indexOf(q[i]) === -1) return false;
+        return true;
+      });
+      var c = $('#pkCount');
+      if (c) c.textContent = ' · ' + list.length + '개사';
+      var host = $('#pkList');
+      if (!host) return;
+      host.innerHTML = list.length ? list.map(function (g) {
+        return '<button type="button" class="pk-item" data-pick="' + esc(g.rows[0].id) + '">' +
+          '<span class="pk-name">' + esc(g.company) + '</span>' +
+          '<span class="pk-meta">' + esc([g.region, g.industry].filter(Boolean).join(' · ')) + '</span>' +
+          '<span class="pk-cnt">담당자 ' + g.named + '명</span></button>';
+      }).join('') : '<div class="pk-empty">검색 결과가 없습니다. “새 ' + esc(noun) + ' 등록”으로 진행하세요.</div>';
+    }
+    paint();
+    var si = $('#pkSearch');
+    if (si) { si.focus(); si.addEventListener('input', paint); }
+    root.onclick = function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      if (t.closest('[data-close]')) { closeEditor(); return; }
+      if (t.closest('[data-back]')) { openAddChooser(); return; }
+      var p = t.closest('[data-pick]');
+      if (!p) return;
+      var pid = p.getAttribute('data-pick');
+      var base = state.rows.filter(function (x) { return x.id === pid; })[0];
+      if (!base) { toast('회사를 찾지 못했습니다. 목록을 새로고침한 뒤 다시 시도하세요.', true); return; }
+      openContactAdd(base);
+    };
+  }
+
+  /** 카드·상세의 '＋ 담당자' — 기존 회사 정보를 잠근 채 담당자만 추가 */
+  function openContactAdd(base) {
+    if (!base) return;
+    if (!canEditRow(base)) { toast('이 항목을 추가할 권한이 없습니다.', true); return; }
+    openEditor(null, { base: base });
   }
 
   function deleteRow(id) {
@@ -1655,18 +1905,55 @@
     if (sie) sie.addEventListener('change', function () { state.siEvent = sie.value || 'ALL'; render(); });
     $('#poolAddBtn').addEventListener('click', function () {
       if (!canEdit()) { toast('읽기 전용 모드입니다.', true); return; }
-      openEditor(null);
+      if (state.mode === 'fi') { openEditor(null); return; }   /* FI는 새 대상 등록 흐름 그대로 */
+      openAddChooser();
     });
+    /* 회사 카드의 '담당자 전체 선택' 체크박스 상태를 맞춥니다 */
+    function syncGroupCheck_(grp) {
+      if (!grp) return;
+      var boxes = $$('[data-check]', grp);
+      var all = boxes.length > 0 && boxes.every(function (b) { return b.checked; });
+      var gb = $('[data-gids]', grp);
+      if (gb) gb.checked = all;
+      grp.classList.toggle('is-sel', all);
+    }
     $('#poolList').addEventListener('click', function (e) {
-      var chk = e.target.closest('[data-check]');
-      if (chk) {
-        state.sel[chk.getAttribute('data-check')] = chk.checked;
-        var row = chk.closest('.pool-row');
-        if (row) row.classList.toggle('is-sel', chk.checked);
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var gc = t.closest('[data-gids]');
+      if (gc) {
+        var gids = String(gc.getAttribute('data-gids') || '').split(' ').filter(Boolean);
+        var on = !!gc.checked;
+        gids.forEach(function (id) {
+          state.sel[id] = on;
+          var bx = $('#poolList [data-check="' + id + '"]');
+          if (bx) bx.checked = on;
+          var cr = bx ? bx.closest('.pr-crow') : null;
+          if (cr) cr.classList.toggle('is-sel', on);
+        });
+        var gp = gc.closest('.pool-group');
+        if (gp) gp.classList.toggle('is-sel', on);
         updateCompose();
         return;
       }
-      var op = e.target.closest('[data-open]');
+      var chk = t.closest('[data-check]');
+      if (chk) {
+        state.sel[chk.getAttribute('data-check')] = chk.checked;
+        var crow = chk.closest('.pr-crow');
+        if (crow) crow.classList.toggle('is-sel', chk.checked);
+        var grow = chk.closest('.pool-row');
+        if (grow) grow.classList.toggle('is-sel', chk.checked);
+        syncGroupCheck_(chk.closest('.pool-group'));
+        updateCompose();
+        return;
+      }
+      var ad = t.closest('[data-addc]');
+      if (ad) {
+        var abase = state.rows.filter(function (x) { return x.id === ad.getAttribute('data-addc'); })[0];
+        openContactAdd(abase);
+        return;
+      }
+      var op = t.closest('[data-open]');
       if (op) {
         openDetail(state.rows.filter(function (r) { return r.id === op.getAttribute('data-open'); })[0]);
         return;
@@ -1680,8 +1967,21 @@
       var dl = e.target.closest('[data-del]');
       if (dl) { deleteRow(dl.getAttribute('data-del')); return; }
       if (e.target.closest('a')) return;
+      /* 회사 카드 안의 담당자 줄을 누르면 그 담당자만 선택 토글 */
+      var cr2 = e.target.closest('.pr-crow');
+      if (cr2) {
+        var bx2 = cr2.querySelector('[data-check]');
+        if (bx2) {
+          bx2.checked = !bx2.checked;
+          state.sel[bx2.getAttribute('data-check')] = bx2.checked;
+          cr2.classList.toggle('is-sel', bx2.checked);
+          syncGroupCheck_(cr2.closest('.pool-group'));
+          updateCompose();
+        }
+        return;
+      }
       var r = e.target.closest('.pool-row');
-      if (r && !e.target.closest('label')) {
+      if (r && !r.classList.contains('pool-group') && !e.target.closest('label')) {
         var box = r.querySelector('[data-check]');
         if (box) { box.checked = !box.checked; state.sel[box.getAttribute('data-check')] = box.checked; r.classList.toggle('is-sel', box.checked); updateCompose(); }
       }

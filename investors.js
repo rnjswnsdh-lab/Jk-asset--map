@@ -1536,7 +1536,7 @@
               fieldRow('확인 센터수', 'centers', row.centers) +
               fieldRow('확장·수요 권역', 'expansion', row.expansion) +
               '<label class="mf"><span>NAI 담당자</span>' +
-                '<input data-k="owner" list="mfOwnerList" type="text" value="' + esc(row.owner || '') + '" placeholder="예) 권준오 상무 — 비우면 담당 미지정">' +
+                '<input data-k="owner" list="mfOwnerList" type="text" value="' + esc(row.owner || '') + '" placeholder="예) 담당자 구분명 — 비우면 담당 미지정">' +
                 '<datalist id="mfOwnerList">' + ownerOptions() + '</datalist></label>' +
             '</div>' +
             '<div class="mf-sec">④ 상세·근거</div>' +

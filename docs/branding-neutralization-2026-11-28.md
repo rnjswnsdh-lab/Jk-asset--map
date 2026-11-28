@@ -17,25 +17,25 @@
 | 위치 | 이전 | 이후 |
 |---|---|---|
 | `config.js` PICKLE_MODE / PICKLE_INVITE_URL | `"invite"` + 개인 초대 링크 `pickle.com/i/2X6HQCBL47MN` | `"default"`, 초대 링크 빈 값 |
-| `ai.js` pickleNote() | `권준오 상무의 피클 초대 링크 · pickle.com` | `AI 대화형 분석 · pickle.com` |
+| `ai.js` pickleNote() | `<운영자 실명> 상무의 피클 초대 링크 · pickle.com` | `AI 대화형 분석 · pickle.com` |
 | `ai.js` 진입 URL 로직 | 초대 링크 우선 | 초대 링크가 비어 있으면 일반 진입(`pickle.com/app`) |
-| `match.js` AI 매칭 CTA 주석·문구 | `권준오 상무의 피클 초대 링크 · pickle.com` | `AI 대화형 분석 · pickle.com` |
-| `index.html` 리멤버 게이트 안내 | `권준오 상무와 리멤버 명함을 교환하셨다면…` | `담당자와 리멤버 명함을 교환하셨다면…` |
-| `index.html` 신규등록 안내 | `리멤버 앱에서 권준오(010-7731-4316)를 검색해…` | `리멤버 앱에서 담당자 명함을 교환해 주세요…` (개인 번호 제거) |
-| `home.js` IM/TM 브리프 Contact 슬라이드 | `NAI Korea` 주소·TEL·`담당 권준오 상무 · 010-7731-4316 · jk@naikorea.com` | 플랫폼 이름 + `PLATFORM.contact`(비면 "플랫폼 접수 화면을 통해 문의") |
+| `match.js` AI 매칭 CTA 주석·문구 | `<운영자 실명> 상무의 피클 초대 링크 · pickle.com` | `AI 대화형 분석 · pickle.com` |
+| `index.html` 리멤버 게이트 안내 | `<운영자 실명> 상무와 리멤버 명함을 교환하셨다면…` | `담당자와 리멤버 명함을 교환하셨다면…` |
+| `index.html` 신규등록 안내 | `리멤버 앱에서 <운영자 이름>(<개인 휴대폰>)를 검색해…` | `리멤버 앱에서 담당자 명함을 교환해 주세요…` (개인 번호 제거) |
+| `home.js` IM/TM 브리프 Contact 슬라이드 | `NAI Korea` 주소·TEL·`담당 <운영자 실명> 상무 · <개인 휴대폰> · <업무 이메일>` | 플랫폼 이름 + `PLATFORM.contact`(비면 "플랫폼 접수 화면을 통해 문의") |
 | `home.js` IM 표지 문구 | `NAI Korea 매각자문 · 날짜` | `매각자문 브리프 · 날짜` |
 | `home.js` Next Step | `NAI Korea 담당자와 조건 협의 후…` | `담당자와 조건 협의 후…` |
 | `home.js` 브리프 하단 | `NAI Korea · Open AI Asset Bridge · 날짜` / `NAI Korea 양식(.pptx/PDF)` | 플랫폼 표기(`PLATFORM.footer`) / `별도 양식(.pptx/PDF)` |
 | `share.js` 발신자 상수 `ME` | 이름·직함·휴대폰·회사·주소 하드코딩 | 삭제 → `PLATFORM.name()/contact()` |
 | `share.js` 메일 제목 머리 | `[NAI Korea]` | `[Open AI Asset Bridge]` |
-| `share.js` 인사말 | `안녕하세요, NAI Korea 권준오 상무입니다.` | `안녕하세요, Open AI Asset Bridge 담당자입니다.` |
+| `share.js` 인사말 | `안녕하세요, NAI Korea <운영자 실명> 상무입니다.` | `안녕하세요, Open AI Asset Bridge 담당자입니다.` |
 | `share.js` 회신 안내·서명 | `NAI Korea에서 조건 확인 후…` / 회사·이름·직함·TEL·E | `조건 확인 후…` / 플랫폼 이름 + `PLATFORM.contact` |
 | `investors.js` 담당 연락처 비공개 안내 | `문의: NAI Korea` | `문의: Open AI Asset Bridge` |
 | `investors.js` 티저 메일 제목 | `[NAI Korea] 물건 티저 안내` | `[Open AI Asset Bridge] 물건 티저 안내` |
-| `investors.js` 메일 서명 | `NAI Korea 권준오 상무` | 플랫폼 이름 |
-| `investors.js` 담당자 기본 후보·입력 예시 | `['권준오 상무']`, `예) 권준오 상무 — 비우면 담당 미지정` | 빈 목록, `예) 담당자 구분명 — 비우면 담당 미지정` |
-| `broadcast.js` 아티클 공유 인사 | `안녕하세요, NAI Korea 권준오입니다.` | `안녕하세요, Open AI Asset Bridge입니다.` |
-| `crm.js` 작성자명 입력 예시 | `예) 권준오` | `예) 홍길동` |
+| `investors.js` 메일 서명 | `NAI Korea <운영자 실명> 상무` | 플랫폼 이름 |
+| `investors.js` 담당자 기본 후보·입력 예시 | `['<운영자 실명> 상무']`, `예) <운영자 실명> 상무 — 비우면 담당 미지정` | 빈 목록, `예) 담당자 구분명 — 비우면 담당 미지정` |
+| `broadcast.js` 아티클 공유 인사 | `안녕하세요, NAI Korea <운영자 이름>입니다.` | `안녕하세요, Open AI Asset Bridge입니다.` |
+| `crm.js` 작성자명 입력 예시 | `예) <운영자 이름>` | `예) 홍길동` |
 | `hub.js` TR 임차의뢰 설명 | `NAI Korea 가 보유 물건 …` | `보유 자산 DB · 매각·LM 물건 …` |
 | `adminhq.js` 소속 입력 예시 | `예) NAI Korea CM팀` | `예) CM팀` |
 | `rfp.js` / `rfpflow.js` 메일 문의 기본값 | `문의: NAI Korea` | 플랫폼 이름 |
@@ -64,9 +64,9 @@
 
 | 위치 | 이전 | 이후 |
 |---|---|---|
-| `home.js` 홈 히어로 접속자 표기 | `기준 2026-11-28 · 권준오` | `기준 2026-11-28 · 관리자` (역할만: 관리자/내부/물류TF/부여 범위 열람/초대 열람/외부 열람) |
+| `home.js` 홈 히어로 접속자 표기 | `기준 2026-11-28 · <운영자 이름>` | `기준 2026-11-28 · 관리자` (역할만: 관리자/내부/물류TF/부여 범위 열람/초대 열람/외부 열람) |
 | `adminlogs.js` 방문자별·전체 로그·CSV | 관리자 계정 행에 실명 | `관리자`로 표기 |
-| `hub.js` 접수 목록·상세의 담당 표기 | `NAI 담당 권준오 상무` | `담당 관리자` (등록 계정이 admin이면 역할로 표기) |
+| `hub.js` 접수 목록·상세의 담당 표기 | `NAI 담당 <운영자 실명> 상무` | `담당 관리자` (등록 계정이 admin이면 역할로 표기) |
 | `hub.js` 접수 폼 기본값 | 관리자·내부 세션의 회사/성명 미리 채움 | 외부 방문자만 본인 정보 미리 채움 |
 | 제목·og:description·푸터·매니페스트 | (개인 이름 없음) | 그대로 — 개인 이름이 남아 있지 않음을 확인 |
 | `NAI 매각`·`NAI 임대`·`NAI 행정` 탭 이름 | — | 데이터 출처 구분으로 유지 |

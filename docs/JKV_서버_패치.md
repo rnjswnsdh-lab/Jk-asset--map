@@ -41,6 +41,10 @@ signature, signature_hash, ua, by
 | `vdr_cas` | `id, room_id, company, name, email, phone, status, submitted_at, approved_at, approved_by, json` |
 | `jkv_logs` | `id, room_id, company, name, email, action, detail, at, role, json` |
 | `jkv_req` | `id, room_id, kind, company, name, email, memo, status, at, json` |
+| `vdr_rooms` *(확장 권장)* | 기존 헤더 + `asset_id, sector, sub_market, gfa_pyeong, site_pyeong, occupancy_pct, built_year, wale_years, tenant_profile, deal_type, timeline, ltv_band, special_note, advisor, tm_url, im_url` |
+
+> **블라인드 표기 메타**는 현재 브라우저(`localStorage` `{prefix}:jkv:rooms:v1`)에도 함께 보존됩니다. 위 컬럼을 시트에 추가하기 전까지 새로고침 후에도 브라우저 단위로 유지되며, 컬럼 추가 후에는 서버값이 우선합니다.
+> CA·로그·요청은 서버 실패 시에도 로컬에 남기고 화면에 `로컬 모드`로 표시합니다.
 
 - `vdr_cas.status` 는 사람이 시트에서 바로 고칠 수 있게 앞 컬럼에도 둡니다. 단, 프런트의 승인 버튼은
   `vdr_ca_status` 액션을 호출하므로 가능하면 화면에서 처리하세요(감사 로그가 함께 남습니다).

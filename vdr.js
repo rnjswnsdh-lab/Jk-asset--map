@@ -170,10 +170,13 @@
     };
   }
   function viewerLabel(roomId) {
-    var c = caFor(roomId);
     var it = myIdentity();
+    if (operatorView()) {
+      return { company: it.company || 'JK Value', name: it.name || '운영자', email: it.email };
+    }
+    var c = caFor(roomId);
     if (c) return { company: c.company || it.company || '-', name: c.name || it.name || '-', email: c.email || it.email || '' };
-    return { company: it.company || (operatorView() ? 'JK Value' : '미인증 방문자'), name: it.name || (operatorView() ? '운영자' : '-'), email: it.email };
+    return { company: it.company || '미인증 방문자', name: it.name || '-', email: it.email };
   }
 
   /* ─────────────────────────── CA 상태 ─────────────────────────── */
@@ -699,7 +702,7 @@
     return '<section class="vdr-doc jkv-locked-doc"><div class="vdr-doc-head"><h4>' + kind.icon + ' ' + esc(kind.label) +
       '<span>' + (d ? rows.length + '행 등록됨' : '미등록') + '</span></h4></div>' +
       '<div class="jkv-doc-lock"><b>🔒 CA 승인 후 열람</b>' +
-      '<span>' + esc(kind.label) + '은(는) JK Value · 매각자문사/운용사 앞 CA 체결 후 공개됩니다.</span>' +
+      '<span>JK Value · 매각자문사/운용사 앞 CA 체결 후 공개 — ' + esc(kind.label) + '</span>' +
       '<button type="button" class="mini-btn" data-vdr="ca-new">CA 제출</button></div></section>';
   }
 
@@ -782,11 +785,12 @@
 
   function caTabHTML(room) {
     var c = caFor(room.id);
-    var st = caStatus(room.id);
+    var op = operatorView();
+    var st = c ? (c.status === '승인' ? '승인' : (c.status === '반려' ? '반려' : '심사중')) : 'none';
     var mine = caList(room.id);
     var h = '<div class="jkv-ca">';
     h += '<div class="jkv-status jkv-st-' + (st === '승인' ? 'ok' : (st === '심사중' ? 'wait' : (st === '반려' ? 'no' : 'none'))) + '">' +
-      '<div><span class="jkv-status-k">현재 상태</span><b>' + esc(operatorView() ? '운영자 — 전체 열람 권한' : (CA_STATUS[st] || st)) + '</b></div>' +
+      '<div><span class="jkv-status-k">현재 CA 상태</span><b>' + esc(CA_STATUS[st] || st) + (op ? ' · 운영자 전체 열람' : '') + '</b></div>' +
       (c ? '<div class="jkv-status-meta"><span>' + esc(c.company || '') + ' · ' + esc(c.name || '') + '</span>' +
         '<span>CA ID ' + esc(c.id) + '</span><span>제출 ' + fmtDT(c.submitted_at) + (c.approved_at ? ' · 승인 ' + fmtDT(c.approved_at) : '') + '</span></div>' : '') +
       '</div>';
@@ -799,6 +803,9 @@
       stepHTML(5, 'LOI 제출', '제안 매입가·자금조달 구조·인수 조건', (myLoi(room.id).length ? 'done' : '')) +
       '</ol>';
 
+    if (op) {
+      h += '<div class="jkv-wait">🛠️ <b>운영자 계정</b>은 CA 상태와 무관하게 전체 자료를 열람합니다. 투자자 CA는 아래 <b>CA 접수·승인 관리</b>에서 승인·반려합니다.</div>';
+    }
     if (st === 'none' || st === '반려') {
       h += '<div class="jkv-ca-cta"><button type="button" class="btn jkv-btn-primary" data-vdr="ca-new">🔐 전자 CA 작성·제출</button>' +
         '<button type="button" class="mini-btn" data-vdr="ca-terms">표준 조항 전문 보기</button></div>' +
@@ -808,6 +815,7 @@
     } else {
       h += '<div class="jkv-approved">✅ <b>CA 승인 완료</b> — 상세자료 열람 권한이 부여되었습니다.' + wmBadge(room.id) + '</div>';
     }
+    if (op && st === '승인') { /* 이미 승인 표시 */ }
 
     /* 표준 조항 요약 */
     h += '<section class="jkv-terms"><h4>📜 전자 CA 핵심 조항 (요약)</h4><ol>' +
@@ -1104,7 +1112,7 @@
       '<label class="jkv-agree"><input type="checkbox" name="agree"> 위 CA 표준 조항(목적 외 사용 금지·제3자 제공 금지·매도인 직접 접촉 금지·파기·손해배상·열람 로그)에 동의합니다. <b>*</b></label>' +
       '<label class="jkv-agree"><input type="checkbox" name="esign"> 본인은 전자서명으로 이 CA를 체결하며, 아래 성명이 서명으로 기록되는 것에 동의합니다. <b>*</b></label>' +
       '<label class="tr-f wide"><span>전자서명 (성명 입력) <b>*</b></span><input name="signature" placeholder="성명을 그대로 입력하세요"></label>' +
-      '<p class="jkv-note">전자문서법 제4조에 따른 전자서명으로 기록되며, 서명 시각·접속기기·서명해시가 함께 저장됩니다. 서명 후에는 수정할 수 없습니다.</p>' +
+      '<p class="jkv-note">전자서명법 제3조·전자문서법 제4조에 따른 전자서명으로 기록되며, 서명 시각·접속기기·서명해시가 함께 저장됩니다. 서명 후에는 수정할 수 없습니다.</p>' +
       '<div class="tr-actions"><button type="button" class="btn btn-ghost" data-vdr="close">취소</button>' +
       '<button type="button" class="btn btn-primary" data-vdr="ca-save">CA 제출</button></div>';
     var m = modalShell('🔐 전자 CA 제출 — ' + room.name, body, true);

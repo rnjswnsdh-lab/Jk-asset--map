@@ -3771,3 +3771,8 @@ label.rfp-pick span { flex: 1; }
 }
 .jkv-room-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 4px;
   font-size: 10.4px; color: var(--muted); }
+/* 헤더 툴바 버튼은 밝은 배경 — 어두운 헤더용 btn-ghost 색을 덮습니다 */
+.vdr-top-actions .btn-ghost { background: #fff; border: 1px solid var(--line); color: var(--navy); }
+.vdr-top-actions .btn-ghost:hover { background: #eef5fd; }
+.vdr-top-actions .btn-ghost[aria-pressed="true"] { background: #eef5fd; border-color: #9dc3e6; color: #0b5c9a; }
+.vdr-top-actions .btn-primary { background: #fff; color: var(--navy); border: 1px solid var(--line); }

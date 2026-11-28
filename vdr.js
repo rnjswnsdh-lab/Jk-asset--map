@@ -947,7 +947,7 @@
       h += '<div class="vdr-room-head"><div><span class="vdr-stage">' + esc(room.stage || '자료 배포') + '</span>' +
         '<span class="jkv-chip jkv-chip-' + (ok ? 'ok' : (st === '심사중' ? 'wait' : 'none')) + '">' + esc(chipTxt) + '</span>' +
         '<h3>' + esc(ok ? room.name : ('블라인드 ' + blindCode(room) + ' · ' + sectorLabelOf(room, linkedAsset(room)) + ' 매각')) + '</h3>' +
-        '<p>' + esc(ok ? [room.asset_name, room.region, room.sector].filter(Boolean).join(' · ') : [regionOf(room, linkedAsset(room)), scaleBand(roomPyeong(room, linkedAsset(room))), '예상 ' + priceBand(room.price_guide_eok)].join(' · ')) + '</p></div>' +
+        '<p>' + esc(ok ? [room.asset_name, room.region, sectorLabelOf(room, linkedAsset(room))].filter(Boolean).join(' · ') : [regionOf(room, linkedAsset(room)), scaleBand(roomPyeong(room, linkedAsset(room))), '예상 ' + priceBand(room.price_guide_eok)].join(' · ')) + '</p></div>' +
         '<div class="vdr-room-kpis">' +
         '<span><b>' + (ok ? (room.price_guide_eok ? n0(room.price_guide_eok) + '억' : '-') : priceBand(room.price_guide_eok)) + '</b>' + (ok ? '가이드가' : '예상가 밴드') + '</span>' +
         '<span><b>' + esc(room.loi_deadline || '-') + '</b>LOI 마감</span>' +

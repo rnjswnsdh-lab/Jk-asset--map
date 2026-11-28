@@ -85,6 +85,16 @@
     return txt(typeof s === 'string' ? s : (s.label || k));
   }
 
+  /* 구분(sub_type)이 진행상태 값이면 섹터 줄에서 빼고 '진행상태'에만 둡니다 */
+  function subTypeLabel(a) {
+    var st = txt(a && a.sub_type);
+    if (!st) return '';
+    if ((CFG.STATUS_GROUPS || {})[st]) return '';
+    if (st === txt(a.status) || st === txt(a.status_group)) return '';
+    if (/^(예정|진행|진행중|매각중|임대중|보류|철회|완료)$/.test(st)) return '';
+    return st;
+  }
+
   /* ─────────────── 물건 상세 프롬프트 ─────────────── */
   var AUCTION_LABELS = ['경매구분', '감정가', '최저입찰가', '할인율', '유찰횟수', '입찰일·방식', '진행기관', '물건용도'];
 
@@ -108,7 +118,7 @@
     if (txt(a.name)) L.push('- 자산명: ' + txt(a.name));
     if (txt(a.address)) L.push('- 주소: ' + txt(a.address));
     if (txt(a.region)) L.push('- 권역: ' + txt(a.region));
-    var sec = sectorLabel(a.sector) + (txt(a.sub_type) ? ' · ' + txt(a.sub_type) : '');
+    var sec = sectorLabel(a.sector) + (subTypeLabel(a) ? ' · ' + subTypeLabel(a) : '');
     if (txt(sec)) L.push('- 섹터: ' + txt(sec));
     if (txt(a.scale_info)) L.push('- 규모: ' + txt(a.scale_info));
     if (txt(a.price_info)) L.push('- 예상가·호가: ' + txt(a.price_info));

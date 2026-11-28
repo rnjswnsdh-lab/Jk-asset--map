@@ -243,7 +243,7 @@
     },
     {
       code: 'tr', short: 'TR 임차', icon: '📋', label: 'TR 임차의뢰 (화주·임차인)',
-      desc: '희망 조건을 남기면 NAI Korea 가 보유 물건 · 매각·LM 물건 · 외부 매물 중 부합 후보를 찾아 회신합니다. (Tenant Request)',
+      desc: '희망 조건을 남기면 보유 자산 DB · 매각·LM 물건 · 외부 매물 중 부합 후보를 찾아 회신합니다. (Tenant Request)',
       deal: '임차',
       fields: [
         { k: 'region', l: '희망 지역 · 권역', t: 'select', opts: regionOpts() },
@@ -1030,7 +1030,9 @@
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (j && j.ok) return { ok: true, server: true, item: j.item || null };
       var e = String((j && j.error) || '');
-      if (/unknown|bad_action|no_action|unsupported|not_found/.test(e)) return { ok: true, server: false, error: e };
+      /* 삭제 대상이 이미 서버에 없으면(not_found) 삭제된 것으로 봅니다 */
+      if (action === 'request_delete' && e === 'not_found') return { ok: true, server: true, error: '' };
+      if (/unknown|bad_action|no_action|unsupported/.test(e)) return { ok: true, server: false, error: e };
       return { ok: false, server: true, error: e || '알 수 없는 오류' };
     }).catch(function () { return { ok: true, server: false, error: 'network' }; });
   }
@@ -1068,6 +1070,37 @@
       });
       localStorage.setItem(MINE_KEY, JSON.stringify(next.slice(0, 60)));
     } catch (e) { /* noop */ }
+  }
+
+  /* ─────────── 삭제 표시(이 브라우저) — 2026-11-28 ───────────
+     서버(Apps Script)가 아직 request_delete 를 모르면 삭제는 '이 브라우저에만' 적용됩니다.
+     그런데 LIST 를 다시 불러올 때마다 서버 목록이 그대로 와서 지운 행이 되살아났고
+     ("삭제가 안 된다" 증상), 그때마다 '서버 미반영' 토스트가 떠서 실패처럼 보였습니다.
+     지운 id 를 이 브라우저에 남겨 두어 다시 불러와도 목록에 나오지 않게 합니다.
+     (id 가 없는 행은 절대 숨기지 않습니다 — 다른 접수 건이 함께 사라지면 안 됩니다.) */
+  var DEL_KEY = (CFG.STORAGE_PREFIX || 'nai-map') + ':hub:deleted:v1';
+  function deletedIds() {
+    try {
+      var a = JSON.parse(localStorage.getItem(DEL_KEY) || '[]');
+      return Array.isArray(a) ? a.map(String).filter(Boolean) : [];
+    } catch (e) { return []; }
+  }
+  function markDeleted(id) {
+    var sid = String(id || '').trim();
+    if (!sid) return;
+    var list = deletedIds().filter(function (x) { return x !== sid; });
+    list.push(sid);
+    try { localStorage.setItem(DEL_KEY, JSON.stringify(list.slice(-300))); } catch (e) { /* noop */ }
+  }
+  /** 목록에서 지운 행을 걸러 냅니다(서버가 다시 내려줘도 되살아나지 않도록). */
+  function withoutDeleted(rows) {
+    var arr = (rows || []).slice();
+    var del = deletedIds();
+    if (!del.length) return arr;
+    return arr.filter(function (r) {
+      var id = String((r && r.id) || '').trim();
+      return !id || del.indexOf(id) < 0;
+    });
   }
 
   function saveEdit(id) {
@@ -1117,22 +1150,34 @@
   }
 
   function removeRequest(id) {
-    var row = rowById(id);
+    var sid = String(id || '').trim();
+    if (!sid) {
+      /* id 없는 행을 빈 문자열로 지우면 다른 접수 건까지 함께 사라질 수 있어 막습니다 */
+      toast('삭제할 접수 건의 고유 ID가 없습니다. 목록을 새로고침한 뒤 다시 시도해 주세요.', true);
+      return;
+    }
+    var row = rowById(sid);
     if (!row) { toast('접수 건을 찾지 못했습니다.', true); return; }
     if (!canModify(row)) { toast('본인이 등록한 접수 건 또는 관리자만 삭제할 수 있습니다.', true); return; }
     var nm = String(row.asset_name || '').slice(0, 80);
     if (!window.confirm('이 접수 건을 삭제할까요?\n\n' + nm + '\n\n삭제 후에는 되돌릴 수 없습니다.')) return;
-    postRequestAction('request_delete', id, null).then(function (res) {
+    postRequestAction('request_delete', sid, null).then(function (res) {
       if (!res.ok) {
-        toast(/unauthor|forbidden|perm/.test(res.error || '') ? '삭제 권한이 없습니다. (본인 또는 관리자)' : '삭제 실패: ' + res.error, true);
+        toast(/unauthor|forbidden|perm/.test(res.error || '') ? '삭제 권한이 없습니다. (본인 또는 관리자)' : '삭제하지 못했습니다: ' + res.error, true);
         return;
       }
-      LIST.items = LIST.items.filter(function (r) { return String(r.id) !== String(id); });
-      if (row._local) syncMine(id, row, null, true);
+      /* 화면·이 브라우저 목록에서 즉시 제거 (2026-11-28)
+         서버가 아직 request_delete 를 모르는 경우(unknown_action)에는 목록을 다시 불러올 때
+         서버 목록이 그대로 와서 지운 행이 되살아났습니다. 지운 id 를 남겨 다시 나오지 않게 합니다. */
+      LIST.items = LIST.items.filter(function (r) { return String(r.id || '') !== sid; });
+      if (row._local) syncMine(sid, row, null, true);
+      else if (!res.server) markDeleted(sid);
       auditRequest('request_delete', row, res.server ? '' : ' (서버 미반영)');
-      openList();
-      toast(res.server ? '접수 건을 삭제했습니다.' : '목록에서 지웠습니다. 서버에는 아직 반영되지 않았습니다(Apps Script 패치 필요).', !res.server);
-    });
+      DET.id = '';
+      openList();   /* 목록 새로 고침 — 삭제 표시 덕분에 다시 불러와도 되살아나지 않습니다 */
+      toast(res.server ? '접수 건을 삭제했습니다.'
+        : '목록에서 삭제했습니다. 비공개 시트(lois)에는 서버 배포 후 반영됩니다.');
+    }).catch(function () { toast('삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.', true); });
   }
 
   function renderListBody() {    var body = $('#hubListBody');
@@ -1232,7 +1277,7 @@
         '<p class="hub-empty">아직 접수한 내역이 없습니다. <b>＋ 새 등록</b>으로 첫 건을 등록해 보세요.</p>';
     }
     function localRender(note) {
-      LIST.items = (JSON.parse(localStorage.getItem(MINE_KEY) || '[]'));
+      LIST.items = withoutDeleted(JSON.parse(localStorage.getItem(MINE_KEY) || '[]'));
       /* 이 브라우저에서 접수한 건 — 등록자 본인 확인용 표시 */
       LIST.items.forEach(function (r, i) { r._local = true; if (!r.id) r.id = 'local-' + i + '-' + String(r.at || '').slice(-6); });
       LIST.source = note || 'local';
@@ -1242,7 +1287,7 @@
     /* 서버 접수 목록 — 관리자=원문, 그 외 권한=업체명 블라인드(서버가 마스킹해 내려줍니다) */
     apiGet('requests').then(function (j) {
       if (j && j.ok && j.items && j.items.length) {
-        LIST.items = j.items;
+        LIST.items = withoutDeleted(j.items);
         LIST.source = 'server';
         paint();
         body.innerHTML += '<p class="hub-foot">비공개 시트 <b>lois</b> 기준 · 유형은 <b>request_type</b> 컬럼으로 구분합니다.' +
@@ -1253,7 +1298,7 @@
       /* 새 조회 API 가 없으면 기존 lois 조회로 대체 */
       return apiGet('lois').then(function (j2) {
         if (j2 && j2.ok && j2.items) {
-          LIST.items = j2.items;
+          LIST.items = withoutDeleted(j2.items);
           LIST.source = 'server-lois';
           paint();
           body.innerHTML += '<p class="hub-foot">비공개 시트 <b>lois</b> 기준(기존 조회 API).</p>';

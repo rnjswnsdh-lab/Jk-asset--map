@@ -1847,7 +1847,8 @@
     }
     try {
       var HASHES = { home: '#home', nai: '#nai', lm: '#lm', rfp: '#rfp', vdr: '#vdr', advise: '#advise', portal: '#portal', match: '#match', admin: '#admin', adminhq: '#adminhq', ship: '#ship', pool: '#pool', fi: '#fi', valuation: '#valuation' };
-      history.replaceState(null, '', HASHES[view] || (location.pathname + location.search));
+      /* history.state 는 보존합니다 — 뒤로가기 처리(backnav.js)가 상태 표시를 씁니다 */
+      history.replaceState(history.state, '', HASHES[view] || (location.pathname + location.search));
     } catch (e) { /* noop */ }
   }
   window.naiShowView = showView;
@@ -2030,16 +2031,12 @@
     setInterval(function () {
       if (document.body.classList.contains('view-pool')) syncRoleFromApp();
     }, 1500);
-    var hash = location.hash || '';
-    if (hash === '#pool') showView('pool');
-    else if (hash === '#fi') showView('fi');
-    else if (hash === '#ship') showView('ship');
-    else if (hash === '#valuation') showView('valuation');
-    else if (hash === '#match') showView('match');
-    else if (hash === '#admin') showView('admin');
-    else if (hash === '#lm') showView('lm');
-    else if (hash === '#vdr') showView('vdr');
-    else if (hash === '#nai') showView('nai');
+    /* 첫 화면은 항상 홈 (2026-11-28)
+       — 예전에는 남아 있는 해시(#home·#nai 등)를 보고 화면을 골랐고, 해시가 아예 없거나
+         HTML 기본값(지도)일 때는 지도가 먼저 떴습니다. 그래서 즐겨찾기·새 탭으로
+         들어오면 늘 지도 화면이 나왔습니다. 이제 진입 시에는 해시와 무관하게 홈을 띄웁니다.
+       (딥링크로 특정 탭을 열던 경로는 없습니다 — 모든 화면 이동은 탭 클릭입니다.) */
+    showView('home');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

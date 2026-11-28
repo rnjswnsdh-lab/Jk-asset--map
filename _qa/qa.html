@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QA — 접수 삭제 · 뒤로가기 (임시 검증 페이지)</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  body { padding: 16px; font-family: system-ui, sans-serif; }
+  #qaLog { background: #0b2a4a; color: #fff; padding: 12px; border-radius: 10px; font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
+  .qa-tabs { display: flex; gap: 6px; margin: 12px 0; }
+  .qa-sec { border: 1px solid #ccc; border-radius: 10px; padding: 12px; margin: 12px 0; }
+  .qa-ok { color: #0b7a3b; font-weight: 700; }
+  .qa-no { color: #c02626; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h3>QA — 임시 검증 페이지 (배포 후 삭제 예정)</h3>
+
+<div class="qa-tabs">
+  <button type="button" class="vt-btn is-active" data-view="home" aria-selected="true">🏠 홈</button>
+  <button type="button" class="vt-btn" data-view="map" aria-selected="false">🗺️ 지도</button>
+</div>
+
+<section id="homeView" class="home-view">홈 화면(임시)</section>
+<div id="appBody" class="app-body hidden">지도 화면(임시)</div>
+
+<div class="qa-sec">
+  <b>① 접수 목록·삭제</b><br>
+  <button type="button" id="qaOpenList">목록 열기</button>
+  <button type="button" id="qaReload">목록 다시 불러오기(서버 재조회)</button>
+  <button type="button" id="qaServerOk">서버가 삭제를 지원하는 경우로 바꾸기</button>
+  <button type="button" id="qaServerNo">서버가 모르는 액션으로 되돌리기</button>
+</div>
+
+<div class="qa-sec">
+  <b>② 뒤로가기</b><br>
+  <button type="button" id="qaModal">가짜 모달 열기(.home-modal)</button>
+  <button type="button" id="qaMapView">지도 화면으로</button>
+</div>
+
+<div id="qaLog"></div>
+
+<div id="toast" class="toast hidden" role="status"></div>
+
+<script src="../config.js"></script>
+<script src="../modalgrow.js"></script>
+
+<script>
+/* ── 검증용 스텁: 서버(fetch)와 앱 권한만 흉내 냅니다. 실제 시트·서버에는 아무 것도 쓰지 않습니다. ── */
+window.QAV = { mode: 'unknown', gets: 0, posts: [] };
+window.QALOG = [];
+function qlog(msg) {
+  window.QALOG.push(msg);
+  var el = document.getElementById('qaLog');
+  if (el) el.textContent = window.QALOG.join('\n');
+}
+function qview() {
+  var home = document.getElementById('homeView');
+  var body = document.getElementById('appBody');
+  var active = document.querySelector('.vt-btn.is-active');
+  return {
+    home: !!home && !home.classList.contains('hidden'),
+    map: !!body && !body.classList.contains('hidden'),
+    tab: active ? active.getAttribute('data-view') : '(none)',
+    url: location.href,
+    dialogs: document.querySelectorAll('[role="dialog"][aria-modal="true"]').length
+  };
+}
+
+/* 권한 스텁 — 관리자 */
+window.naiMap = {
+  role: function () { return 'admin'; },
+  me: function () { return { email: 'qa@test.local', name: 'QA', company: 'QA' }; },
+  log: function (a, d) { qlog('  · 감사로그 ' + a + ' ' + d); }
+};
+
+/* 화면 전환 스텁 (investors.js 의 showView 와 같은 동작만) */
+window.naiShowView = function (v) {
+  var home = document.getElementById('homeView');
+  var body = document.getElementById('appBody');
+  var on = v === 'home';
+  home.classList.toggle('hidden', !on);
+  body.classList.toggle('hidden', v !== 'map');
+  var bs = document.querySelectorAll('.vt-btn');
+  for (var i = 0; i < bs.length; i++) {
+    var b = bs[i];
+    var act = b.getAttribute('data-view') === v;
+    b.classList.toggle('is-active', act);
+    b.setAttribute('aria-selected', String(act));
+  }
+  window.QA_VIEW = v;
+};
+document.querySelectorAll('.vt-btn').forEach(function (b) {
+  b.addEventListener('click', function () { window.naiShowView(b.getAttribute('data-view')); });
+});
+
+/* 접수 2건을 돌려주는 가짜 서버 */
+var ROWS = [
+  { id: 'qa-1', request_type: 'TR', asset_name: 'QA 물건 A', company: 'QA운용', name: 'QA담당', phone: '010-0000-0001',
+    timestamp: '2026-11-28T10:00', status: '접수', memo: '[유형=TR] 테스트 A' },
+  { id: 'qa-2', request_type: '매각', asset_name: 'QA 물건 B', company: 'QA리츠', name: 'QA담당2', phone: '010-0000-0002',
+    timestamp: '2026-11-28T11:00', status: '접수', memo: '[유형=매각] 테스트 B' }
+];
+localStorage.setItem((window.NAI_MAP_CONFIG.STORAGE_PREFIX || 'nai-map') + ':token:v1', 'qa-token');
+localStorage.removeItem((window.NAI_MAP_CONFIG.STORAGE_PREFIX || 'nai-map') + ':hub:deleted:v1');
+
+window.fetch = function (url, opt) {
+  var isPost = !!(opt && String(opt.method || '').toUpperCase() === 'POST');
+  if (!isPost) {
+    window.QAV.gets++;
+    return Promise.resolve({ json: function () { return Promise.resolve({ ok: true, items: ROWS.map(function (r) { return Object.assign({}, r); }) }); } });
+  }
+  var body = {};
+  try { body = JSON.parse((opt && opt.body) || '{}'); } catch (e) { /* noop */ }
+  window.QAV.posts.push(body);
+  var res;
+  if (window.QAV.mode === 'ok' && body.action === 'request_delete') {
+    ROWS = ROWS.filter(function (r) { return r.id !== body.id; });   /* 서버가 진짜 지우는 경우 */
+    res = { ok: true };
+  } else if (body.action === 'request_delete') res = { ok: false, error: 'unknown_action' };
+  else res = { ok: true };
+  return Promise.resolve({ json: function () { return Promise.resolve(res); } });
+};
+</script>
+
+<script src="../hub.js?v=20261128y"></script>
+<script src="../backnav.js?v=20261128a"></script>
+
+<script>
+/* ── ① 접수 목록·삭제 ── */
+document.getElementById('qaOpenList').addEventListener('click', function () {
+  qlog('▶ 목록 열기');
+  window.NAI_HUB.openList();
+  setTimeout(function () {
+    var rows = document.querySelectorAll('#hubListBody tr.hub-row').length;
+    qlog('  행 수: ' + rows + ' / 서버 조회 ' + window.QAV.gets + '회');
+    qlog('  표시: ' + Array.prototype.map.call(document.querySelectorAll('#hubListBody tr.hub-row'), function (tr) {
+      return tr.getAttribute('data-hub-open');
+    }).join(', '));
+    qlog('  ' + (rows === 2 ? 'OK 2건 표시' : 'FAIL 행 수가 2가 아님'));
+  }, 250);
+});
+
+document.getElementById('qaReload').addEventListener('click', function () {
+  qlog('▶ 목록 다시 불러오기(서버 재조회)');
+  window.NAI_HUB.openList();
+  setTimeout(function () {
+    var ids = Array.prototype.map.call(document.querySelectorAll('#hubListBody tr.hub-row'), function (tr) {
+      return tr.getAttribute('data-hub-open');
+    });
+    qlog('  표시: ' + ids.join(', '));
+    qlog('  ' + (ids.indexOf('qa-1') < 0 && ids.indexOf('qa-2') >= 0 ? 'OK 지운 qa-1 은 안 나오고 qa-2 는 남음' : 'FAIL 되살아났거나 다른 행이 사라짐'));
+  }, 250);
+});
+
+document.getElementById('qaServerOk').addEventListener('click', function () {
+  window.QAV.mode = 'ok';
+  qlog('· 모드: 서버가 request_delete 를 지원(ok)');
+});
+document.getElementById('qaServerNo').addEventListener('click', function () {
+  window.QAV.mode = 'unknown';
+  qlog('· 모드: 서버가 모르는 액션(unknown_action)');
+});
+
+/* 확인 창 응답을 남겨 둡니다 */
+var origConfirm = window.confirm;
+window.confirm = function (msg) { qlog('  · confirm: ' + String(msg).split('\n')[0]); return true; };
+
+/* 삭제 클릭·토스트를 로그로 남깁니다 */
+document.addEventListener('click', function (e) {
+  var d = e.target.closest && e.target.closest('[data-hub-del]');
+  if (d) qlog('▶ 삭제 클릭 id=' + d.getAttribute('data-hub-del') + ' (mode=' + window.QAV.mode + ')');
+}, true);
+setInterval(function () {
+  var n = window.QAV.posts.length;
+  if (n !== window.QA_LAST_POSTS) {
+    window.QA_LAST_POSTS = n;
+    var p = window.QAV.posts[n - 1];
+    qlog('  · POST ' + JSON.stringify({ action: p.action, id: p.id, token: p.token ? '…' : '' }));
+  }
+  var t = document.getElementById('toast');
+  if (t && t.textContent && t.textContent !== window.QA_LAST_TOAST) {
+    window.QA_LAST_TOAST = t.textContent;
+    qlog('  · 토스트: ' + t.textContent + (t.className.indexOf('err') >= 0 ? ' [오류표시]' : ''));
+  }
+}, 120);
+
+/* ── ② 뒤로가기 ── */
+document.getElementById('qaMapView').addEventListener('click', function () {
+  window.naiShowView('map');
+  qlog('▶ 지도 화면으로 (탭 상태: ' + qview().tab + ')');
+});
+
+document.getElementById('qaModal').addEventListener('click', function () {
+  var m = document.createElement('div');
+  m.className = 'home-modal';
+  m.id = 'qaFakeModal';
+  m.innerHTML = '<div class="hm-card" role="dialog" aria-modal="true" aria-label="가짜 모달">' +
+    '<div class="hm-head"><strong>가짜 모달</strong><button type="button" class="hm-close" aria-label="닫기">×</button></div>' +
+    '<div class="hm-body">뒤로가기 검증용</div></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click', function (e) {
+    if (e.target === m || e.target.closest('.hm-close')) { if (m.parentNode) m.parentNode.removeChild(m); }
+  });
+  if (window.OAAB_GROW) window.OAAB_GROW.attach(m.querySelector('.hm-card'), { head: '.hm-head' });
+  qlog('▶ 모달 열기 (열린 창 ' + document.querySelectorAll('[role="dialog"][aria-modal="true"]').length + '개, guard=' + (window.OAAB_BACK ? 'on' : 'off') + ')');
+  setTimeout(function () { qlog('  · OAAB_GROW 붙음: ' + (!!m.querySelector('[data-mg-toggle]'))); }, 50);
+});
+
+window.QA_STATE = qview;
+qlog('준비 완료 — 뒤로가기 테스트는 브라우저 뒤로가기 버튼으로 진행합니다. ' + JSON.stringify(qview()));
+</script>
+</body>
+</html>

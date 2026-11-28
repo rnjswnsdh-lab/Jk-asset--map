@@ -1153,7 +1153,7 @@
     if (opts.pan !== false) panTo(a);
     if (state.roadview) showRoadview(a);
     logAsset(a, '상세');
-    try { history.replaceState(null, '', '#' + encodeURIComponent(id)); } catch (e) { /* file:// 등 */ }
+    try { history.replaceState(history.state, '', '#' + encodeURIComponent(id)); } catch (e) { /* file:// 등 */ }
   }
 
   function highlightRows(prevId, id) {
@@ -2581,7 +2581,7 @@
       state.panelMode = 'view';
       updateMarkerStyle(state.selectedId, false);
       state.selectedId = null;
-      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* noop */ }
+      try { history.replaceState(history.state, '', location.pathname + location.search); } catch (e) { /* noop */ }
       renderList();
       return;
     }

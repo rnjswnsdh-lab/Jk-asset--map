@@ -478,7 +478,7 @@
       html += '<div class="ad-row' + (open ? ' is-open' : '') + '">';
       html += '<button type="button" class="ad-row-main" data-ad-exp="' + esc(v.key) + '">';
       html += '<span class="ad-role ' + roleCls(v.role) + '">' + esc(roleLabel(v.role)) + '</span>';
-      html += '<span class="ad-who"><strong>' + esc(v.name) + '</strong><em>' + esc(v.company || '—') + '</em></span>';
+      html += '<span class="ad-who"><strong>' + esc(v.role === 'admin' ? '관리자' : v.name) + '</strong><em>' + esc(v.company || '—') + '</em></span>';
       html += '<span class="ad-cnt">' + nfmt(v.items.length) + '회 · 물건 ' + nfmt(uniq) + '건</span>';
       html += '<span class="ad-when">' + esc(fmtTime(new Date(v.last).toISOString())) + '</span>';
       html += '<span class="ad-caret">' + (open ? '▾' : '▸') + '</span>';
@@ -544,7 +544,7 @@
       var p = l._p || parseLog(l);
       html += '<tr><td class="nowrap">' + esc(fmtFull(p.ts)) + '</td>' +
         '<td><span class="ad-role ' + roleCls(p.role) + '">' + esc(roleLabel(p.role)) + '</span></td>' +
-        '<td>' + esc(p.name || '—') + '</td><td>' + esc(p.company || '—') + '</td>' +
+        '<td>' + esc(p.role === 'admin' ? '관리자' : (p.name || '—')) + '</td><td>' + esc(p.company || '—') + '</td>' +
         '<td><code>' + esc(p.action) + '</code></td>' +
         '<td class="ad-det">' + esc(p.assetName ? (p.assetName + ' · ' + (ACT_LABEL[p.act] || p.act)) : p.detail) + '</td></tr>';
     });
@@ -626,7 +626,7 @@
     if (S.sub === 'visitor') {
       head = ['권한', '방문자', '회사', '열람횟수', '물건수', '마지막'];
       rows.forEach(function (v) {
-        lines.push([roleLabel(v.role), v.name, v.company, v.items.length, Object.keys(v.assets).length, fmtFull(new Date(v.last).toISOString())]);
+        lines.push([roleLabel(v.role), v.role === 'admin' ? '관리자' : v.name, v.company, v.items.length, Object.keys(v.assets).length, fmtFull(new Date(v.last).toISOString())]);
       });
     } else if (S.sub === 'asset') {
       head = ['물건', 'ID', '열람횟수', '방문자수', '마지막'];
@@ -640,7 +640,7 @@
       });
     } else {
       head = ['시각', '권한', '방문자', '회사', '이벤트', '물건', '동작', '내용'];
-      rows.forEach(function (p) { lines.push([fmtFull(p.ts), roleLabel(p.role), p.name, p.company, p.action, p.assetName, p.act, p.detail]); });
+      rows.forEach(function (p) { lines.push([fmtFull(p.ts), roleLabel(p.role), p.role === 'admin' ? '관리자' : p.name, p.company, p.action, p.assetName, p.act, p.detail]); });
     }
     var csv = '\uFEFF' + head.map(cell).join(',') + '\r\n' + lines.map(function (r) { return r.map(cell).join(','); }).join('\r\n');
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });

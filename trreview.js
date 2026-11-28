@@ -498,6 +498,13 @@
         var lo = P.area.min == null ? 0 : P.area.min, hi = P.area.max == null ? Infinity : P.area.max;
         var inLo = av >= lo * 0.85, inHi = av <= (isFinite(hi) ? hi * 1.15 : Infinity);
         var nearLo = av >= lo * 0.6, nearHi = av <= (isFinite(hi) ? hi * 1.5 : Infinity);
+        /* '15,000평 이상'처럼 상한이 없는 조건은 3배를 넘으면 같은 규모로 보지 않습니다 */
+        if (!isFinite(hi) && lo) {
+          var openR = av / lo;
+          if (openR <= 2.5) { inHi = true; nearHi = true; }
+          else if (openR <= 4) { inHi = false; nearHi = true; }
+          else { inHi = false; nearHi = false; }
+        }
         if (inLo && inHi) ev.push({ k: 'area', label: '규모(면적)', state: 'match', pts: W.area, max: W.area, detail: nfmt(av) + '평 · 요청 ' + (P.area.text || '') });
         else if (nearLo && nearHi) ev.push({ k: 'area', label: '규모(면적)', state: 'partial', pts: Math.round(W.area * 0.6), max: W.area, detail: nfmt(av) + '평 · 요청 범위 인접' });
         else ev.push({ k: 'area', label: '규모(면적)', state: 'miss', pts: 0, max: W.area, detail: nfmt(av) + '평 · 요청 ' + (P.area.text || '') });
@@ -568,16 +575,23 @@
       ev.push({ k: 'timing', label: '시점', state: 'unknown', pts: 0, max: W.timing, detail: '요청 시점 미확인' });
     }
 
-    var earned = 0, max = 0, unknown = 0;
+    var earned = 0, max = 0, unknown = 0, totalW = 0;
     ev.forEach(function (e) {
+      totalW += (e.max || 0);
       if (e.state === 'unknown') { unknown++; return; }
       earned += e.pts; max += e.max;
     });
-    var pct = max ? Math.round(earned / max * 100) : 0;
-    return { pct: pct, earned: earned, max: max, unknown: unknown, evidence: ev };
+    /* pct = 전체 가중치(100) 기준 점수 — 미확보 항목은 0점으로 반영되어 순위가 왜곡되지 않습니다.
+       coverage = 확보된 항목의 가중치 비율(데이터 충실도). fit = 확보 항목만 기준 적합도. */
+    var pct = totalW ? Math.round(earned / totalW * 100) : 0;
+    var coverage = totalW ? Math.round(max / totalW * 100) : 0;
+    var fit = max ? Math.round(earned / max * 100) : 0;
+    return { pct: pct, fit: fit, coverage: coverage, earned: earned, max: max, total: totalW, unknown: unknown, evidence: ev };
   }
 
   function runMatch(rec, force) {
+    /* 이미 담당자·전달 단계로 넘어간 건은 후보를 다시 만들지 않습니다(이력 보존) */
+    if (force && ['routed', 'draft', 'delivered', 'closed'].indexOf(rec.stage) >= 0) return null;
     var W = SET().weights;
     var list = assets();
     var out = [];
@@ -588,16 +602,23 @@
       if (s.pct < SET().minScore) continue;
       out.push({
         assetId: String(a.id || ''), name: String(a.name || ''), sector: a.sector, region: a.region || '',
-        score: { pct: s.pct, earned: s.earned, max: s.max, unknown: s.unknown },
+        score: { pct: s.pct, fit: s.fit, coverage: s.coverage, earned: s.earned, max: s.max, total: s.total, unknown: s.unknown },
         evidence: s.evidence, decision: '', decidedAt: '', note: ''
       });
     }
     out.sort(function (x, y) {
       if (y.score.pct !== x.score.pct) return y.score.pct - x.score.pct;
-      if (y.score.earned !== x.score.earned) return y.score.earned - x.score.earned;
+      if ((y.score.coverage || 0) !== (x.score.coverage || 0)) return (y.score.coverage || 0) - (x.score.coverage || 0);
       return String(x.name).localeCompare(String(y.name), 'ko');
     });
-    out = out.slice(0, SET().topN || 8);
+    /* 같은 자산이 두 번 들어오는 경우(중복 행) 한 번만 남깁니다 */
+    var seen = {}, uniq = [];
+    out.forEach(function (c) {
+      var k = String(c.name || '').trim();
+      if (seen[k]) return;
+      seen[k] = 1; uniq.push(c);
+    });
+    out = uniq.slice(0, SET().topN || 8);
     var run = {
       at: nowISO(), model: 'rule-v1', assetCount: list.length,
       topN: SET().topN, minScore: SET().minScore, weights: JSON.parse(JSON.stringify(W)),
@@ -606,7 +627,12 @@
     rec.runs = rec.runs || [];
     rec.runs.push(run);
     if (rec.runs.length > 12) rec.runs = rec.runs.slice(-12);
-    rec.stage = rec.stage === 'received' ? 'matched' : rec.stage;
+    if (force) {
+      /* 후보를 새로 만들면 이전 판단은 새 후보에 없는 id 이므로 비웁니다 */
+      rec.approval.approved = []; rec.approval.excluded = [];
+      rec.approval.at = '';
+      rec.stage = 'matched';
+    } else if (rec.stage === 'received') rec.stage = 'matched';
     pushHistory(rec, 'candidates_generated', out.length + '건 후보 · 모델 rule-v1');
     return run;
   }
@@ -885,8 +911,8 @@
       h += '<span class="trm-rank">' + (i + 1) + '</span>';
       h += '<span class="trm-cand-name"><b>' + esc(c.name || (a && a.name) || c.assetId) + '</b>' +
         '<em>' + esc((c.region || (a && a.region) || '') + ' · ' + (SECTOR_LABEL[c.sector] || c.sector || '')) + '</em></span>';
-      h += '<span class="trm-score" title="확보된 항목 기준 점수"><b>' + c.score.pct + '</b><i>%</i>' +
-        (c.score.unknown ? '<u>미확보 ' + c.score.unknown + '항목</u>' : '') + '</span>';
+      h += '<span class="trm-score" title="전체 가중치 기준 점수 · 미확보 항목은 0점"><b>' + c.score.pct + '</b><i>%</i>' +
+        '<u>확보율 ' + (c.score.coverage != null ? c.score.coverage : 100) + '% · 미확보 ' + (c.score.unknown || 0) + '항목</u></span>';
       h += '</div>';
       h += evidenceHTML(c.evidence);
       h += '<div class="trm-cand-acts">' +
@@ -899,7 +925,7 @@
       h += '</article>';
     });
     h += '</div>';
-    h += '<p class="trm-note">점수는 <b>데이터가 확보된 항목만</b> 분모로 계산합니다(<b>미확보</b> 항목은 점수에서 빠지고 개수로 표시). ' +
+    h += '<p class="trm-note">점수는 <b>가중치 합계(100) 기준</b>입니다 — 데이터가 없는 항목은 <b>미확보</b>로 0점 처리되고, 옆에 확보율·미확보 항목 수를 함께 표시합니다. ' +
       '자산 지표는 매입가·감정가·IR 자료 기준이므로 호가와 다를 수 있습니다.</p>';
     return h;
   }
@@ -987,12 +1013,19 @@
     return h;
   }
 
+  var ACTION_LABEL = {
+    review_opened: '검토 시작', candidates_generated: 'AI 후보 생성', candidate_approved: '후보 승인',
+    candidate_excluded: '후보 제외', candidate_cleared: '판단 취소', candidate_alternative: '대체 후보 지정',
+    review_saved: '메모·담당자 저장', approved_by_admin: '관리자 승인 확정', approved_auto: '자동 승인(설정)',
+    routed: '담당자 큐로 이동', assignee_confirmed: '담당자 확인 완료', draft_built: '전달 초안 생성',
+    draft_saved: '초안 저장', draft_mail_opened: '메일 초안 열기', delivered: '전달 완료 표시', closed: '종결'
+  };
   function historyHTML(rec) {
     var hist = (rec.history || []).slice(-12).reverse();
     if (!hist.length) return '';
     return '<div class="trm-sec"><h4>이력</h4><ul class="trm-hist">' + hist.map(function (h) {
       return '<li><em>' + esc(fmtTime(h.at)) + '</em><span>' + esc(h.by || '관리자') + '</span>' +
-        '<b>' + esc(stageOf(h.stage).l) + '</b>' + esc(h.action || '') + (h.note ? ' — ' + esc(h.note) : '') + '</li>';
+        '<b>' + esc(stageOf(h.stage).l) + '</b>' + esc(ACTION_LABEL[h.action] || h.action || '') + (h.note ? ' — ' + esc(h.note) : '') + '</li>';
     }).join('') + '</ul></div>';
   }
 
@@ -1265,7 +1298,7 @@
     var s = scoreAsset(r.request.norm, a, SET().weights);
     run.candidates.push({
       assetId: String(a.id), name: a.name, sector: a.sector, region: a.region || '',
-      score: { pct: s.pct, earned: s.earned, max: s.max, unknown: s.unknown },
+      score: { pct: s.pct, fit: s.fit, coverage: s.coverage, earned: s.earned, max: s.max, total: s.total, unknown: s.unknown },
       evidence: s.evidence.concat([{ k: 'manual', label: '관리자 지정', state: 'match', pts: 0, max: 0, detail: '관리자가 직접 추가' }]),
       decision: 'approved', decidedAt: nowISO(), note: '관리자 직접 지정(대체 후보)'
     });
@@ -1377,7 +1410,11 @@
       saveStore(); syncStatus(r.rid, r.stage); render(); toast('종결로 표시했습니다.');
       return;
     }
-    if (act === 'rematch') { runMatch(r, true); saveStore(); render(); toast('후보를 다시 만들었습니다(이전 결과는 이력에 남습니다).'); return; }
+    if (act === 'rematch') {
+      if (!runMatch(r, true)) { toast('담당자·전달 단계로 넘어간 건은 후보를 다시 만들 수 없습니다.', true); return; }
+      saveStore(); render(); toast('후보를 다시 만들었습니다(이전 결과는 이력에 남습니다).');
+      return;
+    }
     if (act === 'save-settings') {
       var s = SET();
       var mode = q('trmMode'); if (mode) s.approvalMode = mode;

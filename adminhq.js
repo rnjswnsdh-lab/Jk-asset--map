@@ -44,6 +44,8 @@
   /** 부여 범위에 adminhq 가 있는가(사람·게스트) */
   function hasHqScope() {
     if (isAdmin()) return true;
+    var r = role();
+    if (r !== 'person' && r !== 'guest') return false;
     return !!(window.naiMap && window.naiMap.hasScope && window.naiMap.hasScope('adminhq'));
   }
   /** 회의록 수정 가능 — 관리자 또는 adminhq + 수정 허용 */

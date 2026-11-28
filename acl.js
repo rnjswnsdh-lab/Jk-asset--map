@@ -570,6 +570,10 @@
     var host = $('#aclBody');
     if (!host) return;
     var body = tabBar();
+    if (!S.scopes || !S.scopes.length) {
+      body += '<div class="hq-empty" style="margin:8px 0"><b>서버 패치 전입니다.</b>' +
+        '<p>권한 저장·코드 발급은 서버 <code>Acl.gs</code> 배포(v15) 후에 동작합니다. 그때까지는 시트 <code>admin_access</code>를 직접 고쳐 주세요.</p></div>';
+    }
     if (S.tab === 'people') body += peopleHTML();
     else if (S.tab === 'guests') body += guestsHTML();
     else if (S.tab === 'audit') body += auditHTML();

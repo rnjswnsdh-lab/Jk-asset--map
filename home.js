@@ -443,6 +443,29 @@
     return /매각|매물|입찰|공매|경매|매도/.test(s);
   }
 
+  /* 2026-11-28 — 홈 새로 고침 포인트 : 섹터별 3Q 대표 지표 (마켓 리포트와 같은 데이터) */
+  function sectorStripHTML() {
+    var R = window.OAAB_MARKET_REPORT_2026Q3 || {};
+    var list = R.sectors_home || [];
+    if (!list.length) return '';
+    var upd = (R.meta && R.meta.sectors_updated) || '';
+    var h = '<section class="home-card hc-mkt" id="hcMkt">';
+    h += '<div class="hc-head"><h2>📊 섹터별 3Q 지표 <span class="hc-tag">' + list.length + '개 섹터</span></h2>' +
+      '<span class="hc-hint">' + (upd ? esc(upd) + ' 갱신 · ' : '') + '카드를 누르면 해당 섹터 리포트가 열립니다</span></div>';
+    h += '<div class="mkt-grid">';
+    list.forEach(function (s) {
+      h += '<button type="button" class="mkt-tile" data-home="report-sector" data-sector="' + esc(s.key) + '">' +
+        (s.badge ? '<span class="mkt-new">' + esc(s.badge) + '</span>' : '') +
+        '<span class="mkt-i">' + esc(s.icon) + '</span>' +
+        '<span class="mkt-n">' + esc(s.name) + '</span>' +
+        '<b>' + esc(s.value) + (s.unit ? '<small> ' + esc(s.unit) + '</small>' : '') + '</b>' +
+        '<em>' + esc(s.label) + '</em>' +
+        '<span class="mkt-d">' + esc(s.delta || '') + '</span></button>';
+    });
+    h += '</div></section>';
+    return h;
+  }
+
   /* ─────────────────── 홈 렌더 (2026-11-27 재배치) ───────────────────
      순서: 히어로·KPI → 물건검색 → 오늘 아티클 → 공지 → 업무신청 → 매각중 물건 → 진행중인 deal 참여
      · KPI 박스를 누르면 해당 조건의 물건 리스트가 바로 열립니다.
@@ -472,7 +495,7 @@
     html += '<h1 class="hh-title">오늘의 <b>딜 브릿지</b></h1>';
     html += '<button type="button" class="hh-report" data-home="report">' +
       '<span class="hr-i">📊</span>' +
-      '<span class="hr-t"><b>2026 3Q 통합 마켓 리포트</b><em>공실률 2계열 · NOC 2계열 · 2026 거래 35건 12.59조 · 4Q 전망</em></span>' +
+      '<span class="hr-t"><b>2026 3Q 통합 마켓 리포트<span class="hr-new">NEW</span></b><em>오피스 · 리테일 · 물류 · 호텔 · DC 섹터별 · 2026-11-28 갱신</em></span>' +
       '<span class="hr-go">바로 보기 →</span></button>';
     html += '<p class="hh-meta">' + (st && st.meta && st.meta.source ? esc(st.meta.source) : '비공개 시트 연동') +
       ' · 기준 ' + esc(todayStr()) + (meNow && meNow.name ? ' · ' + esc(meNow.name) : '') + '</p>';
@@ -484,6 +507,9 @@
     html += kpi('임대중', (leaseN || 0).toLocaleString('ko-KR') + '건', '임차인 모집·임대 진행', 'lease');
     html += kpi('경·공매', (auc.length || 0).toLocaleString('ko-KR') + '건', '입찰임박 ' + liveAuc.length + ' · 수의계약 ' + nego.length, 'auc');
     html += '</div></div>';
+
+    /* 섹터별 3Q 지표 — 홈 새로 고침 포인트 (2026-11-28) */
+    html += sectorStripHTML();
 
     html += '<div class="home-grid">';
 
@@ -1050,6 +1076,11 @@
       '<div class="hm-head"><strong>' + esc(title) + '</strong><button type="button" class="hm-close" aria-label="닫기">×</button></div>' +
       '<div class="hm-body">' + bodyHTML + '</div></div>';
     document.body.appendChild(modalEl);
+    /* 창 확대 — 더블클릭 또는 우측 상단 ⤢ (공통 유틸, 2026-11-28) */
+    if (window.OAAB_GROW && opts.wide) {
+      var card = modalEl.querySelector('.hm-card');
+      if (card) window.OAAB_GROW.attach(card, { head: '.hm-head' });
+    }
     modalEl.addEventListener('click', function (e) {
       if (e.target === modalEl || e.target.closest('.hm-close')) closeModal();
     });
@@ -1947,6 +1978,7 @@
       if (act === 'brief-request') { requestDoc2(btn.getAttribute('data-id'), btn.getAttribute('data-kind'), btn.getAttribute('data-kind') === 'TM' ? 'TM' : 'IM'); return; }
       if (act === 'im-source') { requestImSource(btn.getAttribute('data-id')); return; }
       if (act === 'report') { if (window.NAI_REPORT) window.NAI_REPORT.open(); return; }
+      if (act === 'report-sector') { if (window.NAI_REPORT) window.NAI_REPORT.open(btn.getAttribute('data-sector') || 'summary'); return; }
       if (act === 'hub') { openHub('sale'); return; }
       if (act === 'hub-tr') { openHub('tr'); return; }
       if (act === 'hub-list') { if (window.NAI_HUB) { closeModal(); window.NAI_HUB.openList(); } return; }

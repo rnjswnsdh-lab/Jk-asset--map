@@ -150,38 +150,74 @@
 
   /* ── 참여자: 내 제출물 ── */
   function mySubmissions(rfp, party, opts) {
-    var ss = C.session();
     var st = C.submitState(rfp, party || { id: '' });
     var ca = C.caReceiptOf(rfp.id, party);
     var perf = C.perfOf(rfp.id);
+    var caOk = C.caOpenFor(rfp.id, party);
+    var isFin = !!(party && party.party_type === '금융기관');
     var isSelected = rfp.selected_advisor_id && party && String(party.ref_id) === String(rfp.selected_advisor_id);
     var h = '<section class="dr-card"><div class="dr-card-head"><b>📝 내 제출물</b>' +
       '<span>' + (party ? esc(party.company) + ' · ' + esc(party.party_type) : '') + '</span></div>';
+
+    /* 진행 순서 — CA → LOI → (금융기관) LOC → 제출 완료 */
+    var caDone = !!(ca && ca.status === 'CA 접수');
+    var steps = [
+      { n: '1', label: 'CA 접수', done: caDone },
+      { n: '2', label: isFin ? 'LOI (해당 시)' : 'LOI', done: !!st.kinds['LOI'] },
+      { n: '3', label: 'LOC', done: !!st.kinds['LOC'] },
+      { n: '4', label: '제출 완료', done: caDone && !!(st.kinds['LOI'] || st.kinds['LOC']) }
+    ];
+    h += '<div class="dr-steps">' + steps.map(function (x, i) {
+      return (i ? '<span class="dr-farrow">›</span>' : '') +
+        '<span class="dr-step' + (x.done ? ' done' : '') + '"><i>' + x.n + '</i>' + esc(x.label) + '</span>';
+    }).join('') + '</div>';
+
+    /* 무슨 일을 할 수 있는지 — 실제 동작과 같은 말로 */
+    h += '<p class="dr-subguide">CA 접수 후 자료 열람과 제출이 가능합니다. ' +
+      'LOI(매수의향서)만 제출하거나, LOI와 LOC(자금확보 확인서)를 함께 제출할 수 있습니다. ' +
+      (isFin ? '금융기관은 LOC만 제출합니다.' : '금융기관은 LOC만 제출할 수 있습니다.') + '</p>';
+
     h += '<div class="dr-subgrid">';
     /* CA */
     h += '<div class="dr-sub"><b>CA (비밀유지계약)</b>' +
-      '<span>' + (ca && ca.status === 'CA 접수' ? badge('CA 접수 · v' + (ca.version || 1), 'ok') : badge((ca && ca.status) || 'CA 미제출', 'wait')) + '</span>' +
-      (ca && ca.signed_date ? '<em>서명일 ' + esc(ca.signed_date) + ' · 담당 ' + esc(ca.manager || '') + '</em>' : '') +
-      '<span class="dr-tools"><button type="button" class="mini-btn" data-dr="tpl" data-kind="CA">⬇ 양식</button>' +
-      '<button type="button" class="mini-btn" data-dr="ca-upload">⬆ 서명본 제출</button></span></div>';
+      '<span>' + (caDone ? badge('CA 접수 · v' + (ca.version || 1), 'ok') : badge((ca && ca.status) || 'CA 미제출', 'wait')) + '</span>' +
+      '<em>' + (ca && ca.signed_date ? '서명일 ' + esc(ca.signed_date) + ' · 담당 ' + esc(ca.manager || '') : '서명본을 제출하면 이 딜의 IM·렌트롤·OPEX가 열립니다.') + '</em>' +
+      '<span class="dr-tools"><button type="button" class="mini-btn" data-dr="tpl" data-kind="CA">⬇ CA 양식</button>' +
+      '<button type="button" class="mini-btn" data-dr="ca-upload">⬆ CA 서명본 제출</button></span></div>';
     /* LOI/LOC/자금계획 */
+    var HINTS = {
+      'LOI': '가격·조건·실사기간을 적어 제출합니다.',
+      'LOC': '금융기관 인증이 완료된 기관만 「수용」으로 넘어갑니다.',
+      '자금조달 계획서': '자금원천과 사용처(Source & Use)를 적어 제출합니다.'
+    };
     C.SUBMIT_KINDS.forEach(function (k) {
       var rec = st.kinds[k.k];
       var req = (rfp.require || []).indexOf(k.k) >= 0;
       h += '<div class="dr-sub"><b>' + k.icon + ' ' + esc(k.label) + (req ? ' <em class="dr-req">필수</em>' : '') + '</b>' +
         '<span>' + (rec ? badge('제출 v' + (rec.version || 1) + ' · ' + (rec.status || '접수'), 'ok') : badge('미제출', 'wait')) + '</span>' +
-        (rec ? '<em>' + esc(C.when(rec.at)) + (rec.amount_eok ? ' · ' + n0(rec.amount_eok) + '억' : '') + '</em>' : '<em>' + esc(k.hint) + '</em>') +
+        (rec ? '<em>' + esc(C.when(rec.at)) + (rec.amount_eok ? ' · ' + n0(rec.amount_eok) + '억' : '') + '</em>' : '<em>' + esc(HINTS[k.k] || k.hint) + '</em>') +
+        (rec ? '<em class="dr-sub2">' + esc(HINTS[k.k] || '') + '</em>' : '') +
         '<span class="dr-tools"><button type="button" class="mini-btn" data-dr="tpl" data-kind="' + esc(k.k) + '">⬇ 양식</button>' +
-        '<button type="button" class="mini-btn" data-dr="submit" data-kind="' + esc(k.k) + '"' + (C.caOpenFor(rfp.id, party) ? '' : ' disabled title="CA 접수 후 제출할 수 있습니다"') + '>⬆ 제출</button></span></div>';
+        '<button type="button" class="mini-btn" data-dr="submit" data-kind="' + esc(k.k) + '"' + (caOk ? '' : ' disabled title="CA 접수 후 제출할 수 있습니다"') + '>' +
+        esc(k.k) + ' 제출</button></span></div>';
     });
     /* 산출물(선정 자문사) */
     if (isSelected && perf) {
       var dls = perf.deliverables || [];
       h += '<div class="dr-sub wide"><b>📦 수행 산출물</b><span>' + badge(dls.length + '건', 'ok') + '</span>' +
-        '<em>단계 ' + esc(perf.stage) + ' · 마감 ' + esc((perf.milestones || []).filter(function (m) { return !m.done_at; })[0].due || '-') + '</em>' +
+        '<em>단계 ' + esc(perf.stage) + ' · 마감 ' + esc(((perf.milestones || []).filter(function (m) { return !m.done_at; })[0] || {}).due || '-') + '</em>' +
         '<span class="dr-tools"><button type="button" class="mini-btn" data-dr="deliver">⬆ 산출물 제출</button></span></div>';
     }
     h += '</div>';
+
+    /* 묶음 제출 동선 : LOI만 / LOI+LOC / LOC만 */
+    var bd = caOk ? '' : ' disabled title="CA 접수 후 제출할 수 있습니다"';
+    h += '<div class="dr-submitbar"><b>제출하기</b>' +
+      (isFin ? '' : '<button type="button" class="btn btn-primary" data-dr="submit" data-kind="LOI"' + bd + '>LOI 제출</button>' +
+        '<button type="button" class="btn btn-primary" data-dr="submit" data-kind="LOI+LOC"' + bd + '>LOI 및 LOC 함께 제출</button>') +
+      '<button type="button" class="btn ' + (isFin ? 'btn-primary' : 'btn-ghost') + '" data-dr="submit" data-kind="LOC"' + bd + '>LOC 제출</button>' +
+      '<span class="dr-hint">' + (isFin ? 'LOC는 기관 인증(인증완료) 상태에서 「수용」으로 넘어갑니다.' : 'LOI+LOC를 고르면 한 화면에서 두 서류를 받아 같은 제출 회차로 묶습니다.') + '</span></div>';
+
     if (st.requiredMissing.length) h += '<p class="dr-warn">필수 제출물 미충족: ' + esc(st.requiredMissing.join(', ')) + ' — 보완 요청 상태입니다.</p>';
     h += '<p class="dr-hint">제출물은 버전으로 남습니다. 다른 자문사·투자자의 제출물과 평가표는 보이지 않습니다.</p>';
     return h + '</section>';
@@ -196,7 +232,7 @@
     if (!ps.length) return h + '<p class="dr-hint">참여자가 없습니다. RFP 배포 또는 참여자 추가로 등록하세요.</p>';
     h += '<div class="dr-tablewrap"><table class="rfp-table small"><thead><tr><th>구분</th><th>회사·담당</th><th>CA</th>' +
       C.SUBMIT_KINDS.map(function (k) { return '<th>' + esc(k.k) + '</th>'; }).join('') +
-      '<th>조합</th><th>열람</th><th>단계</th><th></th></tr></thead><tbody>';
+      '<th title="제출물 조합(LOI, LOI+LOC, LOC 등)">조합</th><th>열람</th><th>단계</th><th></th></tr></thead><tbody>';
     ps.forEach(function (p) {
       var ca = C.caReceiptOf(rfp.id, p.id);
       var st = C.submitState(rfp, p);
@@ -393,6 +429,84 @@
     });
   }
 
+  /* LOI + LOC 묶음 제출 — 한 화면에서 두 서류를 받아 같은 회차(batch)·시각으로 접수 (2026-11-28) */
+  function submitBundleModal(rfp, opts) {
+    var kinds = (opts.kinds || ['LOI', 'LOC']).filter(function (k) { return k === 'LOI' || k === 'LOC'; });
+    if (!kinds.length) kinds = ['LOI'];
+    var party = opts.party || null;
+    if (opts.participantId) party = C.participantOf(rfp.id, opts.participantId) || party;
+    if (!party) { C.toast('참여자 정보를 찾을 수 없습니다.', true); return; }
+    if (!C.caOpenFor(rfp.id, party)) { C.toast('CA 접수 후 제출할 수 있습니다.', true); return; }
+    var wantLOI = kinds.indexOf('LOI') >= 0;
+    var wantLOC = kinds.indexOf('LOC') >= 0;
+    var loi = C.submitOf(rfp.id, party.id, 'LOI');
+    var loc = C.submitOf(rfp.id, party.id, 'LOC');
+    var guide = wantLOI && wantLOC
+      ? 'LOI 서식(가격·조건·실사기간)과 LOC 서식(금융기관·한도·금리·만기)을 한 화면에서 받아, 같은 제출 회차로 묶어 접수합니다.'
+      : (wantLOI ? 'LOI(매수의향서)만 제출합니다. 가격·조건·실사기간을 적어 주세요.' : 'LOC(자금확보 확인서)만 제출합니다. 금융기관·한도·금리·만기를 적어 주세요.');
+    var body = '<p class="rfp-note">' + esc(guide) + '</p>' +
+      '<div class="rfp-formgrid">' +
+      (wantLOI
+        ? C.field('loi_amount', 'LOI 금액(억원)', loi ? loi.amount_eok : '', 'number', { step: '1' }) +
+          C.field('loi_due', '실사 기간', loi ? loi.due : '', 'text', { ph: '예) 30일' }) +
+          C.field('loi_terms', 'LOI 조건', loi ? loi.terms : '', 'textarea', { wide: true, rows: 2, ph: '결제조건·선행조건·인수 범위' })
+        : '') +
+      (wantLOC
+        ? C.field('loc_lender', '금융기관', loc ? loc.lender_name : (party.party_type === '금융기관' ? party.company : ''), 'text') +
+          C.field('loc_amount', '한도(억원)', loc ? loc.amount_eok : '', 'number', { step: '1' }) +
+          C.field('loc_rate', '금리', loc ? loc.rate : '', 'text', { ph: '예) 4.8% (3년 고정)' }) +
+          C.field('loc_tenor', '만기', loc ? loc.tenor : '', 'text', { ph: '예) 3년 + 1년 연장' }) +
+          C.field('loc_terms', 'LOC 조건', loc ? loc.terms : '', 'textarea', { wide: true, rows: 2, ph: '트랑슈·선행요건·인출 조건' })
+        : '') +
+      C.field('note', '비고', '', 'text', { wide: true }) + '</div>' +
+      '<div class="dr-uploader"><b>파일 (서명본·증빙)</b><button type="button" class="mini-btn" data-dr-pick="1">＋ 파일</button>' +
+      '<ul class="rfp-attach-list" data-dr-files><li class="empty">파일 없음</li></ul>' +
+      '<span class="dr-hint">한 제출 건의 파일은 ' + esc(kinds.join('·')) + ' 레코드에 함께 붙습니다.</span></div>';
+    var m = C.modal((wantLOI && wantLOC ? 'LOI 및 LOC 함께 제출' : (wantLOI ? 'LOI 제출' : 'LOC 제출')) + ' — ' + rfp.asset_name, body, {
+      wide: true,
+      footer: '<button type="button" class="btn btn-ghost" data-rfp="close">취소</button>' +
+        '<button type="button" class="btn btn-primary" data-dr-save="bundle">' + (wantLOI && wantLOC ? 'LOI 및 LOC 함께 제출' : (wantLOI ? 'LOI 제출' : 'LOC 제출')) + '</button>'
+    });
+    var files = [];
+    m.querySelector('[data-dr-pick]').addEventListener('click', function () {
+      C.pickFiles(true).then(function (list) {
+        if (!list || !list.length) return;
+        Promise.all(list.map(function (f) {
+          return C.readFile(f).then(function (r) { return { name: r.name, size: r.size, mime: r.mime, dataUrl: r.dataUrl || '', text: r.text || '' }; })
+            .catch(function () { return { name: f.name, size: f.size, mime: f.type, note: '용량 초과 — 원본 미보관' }; });
+        })).then(function (items) {
+          files = files.concat(items);
+          m.querySelector('[data-dr-files]').innerHTML = '<li>' + esc(files.map(function (f) { return f.name; }).join(', ')) + '</li>';
+        });
+      });
+    });
+    m.querySelector('[data-dr-save="bundle"]').addEventListener('click', function () {
+      var at = new Date().toISOString();
+      var batch = C.uid('bat');
+      kinds.forEach(function (kind) {
+        var exist = C.submitOf(rfp.id, party.id, kind);
+        var rec = {
+          id: exist ? exist.id : C.uid('sub'), rfp_id: rfp.id, participant_id: party.id,
+          company: party.company, party_type: party.party_type, kind: kind,
+          version: exist ? (exist.version || 1) + 1 : 1,
+          batch: batch, batch_kinds: kinds.join('+'),
+          amount_eok: kind === 'LOI' ? C.fval(m, 'loi_amount') : C.fval(m, 'loc_amount'),
+          due: C.fval(m, 'loi_due'),
+          terms: kind === 'LOI' ? C.fval(m, 'loi_terms') : C.fval(m, 'loc_terms'),
+          lender_name: C.fval(m, 'loc_lender'), rate: C.fval(m, 'loc_rate'), tenor: C.fval(m, 'loc_tenor'),
+          note: C.fval(m, 'note'), files: files, status: '접수',
+          at: exist ? exist.at : at, revised_at: at,
+          by: (C.me() && C.me().name) || (C.session() ? C.session().holder : '')
+        };
+        C.commit('submits', rec);
+      });
+      var row = C.listRowOf(rfp.id, party.id);
+      if (!row) C.listMove(rfp.id, party.id, '롱리스트', { memo: 'LOI/LOC 제출로 자동 편입' });
+      C.closeModal(); if (opts.repaint) opts.repaint();
+      C.toast((wantLOI && wantLOC ? 'LOI 및 LOC를 한 회차로 접수했습니다.' : (wantLOI ? 'LOI를 접수했습니다.' : 'LOC를 접수했습니다.')));
+    });
+  }
+
   function caUploadModal(rfp, opts) {
     var party = opts.party || null;
     var exist = party ? C.caReceiptOf(rfp.id, party) : null;
@@ -547,7 +661,12 @@
       if (act === 'ca-reg') { caRegModal(rfp, b.getAttribute('data-pid'), repaint); return; }
       if (act === 'submit') {
         var pid = b.getAttribute('data-pid');
-        uploadModal(rfp, { kind: b.getAttribute('data-kind') || 'LOI', participantId: pid || (party && party.id), party: party, repaint: repaint });
+        var kk = b.getAttribute('data-kind') || 'LOI';
+        if (kk.indexOf('+') >= 0) {
+          submitBundleModal(rfp, { kinds: kk.split('+'), participantId: pid || (party && party.id), party: party, repaint: repaint });
+          return;
+        }
+        uploadModal(rfp, { kind: kk, participantId: pid || (party && party.id), party: party, repaint: repaint });
         return;
       }
       if (act === 'deliver') { deliverModal(rfp, party, repaint); return; }

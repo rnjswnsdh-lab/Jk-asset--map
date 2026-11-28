@@ -32,17 +32,24 @@
   }
   function partyTypeCls(t) { return t === '자문사' ? 'adv' : (t === '금융기관' ? 'fi' : 'inv'); }
 
-  /* ─────────────────────────── 화면 ─────────────────────────── */
-  function html(rfpId) {
+  /* ─────────────────────────── 화면 ───────────────────────────
+     2026-11-28 단계 분리: step='intake' 는 3단계(제출·접수 → ①②③),
+     step='eval' 은 4단계(평가·선정 → ④⑤). 데이터(FLOW·collections)는 그대로 공유합니다. */
+  function html(rfpId, step) {
+    step = step === 'eval' ? 'eval' : 'intake';
     var rfp = C.rfpOf(rfpId);
     if (!rfp) return '<div class="rfp-empty"><b>RFP를 찾을 수 없습니다.</b></div>';
     var st = C.flowOf(rfp), sti = stageIdx(st);
     var s = C.dealStats(rfp);
-    var loc = C.locOf(rfp.asset_id);
-    var h = '';
+    var h = headHTML(rfp, st, sti, s, step);
+    h += step === 'eval' ? evalStepHTML(rfp, s) : intakeStepHTML(rfp, s);
+    return h;
+  }
 
-    /* 헤더 · 단계 · 전이 */
-    h += '<div class="rfp-sec-head"><div><h3>📁 제출 폴더 — ' + esc(rfp.title) + '</h3>' +
+  /* 헤더 · 단계 · 범위 · 현재 단계 · KPI */
+  function headHTML(rfp, st, sti, s, step) {
+    var h = '';
+    h += '<div class="rfp-sec-head"><div><h3>' + (step === 'eval' ? '📊 평가·선정 — ' : '📁 제출·접수 — ') + esc(rfp.title) + '</h3>' +
       '<p>' + esc([rfp.asset_name, rfp.client, '담당 ' + (rfp.owner || '미지정'), '발주 ' + (rfp.issue_date || '-')].filter(Boolean).join(' · ')) + '</p></div>' +
       '<div class="rfp-sec-tools">' + dayTag(s.dleft) +
       '<button type="button" class="btn btn-ghost" data-fl="rfp-print">🖨 RFP 원문</button>' +
@@ -55,6 +62,12 @@
       return '<span class="rfp-fstep' + cls + '"><i>' + (i + 1) + '</i>' + esc(f) + '</span>';
     }).join('<span class="rfp-farrow">›</span>') +
       (s.perf ? '<span class="rfp-farrow">→</span><span class="rfp-fstep on perf"><i>＋</i>자문 수행 · ' + esc(s.perf.stage) + '</span>' : '') + '</div>';
+
+    /* 어느 화면이 어느 구간을 맡는지 */
+    h += '<div class="rfp-fscope">' +
+      '<span class="' + (step === 'intake' ? 'on' : '') + '"><b>3단계 · 제출·접수</b> 초안 → 배포 → 접수</span>' +
+      '<span class="' + (step === 'eval' ? 'on' : '') + '"><b>4단계 · 평가·선정</b> 분석 → 담당자 검토 → 외부 보고 → 선정</span>' +
+      '</div>';
 
     var guard = C.flowGuard(rfp, C.FLOW[sti + 1] || '');
     h += '<div class="rfp-flowbar"><div class="rfp-flowbar-main"><b>현재 단계</b> ' + badge(st, 'flow') +
@@ -74,6 +87,14 @@
       kpi(s.evalsDone + '/' + s.evals, '평가 검토') +
       kpi(s.pendingReq + '건', '자료 요청 대기') +
       '</div>';
+
+    return h;
+  }
+
+  /* ── 3단계: 제출·접수 (① 원문·자료 ② 참여자·CA ③ 접수 현황판) ── */
+  function intakeStepHTML(rfp, s) {
+    var loc = C.locOf(rfp.asset_id);
+    var h = '';
 
     /* ① */
     h += '<section class="rfp-panel"><div class="rfp-panel-head"><b>① RFP 원문 · 첨부 자료 · 위치</b>' +
@@ -96,13 +117,32 @@
     h += '<section class="rfp-panel"><div class="rfp-panel-head"><b>③ 접수 현황판</b>' +
       '<span class="rfp-panel-tools"><button type="button" class="mini-btn" data-fl="notice">✉️ 미제출 안내문</button>' +
       '<button type="button" class="mini-btn" data-fl="sub-upload">＋ 제출본 업로드(대리)</button>' +
-      '<button type="button" class="mini-btn" data-fl="draft-eval">🧠 제안서 분석 → 평가 초안</button></span></div>';
+      (s.submitted > 0
+        ? '<button type="button" class="mini-btn primary" data-fl="to-eval">📊 평가·선정으로 (제출 ' + s.submitted + '건) →</button>'
+        : '<span class="rfp-hint">제안서가 접수되면 평가·선정으로 넘어갑니다</span>') +
+      '</span></div>';
     h += intakeBoard(rfp, s);
     h += '</section>';
+    return h;
+  }
+
+  /* ── 4단계: 평가·선정 (④ 비교평가·의견 ⑤ 담당자 확인→보고→선정) ── */
+  function evalStepHTML(rfp, s) {
+    var subs = C.submissionsOf(rfp.id);
+    var h = '';
+    if (!subs.length) {
+      h += '<div class="rfp-flowbar"><div class="rfp-flowbar-main"><b>평가 대상 없음</b> ' +
+        '<em>접수된 제안서가 없습니다. 3단계(제출·접수)에서 제출본을 받은 뒤 이 화면에서 비교합니다.</em></div>' +
+        '<div class="rfp-flowbar-act"><button type="button" class="btn btn-ghost" data-fl="to-intake">← 제출·접수로</button></div></div>';
+    } else {
+      h += '<p class="rfp-hint rfp-evalscope">평가 대상은 <b>접수 완료 ' + subs.length + '건</b>입니다. 제출하지 않은 자문사는 평가표에 나오지 않습니다.</p>';
+    }
 
     /* ④ */
     h += '<section class="rfp-panel"><div class="rfp-panel-head"><b>④ 비교평가 · 의견</b>' +
-      '<span class="rfp-panel-tools"><button type="button" class="mini-btn" data-fl="xlsx">📥 엑셀 리포트</button>' +
+      '<span class="rfp-panel-tools">' +
+      '<button type="button" class="mini-btn" data-fl="draft-eval">🧠 제안서 분석 → 평가 초안</button>' +
+      '<button type="button" class="mini-btn" data-fl="xlsx">📥 엑셀 리포트</button>' +
       '<button type="button" class="mini-btn" data-fl="print-eval">🖨 인쇄</button></span></div>';
     h += evalBoard(rfp);
     h += '</section>';
@@ -816,12 +856,24 @@
   /* ─────────────────────────── 이벤트 ─────────────────────────── */
   function bind(host, rfpId, repaint) {
     if (!host) return;
+    /* 화면이 다시 그려져도 리스너는 하나만 — 현재 RFP·repaint 만 갈아끼웁니다 (2026-11-28) */
+    host._flRfpId = rfpId;
+    host._flRepaint = repaint;
+    if (host._flBound) return;
+    host._flBound = 1;
     host.addEventListener('click', function (e) {
+      var rfpId = host._flRfpId;
+      var repaint = host._flRepaint || function () {};
       var rfp = C.rfpOf(rfpId);
       if (!rfp) return;
       var b = e.target.closest('[data-fl]');
       if (!b) return;
       var act = b.getAttribute('data-fl');
+      if (act === 'to-eval' || act === 'to-intake') {
+        var tb = document.querySelector('.rfp-step[data-rfp-tab="' + (act === 'to-eval' ? 'eval' : 'folder') + '"]');
+        if (tb) tb.click(); else C.toast('단계 버튼을 찾지 못했습니다.', true);
+        return;
+      }
       if (act === 'stage') {
         var guard = b.getAttribute('data-guard');
         if (guard) { C.toast(guard, true); return; }

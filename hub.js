@@ -1158,6 +1158,11 @@
       var card = host.querySelector('.tr-card');
       if (card) card.innerHTML = listShellHTML();
     }
+    /* 창 확대 — 목록도 더블클릭·⤢ 로 (2026-11-28) */
+    if (window.OAAB_GROW) {
+      var lc = host.querySelector('.tr-card');
+      if (lc) window.OAAB_GROW.attach(lc, { head: '.tr-head' });
+    }
     bindList();
     loadList();
   }

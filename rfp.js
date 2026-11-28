@@ -47,7 +47,8 @@
       '<div class="rfp-steps">' +
         step('docs', '1', '물건 자료', '업로드 · 정규화') +
         step('rfps', '2', 'RFP 작성·배포', '양식 · 자문사 배부') +
-        step('folder', '3', '📁 제출 폴더', '접수 · CA · 평가 · 선정') +
+        step('folder', '3', '📁 제출·접수', '자문사 제출 · CA · 접수 현황') +
+        step('eval', '4', '📊 평가·선정', '비교평가 · 의견 · 선정') +
       '</div>' +
       '<div class="rfp-grid"><aside class="rfp-aside" id="rfpAside"></aside><main class="rfp-main" id="rfpMain"></main></div>' +
       '</div>';
@@ -115,25 +116,37 @@
       return;
     }
     if (S.tab === 'rfps') el.innerHTML = rfpTab();
-    else if (S.tab === 'folder') { paintFolder(el); return; }
+    else if (S.tab === 'folder') { paintFolder(el, 'intake'); return; }
+    else if (S.tab === 'eval') { paintFolder(el, 'eval'); return; }
     else el.innerHTML = docsTab();
   }
 
-  function paintFolder(el) {
-    if (!S.folderRfpId) {
-      var rfps = C.rfpsOf(S.assetId);
-      S.folderRfpId = rfps.length ? rfps[0].id : '';
+  /* 3단계(제출·접수)와 4단계(평가·선정)는 같은 RFP 건을 열되 화면만 나눕니다 (2026-11-28) */
+  function paintFolder(el, step) {
+    step = step === 'eval' ? 'eval' : 'intake';
+    var key = step === 'eval' ? 'evalRfpId' : 'folderRfpId';
+    if (!S[key]) {
+      var rfps0 = C.rfpsOf(S.assetId);
+      S[key] = (step === 'eval' ? (S.folderRfpId || '') : '') || (rfps0.length ? rfps0[0].id : '');
     }
-    var rfp = S.folderRfpId ? C.rfpOf(S.folderRfpId) : null;
+    var rfp = S[key] ? C.rfpOf(S[key]) : null;
     if (!rfp) {
-      el.innerHTML = '<div class="rfp-empty"><b>제출 폴더를 열 RFP가 없습니다.</b>' +
-        '<p><b>RFP 작성·배포</b>에서 RFP를 만든 뒤 제출 폴더로 넘어가세요.</p>' +
+      el.innerHTML = '<div class="rfp-empty"><b>' + (step === 'eval' ? '평가할 RFP가 없습니다.' : '제출 폴더를 열 RFP가 없습니다.') + '</b>' +
+        '<p><b>RFP 작성·배포</b>에서 RFP를 만든 뒤 ' + (step === 'eval' ? '3단계(제출·접수)에서 제안서를 받고 이 화면으로 오세요.' : '제출 폴더로 넘어가세요.') + '</p>' +
         '<button type="button" class="btn btn-ghost" data-rfp-tab="rfps">RFP 단계로</button></div>';
       return;
     }
-    el.innerHTML = '<div class="rfp-folderbar">' + C.rfpsOf(S.assetId).map(function (r) {
-      return '<button type="button" class="rfp-chip' + (r.id === S.folderRfpId ? ' on' : '') + '" data-rfp-folder="' + esc(r.id) + '">' + esc(r.title) + '</button>';
-    }).join('') + '</div>' + (window.NAI_RFPFLOW ? window.NAI_RFPFLOW.html(rfp.id) : '<p class="rfp-hint">제출 폴더 모듈을 불러오지 못했습니다.</p>');
+    var subsN = C.list('submissions').filter(function (s) { return s.rfp_id === rfp.id; }).length;
+    var chips = '<div class="rfp-folderbar">' + C.rfpsOf(S.assetId).map(function (r) {
+      return '<button type="button" class="rfp-chip' + (r.id === S[key] ? ' on' : '') + '" ' +
+        (step === 'eval' ? 'data-rfp-eval="' + esc(r.id) + '"' : 'data-rfp-folder="' + esc(r.id) + '"') + '>' + esc(r.title) + '</button>';
+    }).join('') +
+      (step === 'intake'
+        ? '<button type="button" class="btn btn-primary rfp-goto" data-rfp-togo="eval" title="제출·접수가 끝난 건은 평가·선정으로 넘깁니다">' +
+          '📊 평가·선정으로 → <em>' + subsN + '건 접수</em></button>'
+        : '<button type="button" class="btn btn-ghost rfp-goto" data-rfp-togo="folder">← 제출·접수로</button>') +
+      '</div>';
+    el.innerHTML = chips + (window.NAI_RFPFLOW ? window.NAI_RFPFLOW.html(rfp.id, step) : '<p class="rfp-hint">제출 폴더 모듈을 불러오지 못했습니다.</p>');
     if (window.NAI_RFPFLOW) window.NAI_RFPFLOW.bind(el, rfp.id, function () { paint(); });
   }
 
@@ -1104,7 +1117,13 @@
       if ((b = e.target.closest('[data-rfp-work]'))) { S.assetId = b.getAttribute('data-rfp-work'); S.rfpId = ''; S.evalRfpId = ''; paint(); return; }
       if ((b = e.target.closest('[data-rfp-open]'))) { S.rfpId = b.getAttribute('data-rfp-open'); S.tab = 'rfps'; paint(); return; }
       if ((b = e.target.closest('[data-rfp-folder]'))) { S.rfpId = b.getAttribute('data-rfp-folder'); S.folderRfpId = b.getAttribute('data-rfp-folder'); S.tab = 'folder'; paint(); return; }
-      if ((b = e.target.closest('[data-rfp-eval]'))) { S.evalRfpId = b.getAttribute('data-rfp-eval'); paint(); return; }
+      if ((b = e.target.closest('[data-rfp-eval]'))) { S.evalRfpId = b.getAttribute('data-rfp-eval'); S.tab = 'eval'; paint(); return; }
+      if ((b = e.target.closest('[data-rfp-togo]'))) {
+        var go = b.getAttribute('data-rfp-togo');
+        if (go === 'eval') S.evalRfpId = S.folderRfpId || S.evalRfpId;
+        else S.folderRfpId = S.evalRfpId || S.folderRfpId;
+        S.tab = go; paint(); return;
+      }
       if ((b = e.target.closest('[data-rfp-upload]'))) { uploadDoc(b.getAttribute('data-rfp-upload')); return; }
       if ((b = e.target.closest('[data-rfp-paste]'))) { pasteDoc(b.getAttribute('data-rfp-paste')); return; }
       if ((b = e.target.closest('[data-rfp-view]'))) { viewDoc(b.getAttribute('data-rfp-view')); return; }

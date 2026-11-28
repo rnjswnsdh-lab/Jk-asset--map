@@ -437,7 +437,9 @@
     return fm ? { eok: Number(String(fm[1]).replace(/,/g, '')), basis: '감정가·입찰가' } : null;
   }
   function rentOf(a) {
-    var s = String(a.price_info || '') + ' ' + String(a.notes || '') + ' ' + factOf(a, ['임대료']);
+    /* 매입가·감정가(평당 590만원 등)를 임대료로 읽지 않습니다 — 임대 표기가 있는 값만 씁니다 */
+    var pi = /임대/.test(String(a.price_info || '')) ? String(a.price_info) : '';
+    var s = pi + ' ' + String(a.notes || '') + ' ' + factOf(a, ['임대료', 'NOC', '월 임대']);
     var m = s.match(/(?:평당|NOC)\D{0,6}([\d,\.]+)\s*만/);
     if (m) return { perPyeong: Number(String(m[1]).replace(/,/g, '')), text: m[0].slice(0, 30) };
     return null;
@@ -1485,7 +1487,9 @@
     var L = [];
     L.push('안녕하세요, ' + platName() + '입니다.');
     L.push('');
-    L.push('남겨 주신 임차·매입 조건(' + [P.sectorLabel || '', (P.cities || []).concat((P.regions || []).filter(function (x) { return P.cities.indexOf(x) < 0; })).slice(0, 3).join('·'), row.areaText, row.timeline].filter(Boolean).join(' · ') + ')에 대해 검토한 후보를 아래와 같이 정리했습니다.');
+    var areaTxt = row.areaText || '';
+    if (/^[\d,]+$/.test(String(areaTxt).trim())) areaTxt = nfmt(Number(String(areaTxt).replace(/,/g, ''))) + '평';
+    L.push('남겨 주신 임차·매입 조건(' + [P.sectorLabel || '', (P.cities || []).concat((P.regions || []).filter(function (x) { return P.cities.indexOf(x) < 0; })).slice(0, 3).join('·'), areaTxt, row.timeline].filter(Boolean).join(' · ') + ')에 대해 검토한 후보를 아래와 같이 정리했습니다.');
     L.push('');
     names.forEach(function (x, i) {
       var a = x.a || {};

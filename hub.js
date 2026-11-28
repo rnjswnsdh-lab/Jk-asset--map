@@ -83,9 +83,16 @@
     if (row.requester_private === true || String(row.requester_private) === 'true') return true;
     return String(row.name || '') === '비공개';
   }
-  function requesterCell(row) {
+  /* 담당 표기 — 운영자(관리자) 계정으로 등록된 건은 실명 대신 '관리자'로 (2026-11-28 블라인드 원칙) */
+  function ownerLabel(row) {
     var owner = String((row && row.owner) || '').trim();
-    var own = owner ? '<span class="hub-sub">NAI 담당 ' + esc(owner) + '</span>' : '';
+    if (!owner) return '';
+    if (String((row && row.role) || '') === 'admin' || String((row && row.created_by) || '') === 'admin') return '관리자';
+    return owner;
+  }
+  function requesterCell(row) {
+    var owner = ownerLabel(row);
+    var own = owner ? '<span class="hub-sub">담당 ' + esc(owner) + '</span>' : '';
     if (requesterMasked(row)) {
       return '<span class="hub-blind nowrap" title="TR 요청자·연락처는 관리자와 이 TR 을 등록한 본인만 볼 수 있습니다">🔒 비공개</span>' + own;
     }
@@ -420,8 +427,9 @@
     var dl = hasAssetField(t) ? '<datalist id="hubAssetList">' + assetOptionsHTML() + '</datalist>' : '';
     h += dl + '</div>';
     h += '<div class="tr-sec"><h4>② 연락처</h4><div class="tr-grid">';
-    h += '<label class="tr-f"><span>회사 <b>*</b></span><input name="company" type="text" value="' + esc((me() && me().company) || '') + '" placeholder="예) ㈜OO자산운용"></label>';
-    h += '<label class="tr-f"><span>성명 <b>*</b></span><input name="name" type="text" value="' + esc(role() === 'internal' ? '' : ((me() && me().name) || '')) + '" placeholder="예) 홍길동"></label>';
+    var extUser = role() === 'external';
+    h += '<label class="tr-f"><span>회사 <b>*</b></span><input name="company" type="text" value="' + esc(extUser ? ((me() && me().company) || '') : '') + '" placeholder="예) ㈜OO자산운용"></label>';
+    h += '<label class="tr-f"><span>성명 <b>*</b></span><input name="name" type="text" value="' + esc(extUser ? ((me() && me().name) || '') : '') + '" placeholder="예) 홍길동"></label>';
     h += '<label class="tr-f"><span>직책</span><input name="title" type="text" value="' + esc(p.title || '') + '" placeholder="예) 투자본부 이사"></label>';
     h += '<label class="tr-f"><span>연락처 <b>*</b></span><input name="phone" type="tel" inputmode="tel" value="' + esc(p.phone || '') + '" placeholder="010-0000-0000"></label>';
     h += '<label class="tr-f wide"><span>이메일</span><input name="email" type="email" value="' + esc(p.email || '') + '" placeholder="name@company.com"></label>';
@@ -866,7 +874,7 @@
     if (row.price) h += hdField('예산 · 금액', esc(row.price));
     if (row.rent) h += hdField('임대료 · 금리', esc(row.rent));
     if (row.timeline) h += hdField('희망 시기', esc(row.timeline));
-    if (row.owner) h += hdField('NAI 담당', esc(row.owner));
+    if (row.owner) h += hdField('담당', esc(ownerLabel(row)));
     h += '</div>';
     if (lines.length) {
       h += '<div class="hd-memo"><b>접수 내용</b><ul>' +

@@ -185,7 +185,8 @@
     var rows = picks.map(function (r) {
       return '<div class="nc-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>';
     }).join('');
-    var lmBadge = isLm(a) ? '<span class="nc-lm lm-' + esc(lmStatus(a).replace(/\s/g, '')) + '">' + esc(lmStatus(a)) + '</span>' : '';
+    var dual = isLm(a) && /매각/.test(String(a.status || ''));   /* 매각·임대 병행 (예: 수연타워) */
+    var lmBadge = isLm(a) ? '<span class="nc-lm lm-' + esc(dual ? '매각·임대 병행' : lmStatus(a).replace(/\s/g, '')) + '">' + esc(dual ? '🏷️ 매각·임대 병행' : lmStatus(a)) + '</span>' : '';
     return '<article class="nai-card' + (kind === '참고' ? ' is-ref' : '') + (isLm(a) ? ' is-lm' : '') + '" data-nai-card="' + esc(a.id) + '">' +
       '<div class="nc-top"><span class="nc-kind ' + esc(kind.replace('·', '')) + '">' + esc(kind) + '</span>' + lmBadge +
       '<span class="nc-sector">' + esc(sectorLabel(a.sector)) + '</span>' +
@@ -194,7 +195,7 @@
       '<h3 class="nc-name">' + esc(a.name) + '</h3>' +
       '<p class="nc-addr">' + esc(a.address || '') + '</p>' +
       '<div class="nc-rows">' + rows + '</div>' +
-      '<p class="nc-state">' + esc(isLm(a) ? lmStatus(a) + (a.status ? ' · ' + a.status : '') : (a.status || '')) + '</p>' +
+      '<p class="nc-state">' + esc(isLm(a) ? (dual ? (a.status || '임대 중 · 매각 중') : lmStatus(a) + (a.status ? ' · ' + a.status : '')) : (a.status || '')) + '</p>' +
       '<div class="nc-foot">' + esc(a.owner_amc || '') + '</div>' +
       '<div class="nc-acts">' +
       '<button type="button" class="mini-btn act" data-nai-val="' + esc(a.id) + '">📊 밸류에이션</button>' +

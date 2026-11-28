@@ -45,7 +45,7 @@
     var body = (tb.rows || []).map(function (r) {
       return '<tr>' + r.map(function (c, i) {
         var v = String(c == null ? '' : c);
-        var num = i > 0 && /^[\u2212+\-]?[\d,.]+\s*%p?$/.test(v);
+        var num = i > 0 && /^[\s\d,.%pEe+\-\u2212~<>()]*\d[\s\d,.%pEe+\-\u2212~<>()]*$/.test(v);
         var tag = i === 0 ? 'th' : 'td';
         return '<' + tag + (num ? ' class="num"' : '') + '>' + esc(v) + '</' + tag + '>';
       }).join('') + '</tr>';
@@ -54,7 +54,7 @@
       return '<tr>' + r.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>';
     }).join('') + '</tfoot>' : '';
     return h4(tb.title) +
-      '<div class="rp-table-wrap"><table class="rp-table">' + head + '<tbody>' + body + '</tbody>' + foot + '</table></div>' +
+      '<div class="rp-table-wrap"><table class="rp-table' + (cols.length >= 5 ? ' rp-wide" style="min-width:' + (cols.length * 92) + 'px' : '') + '">' + head + '<tbody>' + body + '</tbody>' + foot + '</table></div>' +
       (tb.note ? '<p class="rp-hint">' + esc(tb.note) + '</p>' : '') +
       '<p class="rp-hint">*Source : ' + esc(tb.source || '') + (tb.as_of ? ' · 기준 ' + esc(tb.as_of) : '') + '</p>';
   }
@@ -228,7 +228,7 @@
     var im = (imp || []).map(function (r) {
       return '<li><b>' + esc(r.label) + '</b> — ' + esc(r.text) + '</li>';
     }).join('');
-    return '<section class="rp-sec"><h3>4Q 전망 및 시사점 <span>오피스 · 물류 · DC</span></h3>' +
+    return '<section class="rp-sec"><h3>4Q 전망 및 시사점 <span>오피스 · 물류 · 호텔 · DC · 골프장</span></h3>' +
       '<div class="rp-table-wrap"><table class="rp-table"><thead><tr><th>항목</th><th>전망</th><th>근거</th></tr></thead><tbody>' +
       rows + '</tbody></table></div>' +
       h4('시사점') + '<ul class="rp-li rp-li-sm">' + im + '</ul>' +
@@ -268,7 +268,7 @@
     }).join('');
     return '<section class="rp-sec"><h3>섹터 한눈에 <span>2026 3Q · 카드를 누르면 해당 섹터로</span></h3>' +
       '<div class="rp-homegrid">' + cards + '</div>' +
-      '<p class="rp-hint">새로 추가된 섹터: 리테일 · 물류센터 · 호텔 · 데이터센터 (2026-11-28 갱신)</p></section>';
+      '<p class="rp-hint">신규·확장 섹터: 리테일 · 물류센터 · 호텔(관광) · 데이터센터 · 골프장 (2026-11-28 갱신)</p></section>';
   }
 
   function coverHTML(d) {
@@ -288,16 +288,17 @@
 
   function summaryPanel(d) {
     var h = coverHTML(d);
-    h += '<section class="rp-sec"><h3>핵심 4문장</h3><ul class="rp-li">' +
+    var rd = d.readme || [];
+    var pairs = '';
+    for (var i = 0; i < rd.length; i += 2) {
+      pairs += '<div class="rp-cols" style="margin-top:' + (i ? 8 : 12) + 'px">' +
+        rd.slice(i, i + 2).map(function (r) {
+          return '<div class="rp-col"><h4>' + esc(r.label) + '</h4><p style="margin:0;font-size:11.6px;color:#4a5b6b;line-height:1.6">' + esc(r.text) + '</p></div>';
+        }).join('') + '</div>';
+    }
+    h += '<section class="rp-sec"><h3>핵심 요약</h3><ul class="rp-li">' +
       (d.headline || []).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' +
-      '<div class="rp-cols" style="margin-top:12px">' +
-      (d.readme || []).slice(0, 2).map(function (r) {
-        return '<div class="rp-col"><h4>' + esc(r.label) + '</h4><p style="margin:0;font-size:11.6px;color:#4a5b6b;line-height:1.6">' + esc(r.text) + '</p></div>';
-      }).join('') + '</div>' +
-      '<div class="rp-cols" style="margin-top:8px">' +
-      (d.readme || []).slice(2, 4).map(function (r) {
-        return '<div class="rp-col"><h4>' + esc(r.label) + '</h4><p style="margin:0;font-size:11.6px;color:#4a5b6b;line-height:1.6">' + esc(r.text) + '</p></div>';
-      }).join('') + '</div></section>';
+      pairs + '</section>';
     h += sectorGridHTML(d);
     return h;
   }

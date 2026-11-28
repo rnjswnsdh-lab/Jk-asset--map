@@ -1333,17 +1333,22 @@
     put('price', single ? 70 : (maxPrice > 0 && price > 0 ? price / maxPrice * 100 : 70),
       price ? '예상 매각가 ' + n0(price, 0) + '억' + (g ? ' (가이드 ' + n0(g, 0) + '억 대비 ' + (price / g * 100).toFixed(1) + '%)' : '') : '예상 매각가 미기재',
       g && price && price < g * 0.97 ? '가이드 하회' : (price && maxPrice && price < maxPrice ? '제안 최고가 대비 ' + Math.round((1 - price / maxPrice) * 100) + '% 낮음' : ''));
-    put('period', single ? 70 : (minPeriod > 0 && per > 0 ? minPeriod / per * 100 : 70),
-      per ? '예상 기간 ' + per + '개월' + (minPeriod ? ' / 최단 ' + minPeriod + '개월' : '') : '기간 미기재',
-      per && minPeriod && per > minPeriod + 2 ? '최단 대비 ' + (per - minPeriod) + '개월 김' : '');
     var tr = String(sub.track_record || '');
     var trN = (tr.match(/\d+\s*건/g) || []).length;
     put('track', tr ? clamp(60 + trN * 8 + (/억/.test(tr) ? 6 : 0), 55, 92) : 40,
       tr ? tr.slice(0, 90) : '유사 실적 미기재', tr ? (trN ? '' : '건수 표기 없음') : '실적 근거 없음');
     var ac = String(sub.access_reach || '');
     var pools = ['FI', 'SI', '화주', '해외'].filter(function (k) { return ac.toUpperCase().indexOf(k) >= 0; }).length;
-    put('access', ac ? clamp(55 + pools * 8 + (/\d/.test(ac) ? 8 : 0), 50, 92) : 40,
+    put('buyers', ac ? clamp(55 + pools * 8 + (/\d/.test(ac) ? 8 : 0), 50, 92) : 40,
       ac ? ac.slice(0, 90) : '투자자 접근 계획 미기재', ac && pools < 2 ? '접촉 대상 풀이 좁음' : '');
+    /* 물건·시장 이해도 / 매각 전략 — 제안 본문(개요·일정·팀·추가서비스)에서 근거를 찾습니다. */
+    var body = [sub.track_record, sub.access_reach, sub.team, sub.schedule, sub.extra, sub.memo].join(' ');
+    put('understand', /시장|권역|공실|임대료|cap|금리/i.test(body) ? 72 : 55,
+      /시장|권역|공실|임대료|cap|금리/i.test(body) ? '시장·물건 분석 언급 있음' : '물건·시장 분석 근거 미기재',
+      /시장|권역|공실|임대료|cap|금리/i.test(body) ? '' : '분석 보완 요청');
+    put('strategy', /전략|마케팅|티저|IM|투자자|입찰/i.test(body) ? 74 : 55,
+      /전략|마케팅|티저|IM|입찰/i.test(body) ? '매각 전략·마케팅 계획 언급' : '매각 전략 근거 미기재',
+      /전략|마케팅|티저|IM|입찰/i.test(body) ? '' : '전략 보완 요청');
     var hc = headcount(sub.team);
     put('team', hc >= 6 ? 85 : (hc >= 4 ? 78 : (hc ? 68 : 55)),
       sub.team ? sub.team.slice(0, 70) : '인력 구성 미기재', hc && hc <= 3 ? '전담 인력 ' + hc + '명' : '');
@@ -1351,6 +1356,8 @@
       sub.schedule ? sub.schedule.slice(0, 80) : '일정 미기재', sub.schedule && !/D\s*\+/.test(String(sub.schedule)) ? '구체 일자 없음' : '');
     put('extra', sub.extra ? clamp(65 + (String(sub.extra).length > 20 ? 10 : 0), 60, 85) : 55,
       sub.extra ? sub.extra.slice(0, 80) : '추가 서비스 미기재', '');
+    put('period', single ? 70 : (minPeriod > 0 && per > 0 ? minPeriod / per * 100 : 70),
+      per ? '예상 기간 ' + per + '개월' + (minPeriod ? ' / 최단 ' + minPeriod + '개월' : '') : '기간 미기재', '');
 
     var chk = checklistFor(rfp, sub);
     var missing = chk.filter(function (c) { return !c.ok; });

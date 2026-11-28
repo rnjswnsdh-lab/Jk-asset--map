@@ -261,7 +261,12 @@
     if (!subs.length) return h + '<p class="rfp-hint">접수된 제안서가 없습니다. 자문사가 포털에서 제출하거나 <b>제출본 업로드(대리)</b>로 등록하세요.</p>';
     if (!evals.length) return h + '<p class="rfp-hint">평가 초안이 아직 없습니다. <b>제안서 분석 → 평가 초안</b>을 누르면 항목별 점수·근거·의견 초안이 만들어집니다.</p>';
 
-    var rows = C.rankedScores(rfp.id);
+    /* 총점·순위는 평가 초안(evaluations)의 가중 평균을 사용합니다. */
+    var rows = C.submissionsOf(rfp.id).map(function (sub) {
+      var e = C.evaluationOf(rfp.id, sub.advisor_id) || {};
+      return { sub: sub, total: e.total || 0 };
+    }).sort(function (a, b) { return b.total - a.total; });
+    rows.forEach(function (r, i) { r.rank = i + 1; });
     var rankBy = {}; rows.forEach(function (r) { rankBy[r.sub.advisor_id] = r; });
     h += '<div class="rfp-table-wrap"><table class="rfp-table rfp-score"><thead><tr><th class="sticky-col">평가 항목</th><th class="num">가중치</th>' +
       subs.map(function (s) { return '<th>' + esc(s.advisor_company) + '</th>'; }).join('') + '</tr></thead><tbody>';
@@ -321,7 +326,9 @@
     var subs = C.submissionsOf(rfp.id);
     if (!subs.length) h += '<p class="rfp-hint">제안서가 없습니다.</p>';
     else {
-      var rows = C.rankedScores(rfp.id);
+      var rows = subs.map(function (sub) { var e = C.evaluationOf(rfp.id, sub.advisor_id) || {}; return { sub: sub, total: e.total || 0 }; })
+        .sort(function (a, b) { return b.total - a.total; });
+      rows.forEach(function (r, i) { r.rank = i + 1; });
       h += '<div class="rfp-selectrow">' + rows.map(function (r) {
         var on = String(rfp.selected_advisor_id) === String(r.sub.advisor_id);
         return '<button type="button" class="rfp-selectbtn' + (on ? ' on' : '') + '" data-fl="pick" data-aid="' + esc(r.sub.advisor_id) + '">' +

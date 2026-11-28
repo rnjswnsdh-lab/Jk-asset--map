@@ -66,6 +66,11 @@
   function platName() { return (window.NAI_PLATFORM && window.NAI_PLATFORM.name) ? window.NAI_PLATFORM.name() : 'Open AI Asset Bridge'; }
   function platContact() { return (window.NAI_PLATFORM && window.NAI_PLATFORM.contact) ? window.NAI_PLATFORM.contact() : ''; }
   function platFooter() { return (window.NAI_PLATFORM && window.NAI_PLATFORM.footer) ? window.NAI_PLATFORM.footer() : platName(); }
+  /* 접속자 표기는 역할만 — 개인 실명을 화면에 쓰지 않습니다 (2026-11-28) */
+  function roleTag() {
+    var r = (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external';
+    return ({ admin: '관리자', internal: '내부', logi: '물류TF', person: '부여 범위 열람', guest: '초대 열람', external: '외부 열람' })[r] || '열람';
+  }
   function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
   function role() { return (window.naiMap && window.naiMap.role) ? window.naiMap.role() : 'external'; }
   function me() { return (window.naiMap && window.naiMap.me) ? window.naiMap.me() : null; }
@@ -618,7 +623,7 @@
       '<span class="hr-t"><b>2026 3Q 통합 마켓 리포트<span class="hr-new">NEW</span></b><em>오피스 · 리테일 · 물류 · 호텔 · DC 섹터별 · 2026-11-28 갱신</em></span>' +
       '<span class="hr-go">바로 보기 →</span></button>';
     html += '<p class="hh-meta">' + (st && st.meta && st.meta.source ? esc(st.meta.source) : '비공개 시트 연동') +
-      ' · 기준 ' + esc(todayStr()) + (meNow && meNow.name ? ' · ' + esc(meNow.name) : '') + '</p>';
+      ' · 기준 ' + esc(todayStr()) + ' · ' + esc(roleTag()) + '</p>';
     html += '</div>';
     /* KPI — 누르면 조건에 해당하는 물건 리스트가 모달로 열립니다 (2026-11-27) */
     html += '<div class="hh-kpis">';

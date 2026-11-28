@@ -115,7 +115,7 @@
       return '<div class="fin-guide"><b>내 활동</b>' + esc(meName()) + ' — 올린 항목과 받은 문의를 아래에서 보고, 상대 항목에 문의할 수 있습니다.</div>';
     }
     if (isStaff()) {
-      return '<div class="fin-guide"><b>등록·중개</b>— 조건과 요청을 올리고, 게시별 문의를 받아 연결합니다.</div>';
+      return '<div class="fin-guide"><b>등록·중개</b> — 조건과 요청을 올리고, 게시별 문의를 받아 연결합니다.</div>';
     }
     return '<div class="fin-guide"><b>열람 전용</b> — 접속하면 등록·문의를 할 수 있습니다. ' +
       '<button type="button" class="mini-btn" data-fin="login">🔑 접속코드 입력</button></div>';
@@ -208,29 +208,27 @@
   /* 내 활동 — 올린 것 · 받은 문의 · 보낸 문의 */
   function myDeskHTML() {
     var me = meName();
-    if (!me && !isStaff()) return '';
-    var myOffers = offers('').filter(function (o) { return String(o.lender_name) === me; });
-    var myReqs = requests('').filter(function (r) { return String(r.company) === me; });
-    var myPosts = posts('').filter(function (p) { return String(p.company) === me; });
+    var staff = isStaff();
+    if (!me && !staff) return '';
+    var myOffers = offers('').filter(function (o) { return !me || String(o.lender_name) === me; });
+    var myReqs = requests('').filter(function (r) { return !me || String(r.company) === me; });
+    var myPosts = posts('').filter(function (p) { return !me || String(p.company) === me; });
     var received = [], sent = [];
     [['offer', offers('')], ['req', requests('')], ['post', posts('')]].forEach(function (pair) {
       var kind = pair[0];
       pair[1].forEach(function (rec) {
         inqs(rec).forEach(function (q) {
           var item = { kind: kind, rec: rec, q: q };
-          if (String(recOwner(kind, rec)) === me) received.push(item);
-          if (String(q.from_company) === me) sent.push(item);
+          var owner = (me && String(recOwner(kind, rec)) === me) || (!me && staff);
+          if (owner) received.push(item);
+          if (me && String(q.from_company) === me) sent.push(item);
         });
       });
     });
     var pend = received.filter(function (x) { return x.q.status === '문의' || x.q.status === '검토'; });
     var h = '<section class="rfp-panel"><div class="rfp-panel-head"><b>👤 내 활동</b>' +
-      '<span>올린 조건 ' + myOffers.length + ' · 요청 ' + myReqs.length + ' · 게시 ' + myPosts.length + '</span></div>';
-    if (!me) {
-      h += '<p class="rfp-hint">접속하면 내가 올린 항목과 문의를 볼 수 있습니다.</p></section>';
-      return h;
-    }
-    h += '<div class="rfp-kpis"><span class="rfp-kpi"><b>' + (myOffers.length + myReqs.length + myPosts.length) + '</b><em>내가 올린 것</em></span>' +
+      '<span>' + (me ? '내가 올린 ' : '전체 ') + '조건 ' + myOffers.length + ' · 요청 ' + myReqs.length + ' · 게시 ' + myPosts.length + '</span></div>';
+    h += '<div class="rfp-kpis"><span class="rfp-kpi"><b>' + (myOffers.length + myReqs.length + myPosts.length) + '</b><em>' + (me ? '내가 올린 것' : '전체 올라온 것') + '</em></span>' +
       '<span class="rfp-kpi"><b>' + received.length + '</b><em>받은 문의</em></span>' +
       '<span class="rfp-kpi"><b>' + pend.length + '</b><em>응답 대기</em></span>' +
       '<span class="rfp-kpi"><b>' + sent.length + '</b><em>내가 보낸 문의</em></span></div>';

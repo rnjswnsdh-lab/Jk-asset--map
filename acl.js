@@ -600,8 +600,19 @@
     $$('[data-acl-tab]').forEach(function (b) {
       b.addEventListener('click', function () {
         S.tab = b.getAttribute('data-acl-tab'); S.lastCode = null;
-        if (!S.guests || !S.audit || !S.flags) loadAll(true).then(render);
-        else render();
+        render();                       /* 탭은 즉시 — 데이터는 뒤에서 채웁니다 */
+        if (S.tab === 'guests' && !S.guests) {
+          apiGet('type=acl_guests').then(function (j) {
+            S.guests = (j && j.ok && j.items) ? j.items : [];
+            if (S.tab === 'guests') render();
+          }).catch(function () { S.guests = []; if (S.tab === 'guests') render(); });
+        }
+        if (S.tab === 'audit' && !S.audit) {
+          apiGet('type=acl_audit').then(function (j) {
+            S.audit = (j && j.ok && j.items) ? j.items : [];
+            if (S.tab === 'audit') render();
+          }).catch(function () { S.audit = []; if (S.tab === 'audit') render(); });
+        }
       });
     });
   }

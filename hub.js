@@ -87,7 +87,7 @@
     var owner = String((row && row.owner) || '').trim();
     var own = owner ? '<span class="hub-sub">NAI 담당 ' + esc(owner) + '</span>' : '';
     if (requesterMasked(row)) {
-      return '<span class="hub-blind" title="TR 요청자·연락처는 관리자와 이 TR 을 등록한 본인만 볼 수 있습니다">🔒 비공개 (등록자만 확인)</span>' + own;
+      return '<span class="hub-blind nowrap" title="TR 요청자·연락처는 관리자와 이 TR 을 등록한 본인만 볼 수 있습니다">🔒 비공개</span>' + own;
     }
     var who = [personOf(row), (row && row.title) || ''].filter(Boolean).join(' ');
     return esc(who || '-') + own;

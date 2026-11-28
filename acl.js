@@ -76,6 +76,16 @@
   }
   function addDays(n) { var d = new Date(); d.setDate(d.getDate() + Number(n || 0)); return d; }
 
+  /* 서버가 라벨을 주기 전(구버전 서버)에도 한국어로 보이게 하는 기본 라벨 */
+  var DEF_LABELS = {
+    map: '물건 지도', nai_sale: 'NAI 매각', nai_lease: 'NAI 임대(LM)', match: 'AI 매물 매칭',
+    pool: 'SI (사옥·전략투자) 풀', ship: '물류센터 화주 풀', fi: 'FI 풀', rfp: 'RFP 발주',
+    vdr: '자문사 VDR', advise: '자문사 딜 현황', portal: '자문사 포털', finance: '매칭 마켓',
+    valuation: '밸류에이션', adminhq: 'NAI 행정(회의록)', crm: '미팅·의향 로그',
+    requests: '참여·접수 내역', admin: '관리자 화면'
+  };
+  function labelOf(k) { return S.labels[k] || DEF_LABELS[k] || k; }
+
   var SCOPE_GROUPS = [
     { label: '🗺️ 물건·딜', keys: ['map', 'nai_sale', 'nai_lease', 'match'] },
     { label: '🏢 풀', keys: ['pool', 'ship', 'fi'] },
@@ -142,7 +152,7 @@
         var on = n.indexOf(k) >= 0;
         html += '<label class="pf-chip' + (on ? ' on' : '') + '" style="cursor:pointer">' +
           '<input type="checkbox" ' + attr + ' value="' + k + '"' + (on ? ' checked' : '') + ' style="margin-right:4px">' +
-          esc(S.labels[k] || k) + '</label>';
+          esc(labelOf(k)) + '</label>';
       });
       html += '</div>';
     });
@@ -198,7 +208,7 @@
     return head + '<div class="ad-tablewrap"><table class="ad-table"><thead><tr>' +
       '<th>이름</th><th>소속</th><th>이메일</th><th>범위</th><th>수정</th><th>개인코드</th><th>만료</th><th>상태</th><th></th>' +
       '</tr></thead><tbody>' + rows.map(function (r) {
-        var sc = (r.scopes_list || []).map(function (k) { return esc(S.labels[k] || k); });
+        var sc = (r.scopes_list || []).map(function (k) { return esc(labelOf(k)); });
         return '<tr><td><b>' + esc(r.name || '') + '</b></td><td>' + esc(r.org || '') + '</td>' +
           '<td>' + esc(r.email || '') + '</td>' +
           '<td style="max-width:280px">' + (sc.length ? sc.join(' · ') : '<span style="opacity:.6">—</span>') + '</td>' +
@@ -450,7 +460,7 @@
     if (!live.length) rows += '<p class="hs-empty">아직 보낸 초대가 없습니다.</p>';
     else rows += '<div class="ad-tablewrap"><table class="ad-table"><thead><tr><th>받는 사람</th><th>범위</th><th>만료</th><th>열람</th><th>링크</th><th></th></tr></thead><tbody>' +
       live.map(function (g) {
-        var sc = String(g.scopes || '').split(',').filter(Boolean).map(function (k) { return esc(S.labels[k] || k); }).join(' · ');
+        var sc = String(g.scopes || '').split(',').filter(Boolean).map(function (k) { return esc(labelOf(k)); }).join(' · ');
         var exp = String(g.expires_at || '').slice(0, 10);
         var out = exp && new Date(exp).getTime() < Date.now();
         return '<tr><td><b>' + esc(g.name || '') + '</b>' + (g.org ? '<br><span style="opacity:.7;font-size:11.5px">' + esc(g.org) + '</span>' : '') + '</td>' +

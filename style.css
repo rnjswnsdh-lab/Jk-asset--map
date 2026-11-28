@@ -1541,7 +1541,7 @@ body.role-external .pf-toggle { display: none; }
 .dc-price { font-size: 12px; font-weight: 800; color: var(--navy); margin-top: 2px; display: flex; align-items: center; gap: 4px; min-width: 0; }
 .dc-price b { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .hsi-right .ptag { margin-right: 4px; }
-.dc-date { font-size: 10.5px; color: var(--muted); }
+.dc-date { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .qtile {

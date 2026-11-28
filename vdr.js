@@ -33,6 +33,9 @@
   var LS_KEY = PREFIX + ':vdr:v1';
   var JKV_KEY = PREFIX + ':jkv:v1';
   var MYCA_KEY = PREFIX + ':jkv:myca:v1';
+  var ROOMMETA_KEY = PREFIX + ':jkv:rooms:v1';
+  var BLIND_FIELDS = ['asset_id','sector','sub_market','gfa_pyeong','site_pyeong','occupancy_pct','built_year',
+    'wale_years','tenant_profile','deal_type','timeline','ltv_band','special_note','advisor','tm_url','im_url'];
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
@@ -131,6 +134,27 @@
     try { localStorage.setItem(MYCA_KEY, JSON.stringify(all)); } catch (e) { /* noop */ }
   }
   function myRef(roomId) { return myRefAll()[roomId] || null; }
+
+  /* 블라인드 표기 메타 — 서버 vdr_rooms 시트에 아직 없는 컬럼을 브라우저에 보존합니다.
+     (시트에 컬럼을 추가하면 서버값이 우선하고, 없으면 이 값으로 보완) */
+  function roomMetaAll() {
+    try { return JSON.parse(localStorage.getItem(ROOMMETA_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function saveRoomMeta(room) {
+    var all = roomMetaAll(), meta = all[room.id] || {};
+    BLIND_FIELDS.forEach(function (k) { if (room[k] !== undefined && room[k] !== '') meta[k] = room[k]; });
+    all[room.id] = meta;
+    try { localStorage.setItem(ROOMMETA_KEY, JSON.stringify(all)); } catch (e) { /* noop */ }
+  }
+  function applyRoomMeta(rooms) {
+    var all = roomMetaAll();
+    (rooms || []).forEach(function (r) {
+      var m = all[r.id];
+      if (!m) return;
+      BLIND_FIELDS.forEach(function (k) { if ((r[k] === undefined || r[k] === '') && m[k] !== undefined) r[k] = m[k]; });
+    });
+    return rooms;
+  }
 
   function apiGet(qs) {
     var base = CFG.SYNC_URL;
@@ -323,7 +347,7 @@
     S.loading = true;
     return apiGet('type=vdr_rooms').then(function (j) {
       if (j && j.ok && j.items) {
-        S.rooms = j.items;
+        S.rooms = applyRoomMeta(j.items);
         S.mode = 'server';
         S.loaded = true; S.loading = false;
         return S.rooms;
@@ -331,7 +355,7 @@
       throw new Error('no_api');
     }).catch(function () {
       var db = localRooms();
-      S.rooms = db.rooms;
+      S.rooms = applyRoomMeta(db.rooms);
       S.mode = 'local';
       S.loaded = true; S.loading = false;
       return S.rooms;
@@ -1054,6 +1078,7 @@
         description: v('description'), created_at: r.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
+      saveRoomMeta(obj);
       persistRoom(obj).then(function (j) {
         if (!j || !j.ok) { toast('저장 실패: ' + ((j && j.error) || ''), true); return; }
         S.roomId = obj.id;

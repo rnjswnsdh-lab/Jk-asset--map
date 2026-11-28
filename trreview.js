@@ -507,7 +507,9 @@
           else if (openR <= 4) { inHi = false; nearHi = true; }
           else { inHi = false; nearHi = false; }
         }
-        if (inLo && inHi) ev.push({ k: 'area', label: '규모(면적)', state: 'match', pts: W.area, max: W.area, detail: nfmt(av) + '평 · 요청 ' + (P.area.text || '') });
+        var reqAreaTxt = P.area.text || '';
+        if (/^[\d,]+$/.test(String(reqAreaTxt).trim())) reqAreaTxt = nfmt(Number(String(reqAreaTxt).replace(/,/g, ''))) + '평';
+        if (inLo && inHi) ev.push({ k: 'area', label: '규모(면적)', state: 'match', pts: W.area, max: W.area, detail: nfmt(av) + '평 · 요청 ' + reqAreaTxt });
         else if (nearLo && nearHi) ev.push({ k: 'area', label: '규모(면적)', state: 'partial', pts: Math.round(W.area * 0.6), max: W.area, detail: nfmt(av) + '평 · 요청 범위 인접' });
         else ev.push({ k: 'area', label: '규모(면적)', state: 'miss', pts: 0, max: W.area, detail: nfmt(av) + '평 · 요청 ' + (P.area.text || '') });
       } else {
@@ -1026,8 +1028,8 @@
     var hist = (rec.history || []).slice(-12).reverse();
     if (!hist.length) return '';
     return '<div class="trm-sec"><h4>이력</h4><ul class="trm-hist">' + hist.map(function (h) {
-      return '<li><em>' + esc(fmtTime(h.at)) + '</em><span>' + esc(h.by || '관리자') + '</span>' +
-        '<b>' + esc(stageOf(h.stage).l) + '</b>' + esc(ACTION_LABEL[h.action] || h.action || '') + (h.note ? ' — ' + esc(h.note) : '') + '</li>';
+      return '<li><em>' + esc(fmtTime(h.at)) + '</em><span>' + esc(h.by || '관리자') + '</span> ' +
+        '<b>' + esc(stageOf(h.stage).l) + '</b> · ' + esc(ACTION_LABEL[h.action] || h.action || '') + (h.note ? ' — ' + esc(h.note) : '') + '</li>';
     }).join('') + '</ul></div>';
   }
 
@@ -1045,7 +1047,9 @@
     h += kv('거래 구분', esc(P.deal || row.deal || ''));
     h += kv('섹터', esc(P.sectorLabel || SECTOR_LABEL[P.sector] || '미확인'));
     h += kv('권역', esc((P.cities || []).concat((P.regions || []).filter(function (x) { return P.cities.indexOf(x) < 0; })).join(' · ') || '미확인'));
-    h += kv('규모', esc(row.areaText || (P.area && P.area.text) || '미확인'));
+    var areaShown = row.areaText || (P.area && P.area.text) || '';
+    if (/^[\d,]+$/.test(String(areaShown).trim())) areaShown = nfmt(Number(String(areaShown).replace(/,/g, ''))) + '평';
+    h += kv('규모', esc(areaShown || '미확인'));
     h += kv('가격·임대료', esc([row.price, row.rent].filter(Boolean).join(' / ') || '미확인'));
     h += kv('희망 시점', esc(row.timeline || '미확인'));
     h += kv('요청자', esc([row.company, row.name2 || row.name].filter(Boolean).join(' · ') || '미확인'));

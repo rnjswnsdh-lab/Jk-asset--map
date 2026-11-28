@@ -638,15 +638,19 @@
     var rows = [
       ['자산 유형', sectorLabelOf(room, a)],
       ['소재 권역', regionOf(room, a)],
-      ['규모 (연면적)', scaleBand(p) + (p ? '' : '')],
+      ['규모 (연면적)', scaleBand(p)],
+      ['대지면적', room.site_pyeong ? scaleBand(num(room.site_pyeong)) : 'CA 체결 후 공개'],
+      ['준공', room.built_year ? String(room.built_year) + '년' : 'CA 체결 후 공개'],
       ['임대율', occBand(room.occupancy_pct)],
       ['주요 임차인', room.tenant_profile || 'CA 체결 후 공개'],
-      ['준공', room.built_year ? String(room.built_year) + '년' : 'CA 체결 후 공개'],
+      ['WALE', room.wale_years ? n0(room.wale_years) + '년' : 'CA 체결 후 공개'],
       ['거래 구조', dealTypeOf(room)],
       ['예상 거래가', priceBand(room.price_guide_eok)],
+      ['자금조달 가정', room.ltv_band || 'CA 체결 후 공개'],
       ['진행 단계', room.stage || '자료 배포'],
-      ['진행 일정', timelineOf(room)],
+      ['예상 일정', timelineOf(room)],
       ['주관', room.advisor || 'JK Value (매각자문)'],
+      ['특이사항', room.special_note || 'CA 체결 후 공개'],
       ['자료 공개 단계', hasAccess(room.id) ? 'CA 체결 완료 — 상세자료 열람 가능' : '블라인드 자산소개서(Pre-CA)']
     ];
     return rows;
@@ -1016,6 +1020,10 @@
       '<label class="tr-f"><span>연면적(평)</span><input name="gfa_pyeong" type="number" step="1" value="' + esc(r.gfa_pyeong || '') + '" placeholder="예) 13835"></label>' +
       '<label class="tr-f"><span>임대율(%)</span><input name="occupancy_pct" type="number" step="0.1" value="' + esc(r.occupancy_pct || '') + '" placeholder="예) 96.2"></label>' +
       '<label class="tr-f"><span>준공연도</span><input name="built_year" type="number" step="1" value="' + esc(r.built_year || '') + '" placeholder="예) 1998"></label>' +
+      '<label class="tr-f"><span>대지면적(평)</span><input name="site_pyeong" type="number" step="1" value="' + esc(r.site_pyeong || '') + '"></label>' +
+      '<label class="tr-f"><span>WALE(년)</span><input name="wale_years" type="number" step="0.1" value="' + esc(r.wale_years || '') + '" placeholder="예) 4.1"></label>' +
+      '<label class="tr-f"><span>자금조달 가정</span><input name="ltv_band" value="' + esc(r.ltv_band || '') + '" placeholder="예) LTV 60~65% · 금리 4%대"></label>' +
+      '<label class="tr-f"><span>특이사항(공개 정보)</span><input name="special_note" value="' + esc(r.special_note || '') + '" placeholder="예) 용도변경 인허가 검토 가능"></label>' +
       '<label class="tr-f"><span>소재 권역(블라인드 표기)</span><input name="sub_market" value="' + esc(r.sub_market || '') + '" placeholder="예) 서울 종로구"></label>' +
       '<label class="tr-f"><span>주요 임차인 업종</span><input name="tenant_profile" value="' + esc(r.tenant_profile || '') + '" placeholder="예) 금융·공공·법무 (복수)"></label>' +
       '<label class="tr-f"><span>거래 구조</span><input name="deal_type" value="' + esc(r.deal_type || '') + '" placeholder="예) 에셋딜 단일 / 지분 협의"></label>' +
@@ -1038,7 +1046,9 @@
         asset_id: r.asset_id || '',
         name: nm, asset_name: v('asset_name'), stage: v('stage') || '자료 배포', sector: v('sector'),
         price_guide_eok: v('price_guide_eok'), gfa_pyeong: v('gfa_pyeong'), occupancy_pct: v('occupancy_pct'),
-        built_year: v('built_year'), sub_market: v('sub_market'), tenant_profile: v('tenant_profile'),
+        built_year: v('built_year'), site_pyeong: v('site_pyeong'), wale_years: v('wale_years'),
+        ltv_band: v('ltv_band'), special_note: v('special_note'),
+        sub_market: v('sub_market'), tenant_profile: v('tenant_profile'),
         deal_type: v('deal_type'), timeline: v('timeline'), advisor: v('advisor'),
         loi_deadline: v('loi_deadline'), bid_deadline: v('bid_deadline'), tm_url: v('tm_url'), im_url: v('im_url'),
         description: v('description'), created_at: r.created_at || new Date().toISOString(),

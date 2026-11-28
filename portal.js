@@ -49,6 +49,12 @@
     if (admin()) return '관리자 전체 보기';
     return '승인 코드 미입력';
   }
+  /** ☁ 서버 동기화 / 💾 로컬 저장 배지 — RFP 화면과 같은 규칙 (2026-11-28) */
+  function modeBadge() {
+    return C.SYNC.mode === 'server'
+      ? '<span class="rfp-mode on">☁ 서버 동기화</span>'
+      : '<span class="rfp-mode" title="Apps Script 서버 동기화 전입니다 — 이 브라우저에만 저장됩니다.">💾 로컬 저장</span>';
+  }
 
   /* ─────────────────────────── 껍데기 ─────────────────────────── */
   function tabsFor() {
@@ -67,7 +73,7 @@
         '<h2>🤝 자문사 포털 <span class="rfp-beta">선정 이후</span></h2>' +
         '<p>선정된 자문사가 <b>승인 코드</b>로 매도측 자료(렌트롤·오펙스·PM 리포트)를 인계받아, ' +
         'CA 관리 · TM/IM · 마케팅 리스트 · 입찰·매수자·금융기관 검증까지 진행합니다.</p>' +
-        '<p class="rfp-meta"><span class="rfp-portal-who">' + esc(modeText()) + '</span>' +
+        '<p class="rfp-meta">' + modeBadge() + '<span class="rfp-portal-who">' + esc(modeText()) + '</span>' +
           (ss() ? '<span>만료 ' + esc((ss().rec || {}).expires_at || '-') + '</span><button type="button" class="mini-btn" data-pt="logout">나가기</button>' : '') +
         '</p>' +
       '</div><div class="rfp-top-actions">' +
@@ -90,12 +96,20 @@
       h.innerHTML = gateHTML();
       return;
     }
-    var key = modeText() + '|' + tabsFor().map(function (t) { return t[0]; }).join(',');
+    var key = modeText() + '|' + C.SYNC.mode + '|' + tabsFor().map(function (t) { return t[0]; }).join(',');
     if (h.dataset.shellKey !== key) {
       h.innerHTML = shell();
       h.dataset.shellKey = key;
     } else {
       $$('[data-pt-tab]', h).forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-pt-tab') === S.tab); });
+    }
+    /* 배지는 서버 확인 결과에 따라 매번 다시 맞춥니다 */
+    var mb = h.querySelector('.rfp-meta .rfp-mode');
+    if (mb) {
+      mb.className = C.SYNC.mode === 'server' ? 'rfp-mode on' : 'rfp-mode';
+      mb.textContent = C.SYNC.mode === 'server' ? '☁ 서버 동기화' : '💾 로컬 저장';
+      if (C.SYNC.mode === 'server') mb.removeAttribute('title');
+      else mb.setAttribute('title', 'Apps Script 서버 동기화 전입니다 — 이 브라우저에만 저장됩니다.');
     }
     var tabs = tabsFor();
     if (!tabs.some(function (t) { return t[0] === S.tab; })) S.tab = tabs[0][0];

@@ -85,6 +85,12 @@
     if (/호텔|리조트/.test(c)) return '비공개 호텔·운영사';
     return '비공개 고객사';
   }
+  /** 🔒 TR 요청자·연락처 — 서버가 가렸는지(requester_private) */
+  function requesterMasked(row) {
+    if (!row) return false;
+    if (row.requester_private === true || String(row.requester_private) === 'true') return true;
+    return String(row.name || '') === '비공개';
+  }
   function companyOf(row) {
     if (!row) return '';
     if (isAdmin()) return String(row.company || '');
@@ -132,6 +138,9 @@
     var timeline = String(row.timeline || '');
     var co = companyOf(row);
     var buy = isBuy(row);
+    var masked = requesterMasked(row);
+    var whoTxt = masked ? '🔒 비공개 (등록자만 확인)'
+      : ([String(row.name || ''), String(row.title || '')].filter(Boolean).join(' ') || '-');
     return {
       id: 'TRQ-' + (row.id || i),
       /* 매입·투자 의향(사옥 수요)은 'si' 섹터로 분리 — 물건 지도 섹터의 '🎯 실수요자' 그룹 (2026-11-27) */
@@ -149,7 +158,7 @@
       price_info: rent,
       status: String(row.status || '접수'),
       status_group: buy ? '매입수요' : '임차수요',
-      tenants: String(row.name || '') + (row.title ? ' ' + row.title : ''),
+      tenants: masked ? '🔒 요청자 비공개' : (String(row.name || '') + (row.title ? ' ' + row.title : '')),
       maturity_schedule: timeline,
       notes: memo,
       source: 'TR 임차의뢰(웹 접수)',
@@ -162,7 +171,7 @@
         { label: '임대료·예산', value: rent || '미지정' },
         { label: '입주 시기', value: timeline || '미지정' },
         { label: '스펙', value: spec || '미기재' },
-        { label: '담당', value: [co, row.name, row.title].filter(Boolean).join(' ') || '-' },
+        { label: '담당', value: [co, whoTxt].filter(Boolean).join(' ') || '-' },
         { label: '접수일', value: String(row.timestamp || row.at || '').replace('T', ' ').slice(0, 16) }
       ],
       links: [],

@@ -65,6 +65,19 @@
       h.dataset.ready = '1';
       bind();
     }
+    /* 서버 동기화 확인(비동기) 결과가 첫 렌더 뒤에 도착하므로 배지를 매번 다시 맞춥니다 (2026-11-28) */
+    var mb = h.querySelector('.rfp-meta .rfp-mode') || h.querySelector('.rfp-mode');
+    if (mb) {
+      if (C.SYNC.mode === 'server') {
+        mb.className = 'rfp-mode on';
+        mb.textContent = '☁ 서버 동기화';
+        mb.removeAttribute('title');
+      } else {
+        mb.className = 'rfp-mode';
+        mb.textContent = '💾 로컬 저장';
+        mb.setAttribute('title', 'Apps Script 서버 동기화 전입니다 — 이 브라우저에만 저장됩니다.');
+      }
+    }
     $$('.rfp-step', h).forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-rfp-tab') === S.tab); });
     paintAside();
     paintMain();

@@ -75,6 +75,31 @@
     return CORP_NAME.test(nm) ? '' : nm;
   }
 
+  /* 🔒 TR 요청자·연락처 비공개 (2026-11-28)
+     서버가 관리자·등록자 본인이 아닌 조회자의 요청자 필드를 '비공개'로 내려보냅니다.
+     화면에서는 🔒 안내로 보여 주고, 담당자(owner, NAI)는 그대로 공개합니다. */
+  function requesterMasked(row) {
+    if (!row) return false;
+    if (row.requester_private === true || String(row.requester_private) === 'true') return true;
+    return String(row.name || '') === '비공개';
+  }
+  function requesterCell(row) {
+    var owner = String((row && row.owner) || '').trim();
+    var own = owner ? '<span class="hub-sub">NAI 담당 ' + esc(owner) + '</span>' : '';
+    if (requesterMasked(row)) {
+      return '<span class="hub-blind" title="TR 요청자·연락처는 관리자와 이 TR 을 등록한 본인만 볼 수 있습니다">🔒 비공개 (등록자만 확인)</span>' + own;
+    }
+    var who = [personOf(row), (row && row.title) || ''].filter(Boolean).join(' ');
+    return esc(who || '-') + own;
+  }
+  function phoneCell(row) {
+    if (requesterMasked(row)) return '<span class="hub-blind">🔒 비공개</span>';
+    var p = String((row && row.phone) || '');
+    if (!p) return '';
+    if (p === '비공개') return '<span class="hub-blind">비공개</span>';
+    return esc(p);
+  }
+
   /** 📧 파트너 메일 공유 — 행을 블라인드 기준으로 넘깁니다 */
   function openShare(id) {
     var row = null;
@@ -627,7 +652,7 @@
     return LIST.items.filter(function (r) {
       if (LIST.filter !== 'ALL' && normType(r) !== LIST.filter) return false;
       if (!q) return true;
-      var hay = [r.asset_name, companyOf(r), r.name, r.phone, r.email, r.memo, r.price, r.area_py].join(' ').toLowerCase();
+      var hay = [r.asset_name, companyOf(r), r.name, r.phone, r.email, r.memo, r.price, r.area_py, r.owner].join(' ').toLowerCase();
       return hay.indexOf(q) >= 0;
     });
   }
@@ -636,7 +661,7 @@
     var rows = rowsForList();
     if (!rows.length) return '<p class="hub-empty">조건에 맞는 접수 내역이 없습니다.</p>';
     var h = '<div class="hub-table-wrap"><table class="hub-table"><thead><tr>' +
-      '<th>일시</th><th>유형</th><th>대상</th><th>회사</th><th>담당</th><th>연락처</th>' +
+      '<th>일시</th><th>유형</th><th>대상</th><th>회사</th><th>요청자</th><th>연락처</th>' +
       '<th>금액 · 조건</th><th>상태</th><th>공유</th></tr></thead><tbody>';
     rows.forEach(function (r) {
       var when = String(r.timestamp || r.at || '').replace('T', ' ').slice(0, 16);
@@ -646,8 +671,8 @@
         '<td class="wide-cell"><b>' + esc(r.asset_name || '') + '</b>' +
         (r.memo ? '<span class="hub-memo">' + esc(String(r.memo).slice(0, 160)) + '</span>' : '') + '</td>' +
         '<td>' + companyCell(r) + '</td>' +
-        '<td>' + esc([personOf(r), r.title].filter(Boolean).join(' ')) + '</td>' +
-        '<td class="nowrap">' + esc(r.phone || '') + '</td>' +
+        '<td>' + requesterCell(r) + '</td>' +
+        '<td class="nowrap">' + phoneCell(r) + '</td>' +
         '<td>' + esc([r.price, r.area_py, r.rent, r.timeline].filter(Boolean).join(' · ')) + '</td>' +
         '<td><span class="hub-st">' + esc(r.status || '접수') + '</span></td>' +
         '<td class="nowrap">' + shareCellHTML(r) + '</td></tr>';
@@ -782,7 +807,7 @@
   function listShellHTML() {
     return '<div class="tr-head"><div><h3>📥 접수 목록</h3>' +
       '<p>딜·참여 등록 허브로 접수된 내역입니다. 유형별로 걸러 보고 검색할 수 있습니다.' +
-      (isAdmin() ? ' <b>관리자</b> 권한에서는 업체명 원문이 보입니다.' : ' 업체명은 <b>🔒 블라인드</b>로 표시됩니다.') + '</p></div>' +
+      (isAdmin() ? ' <b>관리자</b> 권한에서는 업체명·요청자 원문이 보입니다.' : ' 업체명은 <b>🔒 블라인드</b>, TR 요청자·연락처는 <b>🔒 비공개</b>로 표시됩니다.') + '</p></div>' +
       '<button type="button" class="tr-x" data-hub="close" aria-label="닫기">×</button></div>' +
       '<div class="hub-list-tools"><div id="hubListChips" class="hub-fchips"></div>' +
       '<input id="hubListQ" type="search" data-enter="search" placeholder="물건 · 회사 · 담당 · 연락처 검색" autocomplete="off">' +
@@ -849,7 +874,7 @@
         LIST.source = 'server';
         paint();
         body.innerHTML += '<p class="hub-foot">비공개 시트 <b>lois</b> 기준 · 유형은 <b>request_type</b> 컬럼으로 구분합니다.' +
-          (isAdmin() ? '' : ' 업체명은 관리자만 볼 수 있어 <b>블라인드</b>로 표시됩니다.') + '</p>';
+          (isAdmin() ? '' : ' 업체명은 관리자만 볼 수 있어 <b>블라인드</b>로 표시되고, TR 요청자·연락처는 이 TR 을 등록한 본인과 관리자만 볼 수 있습니다.') + '</p>';
         return;
       }
       if (!isAdmin()) { localRender('local'); return; }

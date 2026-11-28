@@ -2396,6 +2396,7 @@ body.role-external .pf-toggle { display: none; }
 .hub-table .wide-cell b { color: var(--navy); }
 .hub-memo { display: block; font-size: 9.8px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
 .hub-blind { color: var(--muted); font-weight: 700; letter-spacing: -0.1px; }
+.hub-sub { display: block; margin-top: 2px; font-size: 9.8px; color: var(--muted); font-weight: 600; }
 .hub-tag { display: inline-block; font-size: 10px; font-weight: 800; border-radius: 6px; padding: 2px 7px; background: #eef2f7; color: var(--text-2); }
 .hub-tag.t-매각 { background: #e8f0fd; color: #0b6bcb; }
 .hub-tag.t-매입 { background: #eaf6ef; color: #0b7a50; }

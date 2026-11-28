@@ -217,6 +217,28 @@
     var el = $('#adNote');
     if (el) el.textContent = t || '';
   }
+
+  /* ───────────────────── NAI 주소록 · 권한 명단 (adminhq.js 모달 재사용) ─────────────────────
+     관리자 탭에서도 같은 모달을 바로 엽니다. 명단(시트 admin_access)·직원 검색·권한 판정은
+     adminhq.js 한 곳에서만 관리하고, 이 화면은 여는 역할만 합니다(중복 구현 방지). */
+  function ensureModalClose() {
+    var modal = $('#poolModal');
+    if (!modal || modal._adAclBound) return;
+    modal._adAclBound = true;
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal || e.target.closest('[data-close-modal]')) modal.classList.add('hidden');
+    });
+  }
+  function openAclModal() {
+    if (!isAdmin()) { toast('관리자 전용 화면입니다.', true); return; }
+    if (!(window.NAI_HQ && window.NAI_HQ.openAcl)) {
+      toast('주소록·권한 명단 화면(adminhq.js)을 불러오지 못했습니다. 새로고침한 뒤 다시 시도해 주세요.', true);
+      return;
+    }
+    ensureModalClose();
+    try { window.NAI_HQ.openAcl(); }
+    catch (e) { toast('주소록·권한 명단을 열지 못했습니다.', true); }
+  }
   function maybeRefreshDetail() {
     /* 상세 패널의 👁️ 열람 이력 배지를 갱신 */
     if (window.naiMap && window.naiMap.repaintDetail) {
@@ -300,8 +322,10 @@
     html += '<div class="ad-wrap">';
     html += '<div class="ad-head">';
     html += '<div class="ad-title"><h1>🛰️ 관리자 · 접속 로그</h1>' +
-      '<p>누가 언제 어떤 물건을 봤는지 — 방문자별 · 물건별로 추적합니다. (access_logs 최근 500건 기준)</p></div>';
+      '<p>누가 언제 어떤 물건을 봤는지 — 방문자별 · 물건별로 추적합니다. (access_logs 최근 500건 기준)<br>' +
+      'NAI 주소록(직원 검색)과 권한 명단(열람/열람+수정)은 상단 <b>🔐 NAI 주소록 · 권한 명단</b>에서 바로 엽니다.</p></div>';
     html += '<div class="ad-tools">' +
+      '<button type="button" class="btn btn-primary" id="adAcl">🔐 NAI 주소록 · 권한 명단</button>' +
       '<button type="button" class="btn btn-ghost" id="adRefresh">↻ 새로고침</button>' +
       '<button type="button" class="btn btn-outline" id="adCsv">CSV 내보내기</button>' +
       '</div></div>';
@@ -333,6 +357,8 @@
 
     $('#adRefresh').addEventListener('click', function () { load(true); });
     $('#adCsv').addEventListener('click', exportCsv);
+    var adAcl = $('#adAcl');
+    if (adAcl) adAcl.addEventListener('click', openAclModal);
     var adQ = $('#adQ');
     adQ.addEventListener('input', function (e) { S.q = e.target.value; render(); });
     adQ.addEventListener('keydown', function (e) {
@@ -663,6 +689,7 @@
     show: show,
     load: load,
     prefetch: prefetch,
+    openAcl: openAclModal,
     countFor: countFor,
     noteView: noteView,
     recentFor: recentFor,

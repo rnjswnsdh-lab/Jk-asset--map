@@ -455,7 +455,7 @@
 
   function close() {
     var host = $('#hubModal');
-    if (host) { host.classList.add('hidden'); host.classList.remove('is-full'); host.innerHTML = ''; }
+    if (host) { host.classList.add('hidden'); host.classList.remove('is-full', 'mg-host', 'mg-max'); host.innerHTML = ''; }
     document.body.classList.remove('hub-full');
     DET.full = false;
     document.removeEventListener('keydown', escKey);
@@ -890,7 +890,7 @@
     if (!row) { toast('접수 건을 찾지 못했습니다. 목록을 새로고쳤습니다.', true); openList(); return; }
     DET.id = String(id); DET.full = false;
     var host = ensureHost();
-    host.classList.remove('is-full');
+    host.classList.remove('is-full', 'mg-host');
     host.innerHTML = '<div class="tr-card hub-card hub-detail-card" role="dialog" aria-modal="true" aria-label="접수 상세">' +
       detailHTML(row) + '</div>';
     host.classList.remove('hidden');
